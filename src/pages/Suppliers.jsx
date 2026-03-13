@@ -51,8 +51,8 @@ const Suppliers = () => {
     <div className="suppliers-page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: '800', letterSpacing: '-0.025em' }}>Suppliers</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '4px' }}>Manage your pharmacy's vendors and suppliers.</p>
+          <h1 style={{ fontSize: '1.6rem', fontWeight: '800', letterSpacing: '-0.025em' }}>Suppliers</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>Manage your pharmacy's vendors and suppliers.</p>
         </div>
         <button className="btn btn-primary" onClick={() => handleOpenModal()}>
           <Plus size={20} /> Add Supplier
@@ -89,19 +89,19 @@ const Suppliers = () => {
                 <Building2 size={32} />
               </div>
               <div>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#1E293B' }}>{s.name}</h3>
-                <span style={{ fontSize: '0.8rem', color: '#0D9488', fontWeight: '700' }}>{s.medicines?.length || 6} items supplied</span>
+                <h3 style={{ fontSize: '1rem', fontWeight: '800', color: '#1E293B' }}>{s.name}</h3>
+                <span style={{ fontSize: '0.75rem', color: '#0D9488', fontWeight: '700' }}>{s.medicines?.length || 6} items supplied</span>
               </div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#F8FAFC', padding: '12px 20px', borderRadius: '16px', fontSize: '0.9rem', color: '#475569' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#F8FAFC', padding: '10px 18px', borderRadius: '16px', fontSize: '0.8rem', color: '#475569' }}>
                 <Edit size={16} /> <span>{s.contact}</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#F8FAFC', padding: '12px 20px', borderRadius: '16px', fontSize: '0.9rem', color: '#475569' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#F8FAFC', padding: '10px 18px', borderRadius: '16px', fontSize: '0.8rem', color: '#475569' }}>
                 <Phone size={16} /> <span>{s.phone}</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#F8FAFC', padding: '12px 20px', borderRadius: '16px', fontSize: '0.9rem', color: '#475569' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#F8FAFC', padding: '10px 18px', borderRadius: '16px', fontSize: '0.8rem', color: '#475569' }}>
                 <Mail size={16} /> <span>{s.email}</span>
               </div>
             </div>
@@ -157,7 +157,7 @@ const Suppliers = () => {
               value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })}
             />
           </div>
-          <button type="submit" className="btn btn-primary" style={{ height: '56px', fontSize: '1.05rem', marginTop: '10px' }}>
+          <button type="submit" className="btn btn-primary" style={{ height: '52px', fontSize: '0.95rem', marginTop: '10px' }}>
             {editingSupplier ? 'Update Supplier' : 'Confirm & Save Supplier'}
           </button>
         </form>

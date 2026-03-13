@@ -88,8 +88,8 @@ const Reports = () => {
     <div className="reports-page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: '800', letterSpacing: '-0.025em' }}>Analytics & Reports</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '4px' }}>Deep insights into your pharmacy's performance.</p>
+          <h1 style={{ fontSize: '1.6rem', fontWeight: '800', letterSpacing: '-0.025em' }}>Analytics & Reports</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>Deep insights into your pharmacy's performance.</p>
         </div>
         <button className="btn btn-primary" style={{ padding: '12px 24px' }}>
           <Download size={20} /> Export PDF

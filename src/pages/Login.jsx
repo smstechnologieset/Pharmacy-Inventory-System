@@ -69,8 +69,8 @@ const Login = () => {
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px' }}>
         <div style={{ width: '100%', maxWidth: '440px' }}>
           <div style={{ marginBottom: '40px' }}>
-            <h2 style={{ fontSize: '2.2rem', fontWeight: '800', marginBottom: '12px', color: '#0F172A', letterSpacing: '-0.025em' }}>Welcome Back</h2>
-            <p style={{ color: '#64748B', fontSize: '1.05rem' }}>Please enter your credentials to access the dashboard.</p>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1E293B', marginBottom: '8px' }}>Welcome back!</h1>
+          <p style={{ color: '#64748B', fontSize: '0.85rem', marginBottom: '32px' }}>Please enter your credentials to access your dashboard.</p>
           </div>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

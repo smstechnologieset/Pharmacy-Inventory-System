@@ -51,8 +51,8 @@ const Staff = () => {
     <div className="staff-page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: '800', letterSpacing: '-0.025em' }}>Staff Management</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '4px' }}>Manage user access and pharmacy roles.</p>
+          <h1 style={{ fontSize: '1.6rem', fontWeight: '800', letterSpacing: '-0.025em' }}>Staff Management</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>Manage user access and pharmacy roles.</p>
         </div>
         <button className="btn btn-primary" onClick={() => handleOpenModal()}>
           <Plus size={20} /> Add New Staff
@@ -88,8 +88,8 @@ const Staff = () => {
                 <tr key={staff.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
                   <td style={{ padding: '20px 32px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                      <img src={staff.avatar} style={{ width: '44px', height: '44px', border: '3px solid #F0FDFA', borderRadius: '50%' }} alt="" />
-                      <span style={{ fontWeight: '700', fontSize: '1.05rem', color: '#1E293B' }}>{staff.name}</span>
+                      <img src={staff.avatar} style={{ width: '40px', height: '40px', border: '3px solid #F0FDFA', borderRadius: '50%' }} alt="" />
+                      <span style={{ fontWeight: '700', fontSize: '0.95rem', color: '#1E293B' }}>{staff.name}</span>
                     </div>
                   </td>
                   <td>
@@ -173,7 +173,7 @@ const Staff = () => {
               </select>
             </div>
           </div>
-          <button type="submit" className="btn btn-primary" style={{ height: '56px', fontSize: '1.05rem', marginTop: '10px' }}>
+          <button type="submit" className="btn btn-primary" style={{ height: '52px', fontSize: '0.95rem', marginTop: '10px' }}>
             {editingStaff ? 'Update Permissions' : 'Create Staff Profile'}
           </button>
         </form>

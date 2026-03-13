@@ -52,8 +52,8 @@ const Medicine = () => {
     <div className="medicine-page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: '800', letterSpacing: '-0.025em' }}>Inventory</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '4px' }}>Manage your pharmacy stock and items.</p>
+          <h1 style={{ fontSize: '1.6rem', fontWeight: '800', letterSpacing: '-0.025em' }}>Inventory</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>Manage your pharmacy stock and items.</p>
         </div>
         <button className="btn btn-primary" onClick={() => handleOpenModal()}>
           <Plus size={20} /> Add Medicine
@@ -89,8 +89,8 @@ const Medicine = () => {
               {filteredProducts.map((p) => (
                 <tr key={p.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
                   <td style={{ padding: '20px 32px' }}>
-                    <div style={{ fontWeight: '700', fontSize: '1.05rem', color: '#1E293B' }}>{p.name}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px' }}>Batch: {p.batch || 'N/A'}</div>
+                    <div style={{ fontWeight: '700', fontSize: '0.95rem', color: '#1E293B' }}>{p.name}</div>
+                    <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '2px' }}>Batch: {p.batch || 'N/A'}</div>
                   </td>
                   <td>
                     <span style={{ 
@@ -175,7 +175,7 @@ const Medicine = () => {
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
           </div>
-          <button type="submit" className="btn btn-primary" style={{ height: '56px', fontSize: '1.05rem', marginTop: '10px' }}>
+          <button type="submit" className="btn btn-primary" style={{ height: '52px', fontSize: '0.95rem', marginTop: '10px' }}>
             {editingProduct ? 'Update Product' : 'Confirm & Add Medicine'}
           </button>
         </form>

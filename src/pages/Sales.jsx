@@ -65,8 +65,8 @@ const Sales = () => {
   return (
     <div className="sales-page">
       <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ fontSize: '1.8rem', fontWeight: '800', letterSpacing: '-0.025em' }}>Point of Sale</h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '4px' }}>Fast and easy checkout terminal.</p>
+        <h1 style={{ fontSize: '1.6rem', fontWeight: '800', letterSpacing: '-0.025em' }}>Point of Sale</h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>Fast and easy checkout terminal.</p>
       </div>
 
       <div className="dashboard-grid" style={{ gridTemplateColumns: '1.8fr 1fr' }}>
@@ -111,8 +111,8 @@ const Sales = () => {
                 }}>
                   <ShoppingCart size={24} />
                 </div>
-                <div style={{ fontWeight: '700', fontSize: '0.95rem', marginBottom: '4px', height: '40px', overflow: 'hidden' }}>{med.name}</div>
-                <div style={{ color: '#0D9488', fontWeight: '800', marginBottom: '8px' }}>ETB {med.price.toFixed(2)}</div>
+                <div style={{ fontWeight: '700', fontSize: '0.85rem', marginBottom: '4px', height: '40px', overflow: 'hidden' }}>{med.name}</div>
+                <div style={{ color: '#0D9488', fontWeight: '800', marginBottom: '8px', fontSize: '0.9rem' }}>ETB {med.price.toFixed(2)}</div>
                 <div style={{ fontSize: '0.75rem', color: med.stock < 10 ? '#EF4444' : '#94A3B8' }}>{med.stock} units left</div>
               </div>
             ))}
@@ -122,8 +122,8 @@ const Sales = () => {
         {/* Right: Cart Summary */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', padding: '0', overflow: 'hidden', maxHeight: '780px' }}>
           <div style={{ padding: '24px 32px', background: 'var(--primary)', color: 'white' }}>
-            <h2 style={{ fontSize: '1.2rem', fontWeight: '700' }}>Current Cart</h2>
-            <p style={{ fontSize: '0.8rem', opacity: '0.9' }}>{cart.length} unique items</p>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: '700' }}>Current Cart</h2>
+            <p style={{ fontSize: '0.75rem', opacity: '0.9' }}>{cart.length} unique items</p>
           </div>
           
           <div style={{ flex: 1, padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -157,13 +157,13 @@ const Sales = () => {
               <span>Subtotal</span>
               <span style={{ fontWeight: '600' }}>ETB {subtotal.toLocaleString()}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', fontSize: '1.25rem', fontWeight: '800' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', fontSize: '1.15rem', fontWeight: '800' }}>
               <span>Total</span>
               <span>ETB {total.toLocaleString()}</span>
             </div>
             <button 
               className="btn btn-primary" 
-              style={{ width: '100%', height: '56px', fontSize: '1.1rem' }}
+              style={{ width: '100%', height: '52px', fontSize: '1rem' }}
               disabled={cart.length === 0}
               onClick={handleCheckout}
             >
@@ -234,8 +234,8 @@ const Sales = () => {
               <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#F0FDFA', color: '#0D9488', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                 <CheckCircle size={32} />
               </div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '800' }}>Payment Success!</h2>
-              <p style={{ color: '#64748B', marginTop: '4px' }}>Invoice has been generated.</p>
+              <h2 style={{ fontSize: '1.3rem', fontWeight: '800' }}>Payment Success!</h2>
+              <p style={{ color: '#64748B', fontSize: '0.85rem', marginTop: '4px' }}>Invoice has been generated.</p>
             </div>
             
             <div style={{ background: '#F8FAFC', padding: '24px', borderRadius: '24px', marginBottom: '32px' }}>
@@ -249,7 +249,7 @@ const Sales = () => {
                   <span style={{ fontWeight: '700' }}>{new Date().toLocaleDateString()}</span>
                 </div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '800', fontSize: '1.1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '800', fontSize: '1rem' }}>
                 <span>TOTAL PAID</span>
                 <span style={{ color: 'var(--primary)' }}>ETB {lastTotal.toLocaleString()}</span>
               </div>

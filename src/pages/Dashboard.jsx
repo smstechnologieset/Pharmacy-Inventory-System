@@ -93,46 +93,23 @@ const Dashboard = () => {
       </div>
 
       {/* Row 1: Stat Cards */}
-      <div className="stats-grid">
-        <div className="card stat-card">
-          <div className="stat-icon" style={{ background: '#F0FDFA', color: '#0D9488' }}>
-            <DollarSign size={28} />
+      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+        {[
+          { label: 'Total Profit', value: dashboardStats.totalProfit, icon: <DollarSign size={20} />, bg: '#F0FDFA', color: '#0D9488' },
+          { label: 'Inventory Stock', value: dashboardStats.inventoryStock, icon: <Package size={20} />, bg: '#EFF6FF', color: '#3B82F6' },
+          { label: 'Out of Stock', value: dashboardStats.outOfStock, icon: <AlertCircle size={20} />, bg: '#FFF7ED', color: '#F59E0B' },
+          { label: 'Expired Items', value: dashboardStats.expired, icon: <CalendarX size={20} />, bg: '#FEF2F2', color: '#EF4444' }
+        ].map((stat, i) => (
+          <div key={i} className="card stat-card" style={{ padding: '16px 20px !important', height: '90px' }}>
+            <div className="stat-icon" style={{ background: stat.bg, color: stat.color, width: '42px', height: '42px', borderRadius: '12px' }}>
+              {stat.icon}
+            </div>
+            <div className="stat-info">
+              <span className="label" style={{ fontSize: '0.65rem', letterSpacing: '0.05em' }}>{stat.label}</span>
+              <div className="value" style={{ fontSize: '1.1rem', marginTop: '0' }}>{stat.value}</div>
+            </div>
           </div>
-          <div className="stat-info">
-            <span className="label">Total Profit</span>
-            <div className="value">{dashboardStats.totalProfit}</div>
-          </div>
-        </div>
-        
-        <div className="card stat-card">
-          <div className="stat-icon" style={{ background: '#EFF6FF', color: '#3B82F6' }}>
-            <Package size={28} />
-          </div>
-          <div className="stat-info">
-            <span className="label">Inventory Stock</span>
-            <div className="value">{dashboardStats.inventoryStock}</div>
-          </div>
-        </div>
-
-        <div className="card stat-card">
-          <div className="stat-icon" style={{ background: '#FFF7ED', color: '#F59E0B' }}>
-            <AlertCircle size={28} />
-          </div>
-          <div className="stat-info">
-            <span className="label">Out of Stock</span>
-            <div className="value">{dashboardStats.outOfStock}</div>
-          </div>
-        </div>
-
-        <div className="card stat-card">
-          <div className="stat-icon" style={{ background: '#FEF2F2', color: '#EF4444' }}>
-            <CalendarX size={28} />
-          </div>
-          <div className="stat-info">
-            <span className="label">Expired Items</span>
-            <div className="value">{dashboardStats.expired}</div>
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Row 2: Charts */}

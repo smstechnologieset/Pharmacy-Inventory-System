@@ -56,8 +56,8 @@ const Inventory = () => {
     <div className="inventory-page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: '800', letterSpacing: '-0.025em' }}>Inventory & Stock</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '4px' }}>Monitor batches and precise stock levels.</p>
+          <h1 style={{ fontSize: '1.6rem', fontWeight: '800', letterSpacing: '-0.025em' }}>Inventory & Stock</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>Monitor batches and precise stock levels.</p>
         </div>
         <button className="btn btn-primary" onClick={() => handleOpenForm()}>
           <Plus size={20} /> Add Stock
@@ -130,8 +130,8 @@ const Inventory = () => {
         <div className="modal-overlay" onClick={() => setSelectedMed(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <button onClick={() => setSelectedMed(null)} style={{ position: 'absolute', right: '30px', top: '30px', border: 'none', background: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={24} /></button>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '8px' }}>Batch Details</h2>
-            <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>Detailed information for {selectedMed.name}</p>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: '800', marginBottom: '8px' }}>Batch Details</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '24px' }}>Detailed information for {selectedMed.name}</p>
             
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
               <div style={{ background: '#F8FAFC', padding: '20px', borderRadius: '24px' }}>
@@ -192,7 +192,7 @@ const Inventory = () => {
               value={formData.expiry} onChange={(e) => setFormData({ ...formData, expiry: e.target.value })}
             />
           </div>
-          <button type="submit" className="btn btn-primary" style={{ height: '56px', fontSize: '1.05rem', marginTop: '10px' }}>
+          <button type="submit" className="btn btn-primary" style={{ height: '52px', fontSize: '0.95rem', marginTop: '10px' }}>
             {editingItem ? 'Update Stock Level' : 'Confirm Stock Arrival'}
           </button>
         </form>

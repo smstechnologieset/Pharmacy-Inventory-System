@@ -8,8 +8,8 @@ const Settings = () => {
   return (
     <div className="settings-page">
       <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ fontSize: '1.8rem', fontWeight: '800', letterSpacing: '-0.025em' }}>Settings & Preferences</h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '4px' }}>Configure your account and system environment.</p>
+        <h1 style={{ fontSize: '1.6rem', fontWeight: '800', letterSpacing: '-0.025em' }}>Settings & Profile</h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>Customize your experience and manage security.</p>
       </div>
       
       <div className="dashboard-grid">

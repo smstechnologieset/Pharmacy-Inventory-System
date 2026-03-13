@@ -34,8 +34,8 @@ const Expiration = () => {
     <div className="expiration-page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: '800', letterSpacing: '-0.025em' }}>Expiration Tracking</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '4px' }}>Monitor and manage expiring stock levels.</p>
+          <h1 style={{ fontSize: '1.6rem', fontWeight: '800', letterSpacing: '-0.025em' }}>Stock Expiration</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>Proactively manage items nearing expiry.</p>
         </div>
         <div className="tabs">
           <div className={`tab ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>All Alerts</div>

@@ -32,7 +32,7 @@ const Header = () => {
               cursor: 'pointer'
             }}
           >
-            <option value={roles.ADMIN}>Administrator</option>
+            <option value={roles.ADMIN}>Admin</option>
             <option value={roles.PHARMACIST}>Pharmacist</option>
             <option value={roles.MANAGER}>Manager</option>
           </select>
