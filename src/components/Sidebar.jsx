@@ -55,7 +55,7 @@ const Sidebar = () => {
       </nav>
 
       {/* User Info Capsule as seen in screenshot */}
-      <div style={{ padding: '24px', borderTop: '1px solid var(--border)' }}>
+      {/* <div style={{ padding: '24px', borderTop: '1px solid var(--border)' }}>
         <div style={{ 
           background: '#F8FAFC', 
           padding: '16px', 
@@ -81,7 +81,7 @@ const Sidebar = () => {
             <div style={{ color: 'var(--primary)', fontSize: '0.75rem', fontWeight: '500' }}>Administrator</div>
           </div>
         </div>
-      </div>
+      </div> */}
     </aside>
   );
 };

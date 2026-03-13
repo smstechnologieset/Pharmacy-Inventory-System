@@ -17,12 +17,12 @@ const Header = () => {
       <div className="header-right">
         {/* Role Switcher for Demo Purposes */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '11px', color: '#64748B', fontWeight: '400', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mode:</span>
+          <span style={{ fontSize: '9px', color: '#64748B', fontWeight: '400', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mode:</span>
           <select 
             onChange={(e) => setRole(e.target.value)} 
             value={user?.role}
             style={{ 
-              padding: '8px 14px', 
+              padding: '6px 10px', 
               borderRadius: '12px', 
               border: '1px solid #F1F5F9', 
               outline: 'none', 
