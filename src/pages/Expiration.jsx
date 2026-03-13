@@ -1,147 +1,131 @@
 import React, { useState } from 'react';
-import { AlertTriangle, Clock, CalendarX, CheckCircle, Trash2 } from 'lucide-react';
-import { medicines } from '../data/mockData';
+import { Search, Calendar, AlertCircle, CheckCircle, Trash2, Clock } from 'lucide-react';
+import { medicines as initialMedicines } from '../data/mockData';
 
 const Expiration = () => {
+  const [items, setItems] = useState(initialMedicines);
   const [filter, setFilter] = useState('all');
-  const [items, setItems] = useState(medicines);
 
   const handleAction = (id, action) => {
-    if (window.confirm(`Delete this entry from inventory (${action})?`)) {
-      setItems(items.filter(i => i.id !== id));
+    if (action === 'remove') {
+      if (window.confirm('Remove this expired item from inventory?')) {
+        setItems(items.filter(item => item.id !== id));
+      }
+    } else if (action === 'dispose') {
+      if (window.confirm('Mark this item as disposed?')) {
+        setItems(items.map(item => item.id === id ? { ...item, stock: 0, status: 'Disposed' } : item));
+      }
     }
   };
 
-  const now = new Date();
-  const thirtyDaysLater = new Date();
-  thirtyDaysLater.setDate(now.getDate() + 30);
-  const ninetyDaysLater = new Date();
-  ninetyDaysLater.setDate(now.getDate() + 90);
+  const expiringSoon = items.filter(item => {
+    const expiryDate = new Date(item.expiry);
+    const today = new Date();
+    const diffTime = expiryDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 && diffDays <= 60;
+  });
 
-  const getExpirationStatus = (date) => {
-    const expiryDate = new Date(date);
-    if (expiryDate < now) return 'expired';
-    if (expiryDate < thirtyDaysLater) return 'soon';
-    if (expiryDate < ninetyDaysLater) return 'warning';
-    return 'safe';
-  };
+  const expired = items.filter(item => new Date(item.expiry) < new Date());
 
-  const expiringMeds = items.map(med => ({
-    ...med,
-    expirationStatus: getExpirationStatus(med.expiry)
-  })).filter(med => {
-    if (filter === 'all') return med.expirationStatus !== 'safe' || med.stock < 10;
-    return med.expirationStatus === filter;
-  }).sort((a, b) => new Date(a.expiry) - new Date(b.expiry));
-
-  const stats = {
-    expired: items.filter(m => new Date(m.expiry) < now).length,
-    soon: items.filter(m => {
-      const d = new Date(m.expiry);
-      return d >= now && d < thirtyDaysLater;
-    }).length,
-    warning: items.filter(m => {
-      const d = new Date(m.expiry);
-      return d >= thirtyDaysLater && d < ninetyDaysLater;
-    }).length
-  };
+  const displayItems = filter === 'expiring' ? expiringSoon : filter === 'expired' ? expired : items.filter(item => new Date(item.expiry) < new Date() || item.stock < 10);
 
   return (
     <div className="expiration-page">
-      <h1>Expiration Tracking</h1>
-      
-      <div className="stats-grid" style={{ marginTop: '24px' }}>
-        <div className="card stat-card" onClick={() => setFilter('expired')} style={{ cursor: 'pointer', border: filter === 'expired' ? '2px solid #EF4444' : '1px solid var(--border)' }}>
-          <div className="stat-icon" style={{ background: '#FEE2E2' }}>
-            <CalendarX color="#EF4444" />
-          </div>
-          <div className="stat-info">
-            <span className="label">Expired</span>
-            <div className="value">{stats.expired}</div>
-          </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+        <div>
+          <h1 style={{ fontSize: '1.8rem', fontWeight: '800', letterSpacing: '-0.025em' }}>Expiration Tracking</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '4px' }}>Monitor and manage expiring stock levels.</p>
         </div>
-        
-        <div className="card stat-card" onClick={() => setFilter('soon')} style={{ cursor: 'pointer', border: filter === 'soon' ? '2px solid #F59E0B' : '1px solid var(--border)' }}>
-          <div className="stat-icon" style={{ background: '#FEF3C7' }}>
-            <AlertTriangle color="#F59E0B" />
-          </div>
-          <div className="stat-info">
-            <span className="label">Expiring within 30 days</span>
-            <div className="value">{stats.soon}</div>
-          </div>
+        <div className="tabs">
+          <div className={`tab ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>All Alerts</div>
+          <div className={`tab ${filter === 'expiring' ? 'active' : ''}`} onClick={() => setFilter('expiring')}>Expiring Soon</div>
+          <div className={`tab ${filter === 'expired' ? 'active' : ''}`} onClick={() => setFilter('expired')}>Expired</div>
         </div>
+      </div>
 
-        <div className="card stat-card" onClick={() => setFilter('warning')} style={{ cursor: 'pointer', border: filter === 'warning' ? '2px solid #3B82F6' : '1px solid var(--border)' }}>
-          <div className="stat-icon" style={{ background: '#DBEAFE' }}>
-            <Clock color="#3B82F6" />
+      <div className="stats-grid">
+        <div className="card stat-card">
+          <div className="stat-icon" style={{ background: '#FEF2F2', color: '#EF4444' }}>
+            <AlertCircle size={28} />
           </div>
           <div className="stat-info">
-            <span className="label">Expiring within 90 days</span>
-            <div className="value">{stats.warning}</div>
+            <span className="label">Expired Items</span>
+            <div className="value">{expired.length}</div>
+          </div>
+        </div>
+        <div className="card stat-card">
+          <div className="stat-icon" style={{ background: '#FFF7ED', color: '#F59E0B' }}>
+            <Clock size={28} />
+          </div>
+          <div className="stat-info">
+            <span className="label">Expiring Soon</span>
+            <div className="value">{expiringSoon.length}</div>
           </div>
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2>Expiring Medicines</h2>
-          <button className="btn" style={{ background: '#F9FAFB', border: '1px solid #E5E7EB' }} onClick={() => setFilter('all')}>
-            Show All Critical
-          </button>
-        </div>
-
+      <div className="card" style={{ padding: '0', overflow: 'hidden', marginTop: '32px' }}>
         <div className="table-container">
-          <table>
+          <table style={{ borderSpacing: '0' }}>
             <thead>
-              <tr>
-                <th>Medicine Name</th>
+              <tr style={{ background: '#F8FAFC' }}>
+                <th style={{ padding: '16px 32px' }}>Medicine Name</th>
                 <th>Batch No</th>
-                <th>Supplier</th>
                 <th>Expiry Date</th>
-                <th>Stock Left</th>
+                <th>Remaining</th>
                 <th>Status</th>
-                <th>Actions</th>
+                <th style={{ textAlign: 'right', paddingRight: '32px' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {expiringMeds.map((med) => (
-                <tr key={med.id}>
-                  <td style={{ fontWeight: '600' }}>{med.name}</td>
-                  <td>{med.batch}</td>
-                  <td>{med.supplier}</td>
-                  <td style={{ fontWeight: '600', color: med.expirationStatus === 'expired' ? '#EF4444' : med.expirationStatus === 'soon' ? '#F59E0B' : 'inherit' }}>
-                    {med.expiry}
-                  </td>
-                  <td>{med.stock}</td>
-                  <td>
-                    <span className="status-badge" style={{ 
-                      background: med.expirationStatus === 'expired' ? '#FEE2E2' : med.expirationStatus === 'soon' ? '#FEF3C7' : '#DBEAFE',
-                      color: med.expirationStatus === 'expired' ? '#B91C1C' : med.expirationStatus === 'soon' ? '#92400E' : '#1E40AF'
-                    }}>
-                      {med.expirationStatus === 'expired' ? 'Expired' : med.expirationStatus === 'soon' ? 'Critically Soon' : 'Expiring Soon'}
-                    </span>
-                  </td>
-                   <td>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button className="btn" onClick={() => handleAction(med.id, 'Removal')} style={{ padding: '6px', background: '#F3F4F6' }} title="Remove from Inventory">
-                        <Trash2 size={16} color="#EF4444" />
-                      </button>
-                      <button className="btn" onClick={() => handleAction(med.id, 'Disposal')} style={{ padding: '6px', background: '#F3F4F6' }} title="Mark as Disposed">
-                        <CheckCircle size={16} color="#10B981" />
-                      </button>
-                    </div>
+              {displayItems.length === 0 ? (
+                <tr>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '60px', color: '#94A3B8' }}>
+                    <CheckCircle size={48} strokeWidth={1} style={{ marginBottom: '16px', opacity: 0.5, color: '#10B981' }} />
+                    <p>No expiration alerts found.</p>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                displayItems.map((item) => {
+                  const isExpired = new Date(item.expiry) < new Date();
+                  return (
+                    <tr key={item.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                      <td style={{ padding: '20px 32px' }}>
+                        <div style={{ fontWeight: '700', fontSize: '1rem' }}>{item.name}</div>
+                        <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{item.category}</div>
+                      </td>
+                      <td style={{ fontWeight: '600', color: '#64748B' }}>{item.batch}</td>
+                      <td style={{ color: isExpired ? '#EF4444' : '#F59E0B', fontWeight: '700' }}>
+                        {item.expiry}
+                      </td>
+                      <td style={{ fontWeight: '600' }}>{item.stock} units</td>
+                      <td>
+                        <span className="status-badge" style={{ 
+                          background: isExpired ? '#FEE2E2' : '#FEF3C7',
+                          color: isExpired ? '#B91C1C' : '#92400E',
+                          fontSize: '0.75rem'
+                        }}>
+                          {isExpired ? 'Expired' : 'Expiring Soon'}
+                        </span>
+                      </td>
+                      <td style={{ paddingRight: '32px' }}>
+                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                          <button className="btn" style={{ padding: '8px 16px', background: '#F8FAFC', color: '#475569', fontSize: '0.8rem' }} onClick={() => handleAction(item.id, 'dispose')}>
+                            Mark Disposed
+                          </button>
+                          <button className="icon-button" style={{ width: '36px', height: '36px', color: '#EF4444' }} onClick={() => handleAction(item.id, 'remove')}>
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
-
-        {expiringMeds.length === 0 && (
-          <div style={{ padding: '60px', textAlign: 'center', color: '#6B7280' }}>
-            <p>No medicines found for the selected filter.</p>
-          </div>
-        )}
       </div>
     </div>
   );

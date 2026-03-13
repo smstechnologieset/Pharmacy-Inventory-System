@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, Edit, Trash2, Eye, Filter } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Pill } from 'lucide-react';
 import { medicines as initialMedicines } from '../data/mockData';
 import FormModal from '../components/FormModal';
 
@@ -43,55 +43,78 @@ const Medicine = () => {
   };
 
   const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this product?')) {
+    if (window.confirm('Delete this product?')) {
       setProductList(productList.filter(p => p.id !== id));
     }
   };
 
   return (
     <div className="medicine-page">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h1>Medicine Management</h1>
-        <button className="btn btn-primary" onClick={() => handleOpenModal()} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Plus size={18} /> Add New Medicine
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+        <div>
+          <h1 style={{ fontSize: '1.8rem', fontWeight: '800', letterSpacing: '-0.025em' }}>Inventory</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '4px' }}>Manage your pharmacy stock and items.</p>
+        </div>
+        <button className="btn btn-primary" onClick={() => handleOpenModal()}>
+          <Plus size={20} /> Add Medicine
         </button>
       </div>
 
-      <div className="card" style={{ marginBottom: '24px' }}>
-        <div className="search-bar" style={{ maxWidth: '400px' }}>
-          <Search size={18} className="text-muted" />
-          <input 
-            type="text" 
-            placeholder="Search products..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
+        <div style={{ padding: '24px 32px' }}>
+          <div className="search-bar" style={{ width: '100%', maxWidth: '500px' }}>
+            <Search size={22} style={{ color: '#94A3B8' }} />
+            <input 
+              type="text" 
+              placeholder="Search medicines by name or batch..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
-      </div>
 
-      <div className="card" style={{ padding: '0' }}>
         <div className="table-container">
-          <table>
+          <table style={{ borderSpacing: '0' }}>
             <thead>
-              <tr>
-                <th>Product Name</th>
+              <tr style={{ background: '#F8FAFC' }}>
+                <th style={{ padding: '16px 32px' }}>Medicine Info</th>
                 <th>Category</th>
-                <th>Selling Price</th>
-                <th>Standard Description</th>
-                <th>Actions</th>
+                <th>Stock</th>
+                <th>Price</th>
+                <th>Expiry</th>
+                <th style={{ textAlign: 'right', paddingRight: '32px' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredProducts.map((p) => (
-                <tr key={p.id}>
-                  <td style={{ fontWeight: '600', color: '#4A6CF7' }}>{p.name}</td>
-                  <td>{p.category}</td>
-                  <td style={{ fontWeight: '700' }}>ETB {p.price.toFixed(2)}</td>
-                  <td style={{ color: '#6B7280', fontSize: '0.8rem' }}>{p.description || 'No description'}</td>
+                <tr key={p.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                  <td style={{ padding: '20px 32px' }}>
+                    <div style={{ fontWeight: '700', fontSize: '1.05rem', color: '#1E293B' }}>{p.name}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px' }}>Batch: {p.batch || 'N/A'}</div>
+                  </td>
                   <td>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button className="icon-button" onClick={() => handleOpenModal(p)} title="Edit"><Edit size={14} /></button>
-                      <button className="icon-button" onClick={() => handleDelete(p.id)} style={{ color: '#EF4444' }} title="Delete"><Trash2 size={14} /></button>
+                    <span style={{ 
+                      padding: '6px 16px', 
+                      background: '#F1F5F9', 
+                      color: '#64748B', 
+                      borderRadius: '12px', 
+                      fontSize: '0.8rem',
+                      fontWeight: '600'
+                    }}>
+                      {p.category}
+                    </span>
+                  </td>
+                  <td>
+                    <div style={{ fontWeight: '700', color: p.stock < 10 ? '#EF4444' : '#1E293B' }}>
+                      {p.stock} tablets {p.stock < 10 && <span title="Low Stock">⚠️</span>}
+                    </div>
+                  </td>
+                  <td style={{ fontWeight: '700' }}>ETB {p.price.toFixed(2)}</td>
+                  <td style={{ color: '#64748B', fontWeight: '500' }}>{p.expiry || 'N/A'}</td>
+                  <td style={{ paddingRight: '32px' }}>
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                      <button className="icon-button" onClick={() => handleOpenModal(p)} style={{ width: '40px', height: '40px' }}><Edit size={16} /></button>
+                      <button className="icon-button" onClick={() => handleDelete(p.id)} style={{ width: '40px', height: '40px', color: '#EF4444' }}><Trash2 size={16} /></button>
                     </div>
                   </td>
                 </tr>
@@ -106,24 +129,22 @@ const Medicine = () => {
         onClose={() => setIsModalOpen(false)} 
         title={editingProduct ? 'Edit Medicine' : 'Add New Medicine'}
       >
-        <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Medicine Name</label>
+            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '700', marginBottom: '8px', color: '#1E293B' }}>Medicine Name</label>
             <input 
-              type="text" 
-              required
-              className="btn" 
-              style={{ width: '100%', border: '1px solid #E5E7EB', textAlign: 'left', fontWeight: 'normal' }}
+              type="text" required className="search-bar" 
+              style={{ width: '100%', background: '#F8FAFC', padding: '14px 20px', fontSize: '1rem' }}
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Category</label>
+              <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '700', marginBottom: '8px', color: '#1E293B' }}>Category</label>
               <select 
-                className="btn" 
-                style={{ width: '100%', border: '1px solid #E5E7EB', appearance: 'auto', background: 'white' }}
+                className="search-bar" 
+                style={{ width: '100%', background: '#F8FAFC', padding: '14px 20px', appearance: 'auto' }}
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
               >
@@ -131,32 +152,31 @@ const Medicine = () => {
                 <option value="Capsules">Capsules</option>
                 <option value="Syrups">Syrups</option>
                 <option value="Injections">Injections</option>
+                <option value="Antihypertensives">Antihypertensives</option>
+                <option value="Antibiotics">Antibiotics</option>
               </select>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Price (ETB)</label>
+              <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '700', marginBottom: '8px', color: '#1E293B' }}>Price (ETB)</label>
               <input 
-                type="number" 
-                required
-                step="0.01"
-                className="btn" 
-                style={{ width: '100%', border: '1px solid #E5E7EB', textAlign: 'left', fontWeight: 'normal' }}
+                type="number" required step="0.01" className="search-bar" 
+                style={{ width: '100%', background: '#F8FAFC', padding: '14px 20px' }}
                 value={formData.price}
                 onChange={(e) => setFormData({ ...formData, price: e.target.value })}
               />
             </div>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Description</label>
+            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '700', marginBottom: '8px', color: '#1E293B' }}>Standard Description</label>
             <textarea 
               rows="3"
-              style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #E5E7EB', outline: 'none', fontStyle: 'inherit' }}
+              style={{ width: '100%', padding: '16px 20px', borderRadius: '24px', border: 'none', background: '#F8FAFC', outline: 'none', fontStyle: 'inherit', resize: 'none', fontSize: '0.95rem' }}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
           </div>
-          <button type="submit" className="btn btn-primary" style={{ marginTop: '10px' }}>
-            {editingProduct ? 'Update Medicine' : 'Add Medicine'}
+          <button type="submit" className="btn btn-primary" style={{ height: '56px', fontSize: '1.05rem', marginTop: '10px' }}>
+            {editingProduct ? 'Update Product' : 'Confirm & Add Medicine'}
           </button>
         </form>
       </FormModal>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, UserCheck, Shield, Edit, Trash2 } from 'lucide-react';
+import { Search, Plus, UserCheck, Shield, Edit, Trash2, UserCog } from 'lucide-react';
 import { users as initialUsers, roles } from '../data/mockData';
 import FormModal from '../components/FormModal';
 
@@ -49,65 +49,69 @@ const Staff = () => {
 
   return (
     <div className="staff-page">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h1>Staff Management</h1>
-        <button className="btn btn-primary" onClick={() => handleOpenModal()} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Plus size={18} /> Add New Staff
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+        <div>
+          <h1 style={{ fontSize: '1.8rem', fontWeight: '800', letterSpacing: '-0.025em' }}>Staff Management</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '4px' }}>Manage user access and pharmacy roles.</p>
+        </div>
+        <button className="btn btn-primary" onClick={() => handleOpenModal()}>
+          <Plus size={20} /> Add New Staff
         </button>
       </div>
 
-      <div className="card" style={{ marginBottom: '24px' }}>
-        <div className="search-bar" style={{ width: '100%', maxWidth: '400px' }}>
-          <Search size={18} className="text-muted" />
-          <input 
-            type="text" 
-            placeholder="Search staff..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
+        <div style={{ padding: '24px 32px' }}>
+          <div className="search-bar" style={{ width: '100%', maxWidth: '450px' }}>
+            <Search size={22} style={{ color: '#94A3B8' }} />
+            <input 
+              type="text" 
+              placeholder="Search staff members..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
-      </div>
 
-      <div className="card" style={{ padding: '0' }}>
         <div className="table-container">
-          <table>
+          <table style={{ borderSpacing: '0' }}>
             <thead>
-              <tr>
-                <th>Staff Name</th>
+              <tr style={{ background: '#F8FAFC' }}>
+                <th style={{ padding: '16px 32px' }}>Staff Name</th>
                 <th>Role</th>
-                <th>Email</th>
+                <th>Email Address</th>
                 <th>Status</th>
-                <th>Actions</th>
+                <th style={{ textAlign: 'right', paddingRight: '32px' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredStaff.map((staff) => (
-                <tr key={staff.id}>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <img src={staff.avatar} style={{ width: '30px', height: '30px', borderRadius: '50%' }} alt="" />
-                      <span style={{ fontWeight: '600' }}>{staff.name}</span>
+                <tr key={staff.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                  <td style={{ padding: '20px 32px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <img src={staff.avatar} style={{ width: '44px', height: '44px', border: '3px solid #F0FDFA', borderRadius: '50%' }} alt="" />
+                      <span style={{ fontWeight: '700', fontSize: '1.05rem', color: '#1E293B' }}>{staff.name}</span>
                     </div>
                   </td>
                   <td>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: staff.role === roles.ADMIN ? '#4A6CF7' : '#6B7280' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#F0FDFA', color: '#0D9488', width: 'fit-content', padding: '6px 14px', borderRadius: '12px', fontWeight: '700', fontSize: '0.8rem' }}>
                       {staff.role === roles.ADMIN ? <Shield size={14} /> : <UserCheck size={14} />}
                       {staff.role.toUpperCase()}
-                    </span>
+                    </div>
                   </td>
-                  <td style={{ color: '#6B7280' }}>{staff.email}</td>
+                  <td style={{ color: '#475569', fontWeight: '500' }}>{staff.email}</td>
                   <td>
                     <span className="status-badge" style={{ 
-                      background: staff.status === 'Active' ? '#DEF7EC' : '#FDE2E2',
-                      color: staff.status === 'Active' ? '#03543F' : '#9B1C1C'
+                      background: staff.status === 'Active' ? '#ECFDF5' : '#FEF2F2',
+                      color: staff.status === 'Active' ? '#059669' : '#DC2626',
+                      fontSize: '0.75rem'
                     }}>
                       {staff.status}
                     </span>
                   </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button className="icon-button" onClick={() => handleOpenModal(staff)} title="Edit"><Edit size={14} /></button>
-                      <button className="icon-button" onClick={() => handleDelete(staff.id)} style={{ color: '#EF4444' }} title="Delete"><Trash2 size={14} /></button>
+                  <td style={{ paddingRight: '32px' }}>
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                      <button className="icon-button" onClick={() => handleOpenModal(staff)} style={{ width: '40px', height: '40px' }} title="Edit"><Edit size={16} /></button>
+                      <button className="icon-button" onClick={() => handleDelete(staff.id)} style={{ width: '40px', height: '40px', color: '#EF4444' }} title="Delete"><Trash2 size={16} /></button>
                     </div>
                   </td>
                 </tr>
@@ -120,29 +124,34 @@ const Staff = () => {
       <FormModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
-        title={editingStaff ? 'Edit Staff Details' : 'Add New Staff'}
+        title={editingStaff ? 'Update Staff Member' : 'Register New Staff'}
       >
-        <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px' }}>
+            <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#F0FDFA', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0D9488' }}>
+              <UserCog size={40} />
+            </div>
+          </div>
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Full Name</label>
+            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '700', marginBottom: '8px' }}>Full Name</label>
             <input 
-              type="text" required className="btn" style={{ width: '100%', border: '1px solid #E5E7EB', textAlign: 'left', fontWeight: 'normal' }}
+              type="text" required className="search-bar" style={{ width: '100%', background: '#F8FAFC', padding: '14px 20px' }}
               value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Email Address</label>
+            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '700', marginBottom: '8px' }}>Email Address</label>
             <input 
-              type="email" required className="btn" style={{ width: '100%', border: '1px solid #E5E7EB', textAlign: 'left', fontWeight: 'normal' }}
+              type="email" required className="search-bar" style={{ width: '100%', background: '#F8FAFC', padding: '14px 20px' }}
               value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Role</label>
+              <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '700', marginBottom: '8px' }}>System Role</label>
               <select 
-                className="btn" 
-                style={{ width: '100%', border: '1px solid #E5E7EB', appearance: 'auto', background: 'white' }}
+                className="search-bar" 
+                style={{ width: '100%', background: '#F8FAFC', padding: '14px 20px', appearance: 'auto' }}
                 value={formData.role}
                 onChange={(e) => setFormData({ ...formData, role: e.target.value })}
               >
@@ -152,10 +161,10 @@ const Staff = () => {
               </select>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Status</label>
+              <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '700', marginBottom: '8px' }}>Login Status</label>
               <select 
-                className="btn" 
-                style={{ width: '100%', border: '1px solid #E5E7EB', appearance: 'auto', background: 'white' }}
+                className="search-bar" 
+                style={{ width: '100%', background: '#F8FAFC', padding: '14px 20px', appearance: 'auto' }}
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               >
@@ -164,8 +173,8 @@ const Staff = () => {
               </select>
             </div>
           </div>
-          <button type="submit" className="btn btn-primary" style={{ marginTop: '10px' }}>
-            {editingStaff ? 'Update Staff member' : 'Add Staff Member'}
+          <button type="submit" className="btn btn-primary" style={{ height: '56px', fontSize: '1.05rem', marginTop: '10px' }}>
+            {editingStaff ? 'Update Permissions' : 'Create Staff Profile'}
           </button>
         </form>
       </FormModal>

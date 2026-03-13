@@ -53,6 +53,10 @@ export const chartData = {
   values: [45000, 75000, 55000, 80000, 60000, 85000]
 };
 
+export const inventoryChartData = {
+  labels: ['Tablets', 'Capsules', 'Syrups', 'Injections', 'Antibiotics']
+};
+
 export const suppliers = [
   { id: 1, name: 'PharmaCorp', contact: 'John Doe', phone: '+1234567890', email: 'john@pharmacorp.com', address: 'Addis Ababa, Ethiopia', medicines: ['Paracetamol', 'Aspirin'] },
   { id: 2, name: 'MediSupply', contact: 'Jane Smith', phone: '+0987654321', email: 'jane@medisupply.com', address: 'Bole, Addis Ababa', medicines: ['Amoxicillin', 'Clopilet'] },

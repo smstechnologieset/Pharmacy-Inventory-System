@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, Truck, Phone, MapPin, Mail, Edit, Trash2 } from 'lucide-react';
+import { Search, Plus, Truck, Phone, MapPin, Mail, Edit, Trash2, Building2 } from 'lucide-react';
 import { suppliers as initialSuppliers } from '../data/mockData';
 import FormModal from '../components/FormModal';
 
@@ -49,57 +49,69 @@ const Suppliers = () => {
 
   return (
     <div className="suppliers-page">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h1>Supplier Management</h1>
-        <button className="btn btn-primary" onClick={() => handleOpenModal()} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Plus size={18} /> New Supplier
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+        <div>
+          <h1 style={{ fontSize: '1.8rem', fontWeight: '800', letterSpacing: '-0.025em' }}>Suppliers</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '4px' }}>Manage your pharmacy's vendors and suppliers.</p>
+        </div>
+        <button className="btn btn-primary" onClick={() => handleOpenModal()}>
+          <Plus size={20} /> Add Supplier
         </button>
       </div>
 
-      <div className="card" style={{ marginBottom: '24px' }}>
-        <div className="search-bar" style={{ width: '100%', maxWidth: '400px' }}>
-          <Search size={18} className="text-muted" />
+      <div style={{ marginBottom: '32px' }}>
+        <div className="search-bar" style={{ width: '100%', maxWidth: '450px' }}>
+          <Search size={22} style={{ color: '#94A3B8' }} />
           <input 
             type="text" 
-            placeholder="Search suppliers..." 
+            placeholder="Search suppliers by name or contact..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="card" style={{ padding: '0' }}>
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Supplier Name</th>
-                <th>Contact</th>
-                <th>Phone</th>
-                <th>Email</th>
-                <th>Address</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredSuppliers.map((s) => (
-                <tr key={s.id}>
-                  <td style={{ fontWeight: '600', color: '#4A6CF7' }}>{s.name}</td>
-                  <td>{s.contact}</td>
-                  <td><Phone size={14} style={{ marginRight: '6px' }} />{s.phone}</td>
-                  <td><Mail size={14} style={{ marginRight: '6px' }} />{s.email}</td>
-                  <td><MapPin size={14} style={{ marginRight: '6px' }} />{s.address}</td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button className="icon-button" onClick={() => handleOpenModal(s)} title="Edit"><Edit size={14} /></button>
-                      <button className="icon-button" onClick={() => handleDelete(s.id)} style={{ color: '#EF4444' }} title="Delete"><Trash2 size={14} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {/* Grid of Bubbly Cards as seen in screenshot */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '32px' }}>
+        {filteredSuppliers.map((s) => (
+          <div key={s.id} className="card" style={{ padding: '32px', position: 'relative' }}>
+            <div style={{ display: 'flex', gap: '20px', marginBottom: '24px' }}>
+              <div style={{ 
+                width: '60px', 
+                height: '60px', 
+                borderRadius: '16px', 
+                background: '#F0FDFA', 
+                color: '#0D9488', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center' 
+              }}>
+                <Building2 size={32} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#1E293B' }}>{s.name}</h3>
+                <span style={{ fontSize: '0.8rem', color: '#0D9488', fontWeight: '700' }}>{s.medicines?.length || 6} items supplied</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#F8FAFC', padding: '12px 20px', borderRadius: '16px', fontSize: '0.9rem', color: '#475569' }}>
+                <Edit size={16} /> <span>{s.contact}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#F8FAFC', padding: '12px 20px', borderRadius: '16px', fontSize: '0.9rem', color: '#475569' }}>
+                <Phone size={16} /> <span>{s.phone}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#F8FAFC', padding: '12px 20px', borderRadius: '16px', fontSize: '0.9rem', color: '#475569' }}>
+                <Mail size={16} /> <span>{s.email}</span>
+              </div>
+            </div>
+
+            <div style={{ position: 'absolute', top: '32px', right: '32px', display: 'flex', gap: '8px' }}>
+              <button className="icon-button" onClick={() => handleOpenModal(s)} style={{ width: '36px', height: '36px' }} title="Edit"><Edit size={14} /></button>
+              <button className="icon-button" onClick={() => handleDelete(s.id)} style={{ width: '36px', height: '36px', color: '#EF4444' }} title="Delete"><Trash2 size={14} /></button>
+            </div>
+          </div>
+        ))}
       </div>
 
       <FormModal 
@@ -107,46 +119,46 @@ const Suppliers = () => {
         onClose={() => setIsModalOpen(false)} 
         title={editingSupplier ? 'Edit Supplier' : 'Add New Supplier'}
       >
-        <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Supplier Name</label>
+            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '700', marginBottom: '8px' }}>Supplier Name</label>
             <input 
-              type="text" required className="btn" style={{ width: '100%', border: '1px solid #E5E7EB', textAlign: 'left', fontWeight: 'normal' }}
+              type="text" required className="search-bar" style={{ width: '100%', background: '#F8FAFC', padding: '14px 20px' }}
               value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Contact Person</label>
+            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '700', marginBottom: '8px' }}>Contact Person</label>
             <input 
-              type="text" required className="btn" style={{ width: '100%', border: '1px solid #E5E7EB', textAlign: 'left', fontWeight: 'normal' }}
+              type="text" required className="search-bar" style={{ width: '100%', background: '#F8FAFC', padding: '14px 20px' }}
               value={formData.contact} onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
             />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Phone</label>
+              <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '700', marginBottom: '8px' }}>Phone</label>
               <input 
-                type="text" required className="btn" style={{ width: '100%', border: '1px solid #E5E7EB', textAlign: 'left', fontWeight: 'normal' }}
+                type="text" required className="search-bar" style={{ width: '100%', background: '#F8FAFC', padding: '14px 20px' }}
                 value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Email</label>
+              <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '700', marginBottom: '8px' }}>Email</label>
               <input 
-                type="email" required className="btn" style={{ width: '100%', border: '1px solid #E5E7EB', textAlign: 'left', fontWeight: 'normal' }}
+                type="email" required className="search-bar" style={{ width: '100%', background: '#F8FAFC', padding: '14px 20px' }}
                 value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
             </div>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '6px' }}>Address</label>
+            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '700', marginBottom: '8px' }}>Office Address</label>
             <input 
-              type="text" required className="btn" style={{ width: '100%', border: '1px solid #E5E7EB', textAlign: 'left', fontWeight: 'normal' }}
+              type="text" required className="search-bar" style={{ width: '100%', background: '#F8FAFC', padding: '14px 20px' }}
               value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })}
             />
           </div>
-          <button type="submit" className="btn btn-primary" style={{ marginTop: '10px' }}>
-            {editingSupplier ? 'Update Supplier' : 'Save Supplier'}
+          <button type="submit" className="btn btn-primary" style={{ height: '56px', fontSize: '1.05rem', marginTop: '10px' }}>
+            {editingSupplier ? 'Update Supplier' : 'Confirm & Save Supplier'}
           </button>
         </form>
       </FormModal>
