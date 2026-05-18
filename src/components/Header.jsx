@@ -7,6 +7,8 @@ const Header = () => {
   const { user, setRole } = useAuth();
   const [showNotifs, setShowNotifs] = useState(false);
 
+  
+
   return (
     <header className="header">
       <div className="search-bar">
