@@ -1,21 +1,31 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Layout from './components/Layout';
-import Dashboard from './pages/Dashboard';
-import Medicine from './pages/Medicine';
-import Inventory from './pages/Inventory';
-import Sales from './pages/Sales';
-import Expiration from './pages/Expiration';
-import Reports from './pages/Reports';
-import Staff from './pages/Staff';
-import Suppliers from './pages/Suppliers';
-import Settings from './pages/Settings';
-import Login from './pages/Login';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import React from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import Layout from "./components/Layout";
+import Dashboard from "./pages/Dashboard";
+import Medicine from "./pages/Medicine";
+import Inventory from "./pages/Inventory";
+import Sales from "./pages/Sales";
+import Expiration from "./pages/Expiration";
+import Reports from "./pages/Reports";
+import Staff from "./pages/Staff";
+import Suppliers from "./pages/Suppliers";
+import Settings from "./pages/Settings";
+import Login from "./pages/Login";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 
 // Basic Protected Route Component
 const ProtectedRoute = ({ children }) => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return null;
+  }
+
   if (!user) return <Navigate to="/login" />;
   return children;
 };
@@ -26,7 +36,13 @@ function App() {
       <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }>
             <Route index element={<Dashboard />} />
             <Route path="medicine" element={<Medicine />} />
             <Route path="inventory" element={<Inventory />} />

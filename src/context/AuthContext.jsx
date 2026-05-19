@@ -1,48 +1,197 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { users, roles } from '../data/mockData';
+/* eslint-disable react-refresh/only-export-components */
+import React, { createContext, useContext, useState, useEffect } from "react";
+import {
+createUserWithEmailAndPassword as signUp,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+} from "firebase/auth";
+import { auth } from "../services/firebase";
+import {
+  createUserProfile,
+  getUserProfile,
+} from "../services/firestoreService";
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(users[0]); // Default to first user (Admin) for prototype
-  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [authUser, setAuthUser] = useState(null); // Firebase user object
 
-  // In a real app, this would check localStorage or a session
-  const login = (email, password) => {
+  // Listen for auth state changes (persistent login)
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      try {
+        if (firebaseUser) {
+          // User is signed in, fetch their Firestore profile
+          const userProfile = await getUserProfile(firebaseUser.uid);
+          setAuthUser(firebaseUser);
+          setUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            ...userProfile,
+          });
+          setError(null);
+        } else {
+          // User is signed out
+          setAuthUser(null);
+          setUser(null);
+          setError(null);
+        }
+      } catch (err) {
+        console.error("Error fetching user profile:", err);
+        setError(err.message);
+        // Still set the user if we can't fetch profile, fallback to auth data
+        if (firebaseUser) {
+          setAuthUser(firebaseUser);
+          setUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            name: firebaseUser.displayName || "",
+            role: "staff",
+            avatar: `https://i.pravatar.cc/150?u=${firebaseUser.uid}`,
+            status: "Active",
+          });
+        }
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
+  /**
+   * Sign up with email and password
+   * Creates auth user and Firestore profile
+   */
+  const signup = async (email, password, name = "", role = "staff") => {
     setLoading(true);
-    // Mock login logic
-    const foundUser = users.find(u => u.email === email);
-    if (foundUser) {
-      setUser(foundUser);
+    setError(null);
+    try {
+      // Create Firebase Auth user
+      const userCredential = await signUp(auth, email, password);
+      const firebaseUser = userCredential.user;
+
+      // Create Firestore user profile
+      await createUserProfile(firebaseUser.uid, {
+        email,
+        name,
+        role,
+      });
+
+      // Fetch and set the profile
+      const userProfile = await getUserProfile(firebaseUser.uid);
+      setAuthUser(firebaseUser);
+      setUser({
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        ...userProfile,
+      });
+
+      return firebaseUser;
+    } catch (err) {
+      const errorMessage = err.message || "Signup failed";
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  const logout = () => {
-    setUser(null);
+  /**
+   * Login with email and password
+   */
+  const login = async (email, password) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
+      const firebaseUser = userCredential.user;
+
+      // Fetch Firestore profile
+      const userProfile = await getUserProfile(firebaseUser.uid);
+      setAuthUser(firebaseUser);
+      setUser({
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        ...userProfile,
+      });
+
+      return firebaseUser;
+    } catch (err) {
+      const errorMessage = err.message || "Login failed";
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const setRole = (role) => {
-    const newUser = users.find(u => u.role === role);
-    if (newUser) setUser(newUser);
+  /**
+   * Logout
+   */
+  const logout = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await signOut(auth);
+      setAuthUser(null);
+      setUser(null);
+    } catch (err) {
+      const errorMessage = err.message || "Logout failed";
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Clear error message
+   */
+  const clearError = () => {
+    setError(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, setRole, loading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        authUser,
+        loading,
+        error,
+        login,
+        signup,
+        logout,
+        clearError,
+      }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+};
 
 // Role wrapper component
 export const RoleGuard = ({ allowedRoles, children }) => {
   const { user } = useAuth();
-  
+
   if (!user || !allowedRoles.includes(user.role)) {
     return null;
   }
-  
+
   return children;
 };

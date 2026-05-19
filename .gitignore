@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+src\services\firebase.js
+FIREBASE_INTEGRATION_GUIDE.md
+FIRESTORE_RULES.md
+IMPLEMENTATION_SUMMARY.md
+PROJECT_STRUCTURE.md
+QUICK_START.md
+SETUP_CHECKLIST.md
