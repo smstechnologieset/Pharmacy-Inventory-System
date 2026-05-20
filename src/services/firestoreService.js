@@ -11,12 +11,17 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 
+
+
 const USERS_COLLECTION = "users";
 
 /**
  * Create a new user profile in Firestore
  * Called after successful Firebase Authentication signup
  */
+
+
+
 export const createUserProfile = async (uid, userData) => {
   try {
     const userDocRef = doc(db, USERS_COLLECTION, uid);
