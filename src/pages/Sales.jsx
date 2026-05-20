@@ -1,6 +1,8 @@
+/* eslint-disable react-hooks/purity */
 import React, { useState } from 'react';
 import { Search, ShoppingCart, Plus, Minus, Trash2, Printer, CheckCircle, Clock } from 'lucide-react';
 import { medicines, salesData as initialSalesData } from '../data/mockData';
+import { getAllMedicines, getAllSales } from "../services/firestoreService";
 
 const Sales = () => {
   const [cart, setCart] = useState([]);

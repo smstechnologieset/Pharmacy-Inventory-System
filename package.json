@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "seed:mockdata": "node ./scripts/seedMockData.js"
+    "seed:mockdata": "node ./scripts/seedMockData.js",
+    "seed:sales": "node ./scripts/seedSalesData.js"
   },
   "dependencies": {
     "chart.js": "^4.5.1",

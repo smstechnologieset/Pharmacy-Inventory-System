@@ -8,6 +8,7 @@ import {
   collection,
   query,
   where,
+  orderBy,
   getDocs,
   serverTimestamp,
 } from "firebase/firestore";
@@ -16,6 +17,7 @@ import { db } from "./firebase";
 const USERS_COLLECTION = "users";
 const MEDICINES_COLLECTION = "medicines";
 const SUPPLIERS_COLLECTION = "suppliers";
+const SALES_COLLECTION = "sales";
 
 /**
  * Create a new medicine document in Firestore
@@ -171,6 +173,43 @@ export const deleteSupplier = async (supplierId) => {
   } catch (error) {
     console.error("Error deleting supplier:", error);
     throw new Error(`Failed to delete supplier: ${error.message}`);
+  }
+};
+
+/**
+ * Create a new sales transaction in Firestore
+ */
+export const createSale = async (sale) => {
+  try {
+    const saleRef = await addDoc(collection(db, SALES_COLLECTION), {
+      ...sale,
+      quantity: Number(sale.quantity),
+      amount: Number(sale.amount),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    return { id: saleRef.id, ...sale };
+  } catch (error) {
+    console.error("Error creating sale:", error);
+    throw new Error(`Failed to create sale: ${error.message}`);
+  }
+};
+
+/**
+ * Get all sales from Firestore
+ */
+export const getAllSales = async () => {
+  try {
+    const salesQuery = query(
+      collection(db, SALES_COLLECTION),
+      orderBy("createdAt", "desc"),
+    );
+    const snapshot = await getDocs(salesQuery);
+    return snapshot.docs.map((docRef) => ({ id: docRef.id, ...docRef.data() }));
+  } catch (error) {
+    console.error("Error loading sales:", error);
+    throw new Error(`Failed to load sales: ${error.message}`);
   }
 };
 
