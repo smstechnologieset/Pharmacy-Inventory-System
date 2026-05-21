@@ -69,6 +69,21 @@ export const getMedicineById = async (medicineId) => {
   }
 };
 
+export const getAllUsers = async () => {
+  try {
+    const q = query(collection(db, USERS_COLLECTION));
+    const querySnapshot = await getDocs(q);
+
+    return querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  } catch (error) {
+    console.error("Error getting all users:", error);
+    throw new Error(`Failed to retrieve users: ${error.message}`);
+  }
+};
+
 /**
  * Update a medicine document in Firestore
  */
@@ -304,17 +319,17 @@ export const getUserByEmail = async (email) => {
 /**
  * Get all users (for staff management)
  */
-export const getAllUsers = async () => {
-  try {
-    const q = query(collection(db, USERS_COLLECTION));
-    const querySnapshot = await getDocs(q);
+// export const getAllUsers = async () => {
+//   try {
+//     const q = query(collection(db, USERS_COLLECTION));
+//     const querySnapshot = await getDocs(q);
 
-    return querySnapshot.docs.map((doc) => doc.data());
-  } catch (error) {
-    console.error("Error getting all users:", error);
-    throw new Error(`Failed to retrieve users: ${error.message}`);
-  }
-};
+//     return querySnapshot.docs.map((doc) => doc.data());
+//   } catch (error) {
+//     console.error("Error getting all users:", error);
+//     throw new Error(`Failed to retrieve users: ${error.message}`);
+//   }
+// };
 
 /**
  * Get users by role
