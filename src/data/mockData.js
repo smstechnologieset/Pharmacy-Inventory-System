@@ -2,6 +2,7 @@ export const roles = {
   ADMIN: "admin",
   PHARMACIST: "pharmacist",
   MANAGER: "manager",
+  STAFF: "staff",
 };
 
 export const users = [

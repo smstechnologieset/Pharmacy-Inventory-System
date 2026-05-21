@@ -16,6 +16,7 @@ import Staff from "./pages/Staff";
 import Suppliers from "./pages/Suppliers";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
+import StaffWaitingMessage from "./components/StaffWaitingMessage";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 
 // Basic Protected Route Component
@@ -26,13 +27,18 @@ const ProtectedRoute = ({ children }) => {
     return null;
   }
 
-  if (!user) return <Navigate to="/login" />;
+  if ( !user ) return <Navigate to="/login" />;
+  if(user.role=== "staff") return <StaffWaitingMessage user={user} />;
   return children;
 };
 
-function App() {
+function App () {
+//  const { user } = useAuth();
+//   console.log( user)
+  // const isStaff = user.role === "staff";
+  // console.log(isStaff)
   return (
-    <AuthProvider>
+    
       <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -43,7 +49,7 @@ function App() {
                 <Layout />
               </ProtectedRoute>
             }>
-            <Route index element={<Dashboard />} />
+            <Route index element={ <Dashboard />} />
             <Route path="medicine" element={<Medicine />} />
             <Route path="inventory" element={<Inventory />} />
             <Route path="sales" element={<Sales />} />
@@ -56,7 +62,7 @@ function App() {
           </Route>
         </Routes>
       </Router>
-    </AuthProvider>
+    
   );
 }
 
