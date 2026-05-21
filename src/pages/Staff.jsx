@@ -9,22 +9,42 @@ import {
   UserCog,
 } from "lucide-react";
 import { users as initialUsers, roles } from "../data/mockData";
-import { getAllUsers } from "../services/firestoreService";
+import {
+  getAllUsers,
+  updateUserProfile,
+  createUserProfile,
+} from "../services/firestoreService";
+import { deleteDoc, doc } from "firebase/firestore";
+import { db } from "../services/firebase";
 
 import FormModal from "../components/FormModal";
 
+// All possible roles including "staff" which was missing from the dropdown
+const ROLE_OPTIONS = [
+  { value: "admin", label: "Admin" },
+  { value: "pharmacist", label: "Pharmacist" },
+  { value: "manager", label: "Manager" },
+  { value: "staff", label: "Staff" },
+];
+
+const getRoleIcon = (role) => {
+  if (role === "admin") return <Shield size={14} />;
+  return <UserCheck size={14} />;
+};
+
 const Staff = () => {
-  const [staffList, setStaffList] = useState(initialUsers);
+  const [staffList, setStaffList] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    role: roles.PHARMACIST,
+    role: "pharmacist",
     status: "Active",
   });
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const filteredStaff = staffList.filter(
@@ -39,43 +59,68 @@ const Staff = () => {
       setFormData({
         name: staff.name,
         email: staff.email,
-        role: staff.role,
-        status: staff.status,
+        role: staff.role || "staff", // fallback to "staff" if role is undefined
+        status: staff.status || "Active",
       });
     } else {
       setEditingStaff(null);
       setFormData({
         name: "",
         email: "",
-        role: roles.PHARMACIST,
+        role: "pharmacist",
         status: "Active",
       });
     }
     setIsModalOpen(true);
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    if (editingStaff) {
-      setStaffList(
-        staffList.map((s) =>
-          s.id === editingStaff.id ? { ...s, ...formData } : s,
-        ),
-      );
-    } else {
-      const newStaff = {
-        id: Date.now(),
-        ...formData,
-        avatar: `https://i.pravatar.cc/150?u=${Date.now()}`,
-      };
-      setStaffList([...staffList, newStaff]);
+    setSaving(true);
+    setError("");
+
+    try {
+      if (editingStaff) {
+        // Update existing staff in Firestore
+        await updateUserProfile(editingStaff.id, formData);
+        setStaffList(
+          staffList.map((s) =>
+            s.id === editingStaff.id ? { ...s, ...formData } : s,
+          ),
+        );
+      } else {
+        // Create new staff profile in Firestore using timestamp as uid
+        const newUid = `staff_${Date.now()}`;
+        const profileData = await createUserProfile(newUid, {
+          ...formData,
+          avatar: `https://i.pravatar.cc/150?u=${newUid}`,
+        });
+        setStaffList([
+          ...staffList,
+          {
+            id: newUid,
+            ...profileData,
+            avatar: `https://i.pravatar.cc/150?u=${newUid}`,
+          },
+        ]);
+      }
+      setIsModalOpen(false);
+    } catch (err) {
+      console.error("Failed to save staff:", err);
+      setError("Failed to save. Please try again.");
+    } finally {
+      setSaving(false);
     }
-    setIsModalOpen(false);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Remove this staff member?")) {
+  const handleDelete = async (id) => {
+    if (!window.confirm("Remove this staff member?")) return;
+    try {
+      await deleteDoc(doc(db, "users", id));
       setStaffList(staffList.filter((s) => s.id !== id));
+    } catch (err) {
+      console.error("Failed to delete staff:", err);
+      setError("Failed to delete staff member.");
     }
   };
 
@@ -89,7 +134,7 @@ const Staff = () => {
             id: user.id || user.uid || user.email,
             name: user.name || "",
             email: user.email || "",
-            role: user.role || roles.PHARMACIST,
+            role: user.role || "staff",
             avatar:
               user.avatar ||
               `https://i.pravatar.cc/150?u=${user.id || user.email}`,
@@ -215,12 +260,8 @@ const Staff = () => {
                         fontWeight: "700",
                         fontSize: "0.8rem",
                       }}>
-                      {staff.role === roles.ADMIN ? (
-                        <Shield size={14} />
-                      ) : (
-                        <UserCheck size={14} />
-                      )}
-                      {staff.role.toUpperCase()}
+                      {getRoleIcon(staff.role)}
+                      {(staff.role || "staff").toUpperCase()}
                     </div>
                   </td>
                   <td style={{ color: "#475569", fontWeight: "500" }}>
@@ -300,6 +341,13 @@ const Staff = () => {
               <UserCog size={40} />
             </div>
           </div>
+
+          {error && (
+            <p style={{ color: "#DC2626", fontSize: "0.85rem", margin: 0 }}>
+              {error}
+            </p>
+          )}
+
           <div>
             <label
               style={{
@@ -378,9 +426,12 @@ const Staff = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, role: e.target.value })
                 }>
-                <option value={roles.ADMIN}>Admin</option>
-                <option value={roles.PHARMACIST}>Pharmacist</option>
-                <option value={roles.MANAGER}>Manager</option>
+                {/* All 4 roles are now listed so the value always matches */}
+                {ROLE_OPTIONS.map(({ value, label }) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -413,8 +464,13 @@ const Staff = () => {
           <button
             type="submit"
             className="btn btn-primary"
+            disabled={saving}
             style={{ height: "52px", fontSize: "0.95rem", marginTop: "10px" }}>
-            {editingStaff ? "Update Permissions" : "Create Staff Profile"}
+            {saving
+              ? "Saving..."
+              : editingStaff
+                ? "Update Permissions"
+                : "Create Staff Profile"}
           </button>
         </form>
       </FormModal>
