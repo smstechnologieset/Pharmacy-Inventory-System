@@ -48,15 +48,15 @@ const Dashboard = () => {
 
   const [chartData, setChartData] = useState({ labels: [], datasets: [] });
   const [recentSales, setRecentSales] = useState([]);
-const getSaleDate = (sale) => {
-  if (sale.date) {
-    const parsed = new Date(sale.date); // handles "MM/DD/YYYY" natively
-    if (!Number.isNaN(parsed.getTime())) return parsed;
-  }
-  if (sale.createdAt?.toDate) return sale.createdAt.toDate();
-  if (sale.createdAt instanceof Date) return sale.createdAt;
-  return null;
-};
+  const getSaleDate = (sale) => {
+    if (sale.date) {
+      const parsed = new Date(sale.date); // handles "MM/DD/YYYY" natively
+      if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+    if (sale.createdAt?.toDate) return sale.createdAt.toDate();
+    if (sale.createdAt instanceof Date) return sale.createdAt;
+    return null;
+  };
   // const getSaleDate = (sale) => {
   //   if (sale.createdAt && typeof sale.createdAt.toDate === "function") {
   //     return sale.createdAt.toDate();
@@ -71,60 +71,85 @@ const getSaleDate = (sale) => {
   const buildLabels = (filter) => {
     const now = new Date();
     if (filter === "Day") {
-      return Array.from({ length: 7 }, (_, index) => {
-        const date = new Date(now);
-        date.setDate(now.getDate() - (6 - index));
-        return date.toLocaleDateString("default", { weekday: "short" });
+      return Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(now);
+        d.setDate(now.getDate() - (6 - i));
+        return {
+          key: d.toISOString().slice(0, 10),
+          display: d.toLocaleDateString("default", { weekday: "short" }),
+        };
       });
     }
     if (filter === "Week") {
-      return Array.from({ length: 4 }, (_, index) => {
-        const start = new Date(now);
-        start.setDate(now.getDate() - (3 - index) * 7);
-        return `Wk ${start.getMonth() + 1}/${start.getDate()}`;
+      const thisWeekStart = new Date(now);
+      thisWeekStart.setDate(now.getDate() - now.getDay());
+      thisWeekStart.setHours(0, 0, 0, 0);
+      return Array.from({ length: 8 }, (_, i) => {
+        const weekStart = new Date(thisWeekStart);
+        weekStart.setDate(thisWeekStart.getDate() - (7 - i) * 7);
+        return {
+          key: weekStart.toISOString().slice(0, 10),
+          display: `${weekStart.getMonth() + 1}/${weekStart.getDate()}`,
+        };
       });
     }
     if (filter === "Month") {
-      return Array.from({ length: 6 }, (_, index) => {
-        const date = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
-        return date.toLocaleString("default", { month: "short" });
+      return Array.from({ length: 6 }, (_, i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+        return {
+          key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+          display: d.toLocaleString("default", { month: "short" }),
+        };
       });
     }
-    return Array.from({ length: 12 }, (_, index) => {
-      const date = new Date(now.getFullYear(), now.getMonth() - (11 - index), 1);
-      return date.toLocaleString("default", { month: "short" });
+    // Year — last 5 years
+    return Array.from({ length: 5 }, (_, i) => {
+      const year = now.getFullYear() - (4 - i);
+      return { key: String(year), display: String(year) };
     });
   };
 
+  const getBucketKey = (date, filter, weekLabels) => {
+    if (filter === "Day") {
+      return date.toISOString().slice(0, 10);
+    }
+    if (filter === "Week") {
+      const sunday = new Date(date);
+      sunday.setDate(date.getDate() - date.getDay());
+      sunday.setHours(0, 0, 0, 0);
+      const sundayKey = sunday.toISOString().slice(0, 10);
+      return weekLabels.some((w) => w.key === sundayKey) ? sundayKey : null;
+    }
+    if (filter === "Month") {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    }
+    // Year
+    return String(date.getFullYear());
+  };
+  
+  
   const buildTimeSeries = (salesList, filter) => {
     const labels = buildLabels(filter);
-    const buckets = {};
-    labels.forEach((label) => { buckets[label] = 0; });
+    const weekLabels = filter === "Week" ? labels : [];
+    const buckets = Object.fromEntries(labels.map((l) => [l.key, 0]));
 
     salesList.forEach((sale) => {
       const date = getSaleDate(sale);
-      if (filter === "Day") {
-        const label = date.toLocaleDateString("default", { weekday: "short" });
-        if (label in buckets) buckets[label] += Number(sale.amount || 0);
-      } else if (filter === "Week") {
-        const sunday = new Date(date);
-        sunday.setDate(date.getDate() - date.getDay());
-        const label = `Wk ${sunday.getMonth() + 1}/${sunday.getDate()}`;
-        if (label in buckets) buckets[label] += Number(sale.amount || 0);
-      } else {
-        const label = date.toLocaleString("default", { month: "short" });
-        if (label in buckets) buckets[label] += Number(sale.amount || 0);
+      if (!date) return;
+      const key = getBucketKey(date, filter, weekLabels);
+      if (key && key in buckets) {
+        buckets[key] += Number(sale.amount || 0);
       }
     });
 
     return {
-      labels,
+      labels: labels.map((l) => l.display),
       datasets: [
         {
           label: "Sales (ETB)",
-          data: labels.map((label) => buckets[label] || 0),
+          data: labels.map((l) => buckets[l.key]),
           borderColor: "#0D9488",
-          backgroundColor: "rgba(13, 148, 136, 0.2)",
+          backgroundColor: "rgba(13, 148, 136, 0.15)",
           fill: true,
           tension: 0.4,
           pointRadius: 6,
@@ -152,11 +177,11 @@ const getSaleDate = (sale) => {
     }
 
     const outOfStockCount = medicinesList.filter(
-      (m) => Number(m.stock) === 0
+      (m) => Number(m.stock) === 0,
     ).length;
 
     const lowStockCount = medicinesList.filter(
-      (m) => Number(m.stock) > 0 && Number(m.stock) <= LOW_STOCK_THRESHOLD
+      (m) => Number(m.stock) > 0 && Number(m.stock) <= LOW_STOCK_THRESHOLD,
     ).length;
 
     const inStockCount = total - outOfStockCount - lowStockCount;
@@ -184,17 +209,21 @@ const getSaleDate = (sale) => {
         setSales(salesList);
 
         const totalRevenue = salesList.reduce(
-          (sum, sale) => sum + Number(sale.amount || 0), 0
+          (sum, sale) => sum + Number(sale.amount || 0),
+          0,
         );
         const inventoryStock = medicinesList.reduce(
-          (sum, med) => sum + Number(med.stock || 0), 0
+          (sum, med) => sum + Number(med.stock || 0),
+          0,
         );
         const outOfStock = medicinesList.filter(
-          (med) => Number(med.stock) === 0
+          (med) => Number(med.stock) === 0,
         ).length;
         const expired = medicinesList.filter((med) => {
           const date = new Date(med.expiry);
-          return med.expiry && !Number.isNaN(date.getTime()) && date < new Date();
+          return (
+            med.expiry && !Number.isNaN(date.getTime()) && date < new Date()
+          );
         }).length;
 
         setStockStats({ totalRevenue, inventoryStock, outOfStock, expired });
@@ -241,7 +270,12 @@ const getSaleDate = (sale) => {
           }}>
           Dashboard
         </h1>
-        <p style={{ color: "var(--text-muted)", fontSize: "0.95rem", marginTop: "4px" }}>
+        <p
+          style={{
+            color: "var(--text-muted)",
+            fontSize: "0.95rem",
+            marginTop: "4px",
+          }}>
           Welcome back! Here's what's happening today.
         </p>
       </div>
@@ -296,10 +330,14 @@ const getSaleDate = (sale) => {
               {stat.icon}
             </div>
             <div className="stat-info">
-              <span className="label" style={{ fontSize: "0.65rem", letterSpacing: "0.05em" }}>
+              <span
+                className="label"
+                style={{ fontSize: "0.65rem", letterSpacing: "0.05em" }}>
                 {stat.label}
               </span>
-              <div className="value" style={{ fontSize: "1.1rem", marginTop: "0" }}>
+              <div
+                className="value"
+                style={{ fontSize: "1.1rem", marginTop: "0" }}>
                 {stat.value}
               </div>
             </div>
@@ -309,7 +347,9 @@ const getSaleDate = (sale) => {
 
       <div className="dashboard-grid">
         {/* ── Sales chart ──────────────────────────────────────────────────── */}
-        <div className="card" style={{ display: "flex", flexDirection: "column" }}>
+        <div
+          className="card"
+          style={{ display: "flex", flexDirection: "column" }}>
           <div
             style={{
               display: "flex",
@@ -317,7 +357,9 @@ const getSaleDate = (sale) => {
               alignItems: "center",
               marginBottom: "24px",
             }}>
-            <h2 style={{ fontSize: "1.1rem", fontWeight: "700" }}>Sales Overview</h2>
+            <h2 style={{ fontSize: "1.1rem", fontWeight: "700" }}>
+              Sales Overview
+            </h2>
             <div className="tabs">
               {["Day", "Week", "Month", "Year"].map((t) => (
                 <div
@@ -336,11 +378,17 @@ const getSaleDate = (sale) => {
 
         {/* ── Inventory status ─────────────────────────────────────────────── */}
         <div className="card">
-          <h2 style={{ fontSize: "1.1rem", fontWeight: "700", marginBottom: "24px" }}>
+          <h2
+            style={{
+              fontSize: "1.1rem",
+              fontWeight: "700",
+              marginBottom: "24px",
+            }}>
             Inventory Status
           </h2>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
             {inventoryBreakdown.map(({ label, percent, color }) => (
               <div key={label}>
                 <div
@@ -350,7 +398,9 @@ const getSaleDate = (sale) => {
                     marginBottom: "8px",
                     fontSize: "0.9rem",
                   }}>
-                  <span style={{ fontWeight: "500", color: "#64748B" }}>{label}</span>
+                  <span style={{ fontWeight: "500", color: "#64748B" }}>
+                    {label}
+                  </span>
                   <span style={{ fontWeight: "700" }}>{percent}%</span>
                 </div>
                 <div
@@ -440,7 +490,11 @@ const getSaleDate = (sale) => {
                 <tr>
                   <td
                     colSpan={6}
-                    style={{ textAlign: "center", color: "#94A3B8", padding: "40px" }}>
+                    style={{
+                      textAlign: "center",
+                      color: "#94A3B8",
+                      padding: "40px",
+                    }}>
                     No sales transactions yet.
                   </td>
                 </tr>
@@ -465,7 +519,9 @@ const getSaleDate = (sale) => {
                     </td>
                     <td style={{ padding: "20px 32px" }}>{sale.quantity}</td>
                     <td style={{ padding: "20px 32px" }}>
-                      <div>{new Date(getSaleDate(sale)).toLocaleDateString()}</div>
+                      <div>
+                        {new Date(getSaleDate(sale)).toLocaleDateString()}
+                      </div>
                       <div style={{ fontSize: "0.75rem", color: "#94A3B8" }}>
                         {new Date(getSaleDate(sale)).toLocaleTimeString([], {
                           hour: "2-digit",
@@ -480,8 +536,10 @@ const getSaleDate = (sale) => {
                       <span
                         className="status-badge"
                         style={{
-                          background: sale.status === "Delivered" ? "#ECFDF5" : "#FFFBEB",
-                          color: sale.status === "Delivered" ? "#059669" : "#D97706",
+                          background:
+                            sale.status === "Delivered" ? "#ECFDF5" : "#FFFBEB",
+                          color:
+                            sale.status === "Delivered" ? "#059669" : "#D97706",
                         }}>
                         {sale.status || "N/A"}
                       </span>

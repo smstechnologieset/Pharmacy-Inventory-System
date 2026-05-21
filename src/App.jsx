@@ -26,8 +26,8 @@ const ProtectedRoute = ({ children }) => {
   if (loading) {
     return null;
   }
-
   if ( !user ) return <Navigate to="/login" />;
+  // elo i added this check to prevent staff from accessing the dashboard, and if you find this implementation unnecessary, you can remove it(just comment it out)  and let staff access the dashboard, but they won't see any data until they are promoted to pharmacist, manager, or admin by the admin.
   if(user.role=== "staff") return <StaffWaitingMessage user={user} />;
   return children;
 };
