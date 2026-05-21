@@ -12,7 +12,14 @@ import {
   getDocs,
   serverTimestamp,
 } from "firebase/firestore";
-import { db } from "./firebase";
+
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut,
+} from "firebase/auth";
+import { db, firebaseConfig } from "./firebase";
+import { getApps, initializeApp } from "firebase/app";
 
 const USERS_COLLECTION = "users";
 const MEDICINES_COLLECTION = "medicines";
@@ -346,5 +353,46 @@ export const getUsersByRole = async (role) => {
   } catch (error) {
     console.error("Error getting users by role:", error);
     throw new Error(`Failed to retrieve users by role: ${error.message}`);
+  }
+};
+
+export const generatePasswordFromEmail = (email) => {
+  const username = email.split("@")[0];
+  const digits = Math.floor(10000 + Math.random() * 90000); // 5 random digits
+  return `${username}@${digits}`;
+};
+
+export const createStaffAccount = async (userData) => {
+  // A secondary Firebase app instance so the admin session on the
+  // primary app is never touched. Reused if it already exists.
+  const secondaryApp =
+    getApps().find((a) => a.name === "StaffCreator") ||
+    initializeApp(firebaseConfig, "StaffCreator");
+
+  const secondaryAuth = getAuth(secondaryApp);
+  const password = generatePasswordFromEmail(userData.email);
+
+  try {
+    const credential = await createUserWithEmailAndPassword(
+      secondaryAuth,
+      userData.email,
+      password,
+    );
+    const { uid } = credential.user;
+
+    // Sign out of the secondary app only — primary admin session untouched
+    await firebaseSignOut(secondaryAuth);
+
+    // Create the Firestore profile using the existing helper
+    await createUserProfile(uid, {
+      ...userData,
+      avatar: `https://i.pravatar.cc/150?u=${uid}`,
+    });
+
+    return { uid, password };
+  } catch (error) {
+    // Always clean up the secondary session on failure
+    await firebaseSignOut(secondaryAuth).catch(() => {});
+    throw error;
   }
 };

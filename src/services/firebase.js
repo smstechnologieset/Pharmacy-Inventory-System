@@ -3,7 +3,7 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 // Firebase configuration from environment variables
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
@@ -38,14 +38,6 @@ export const auth = getAuth(app);
 // Initialize Cloud Firestore
 export const db = getFirestore(app);
 
-// Optional: Connect to emulators in development (uncomment if using emulators)
-// if (import.meta.env.DEV) {
-//   try {
-//     connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
-//     connectFirestoreEmulator(db, 'localhost', 8080);
-//   } catch (e) {
-//     // Emulator already connected
-//   }
-// }
+
 
 export default app;

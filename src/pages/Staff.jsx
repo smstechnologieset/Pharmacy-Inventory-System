@@ -7,19 +7,21 @@ import {
   Edit,
   Trash2,
   UserCog,
+  Eye,
+  EyeOff,
+  Copy,
+  CheckCheck,
 } from "lucide-react";
-import { users as initialUsers, roles } from "../data/mockData";
+import { deleteDoc, doc } from "firebase/firestore";
+import { db } from "../services/firebase";
 import {
   getAllUsers,
   updateUserProfile,
-  createUserProfile,
+  createStaffAccount,
 } from "../services/firestoreService";
-import { deleteDoc, doc } from "firebase/firestore";
-import { db } from "../services/firebase";
-
+import { useAuth } from "../context/AuthContext";
 import FormModal from "../components/FormModal";
 
-// All possible roles including "staff" which was missing from the dropdown
 const ROLE_OPTIONS = [
   { value: "admin", label: "Admin" },
   { value: "pharmacist", label: "Pharmacist" },
@@ -27,14 +29,24 @@ const ROLE_OPTIONS = [
   { value: "staff", label: "Staff" },
 ];
 
-const getRoleIcon = (role) => {
-  if (role === "admin") return <Shield size={14} />;
-  return <UserCheck size={14} />;
+const getRoleIcon = (role) =>
+  role === "admin" ? <Shield size={14} /> : <UserCheck size={14} />;
+
+const maskEmail = (email = "") => {
+  const [username, domain] = email.split("@");
+  if (!domain) return "***";
+  return `${username[0]}${"*".repeat(Math.max(username.length - 1, 2))}@${domain}`;
 };
 
 const Staff = () => {
+  // "user" matches exactly what AuthContext exposes — it has uid, email, role, name etc.
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const isManager = user?.role === "manager";
+
   const [staffList, setStaffList] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState(null);
   const [formData, setFormData] = useState({
@@ -43,23 +55,51 @@ const Staff = () => {
     role: "pharmacist",
     status: "Active",
   });
+
+  const [successInfo, setSuccessInfo] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [copied, setCopied] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [formError, setFormError] = useState("");
+  const [pageError, setPageError] = useState("");
 
-  const filteredStaff = staffList.filter(
-    (user) =>
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  // ── Load staff ───────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const loadStaff = async () => {
+      try {
+        setLoading(true);
+        const users = await getAllUsers();
+        setStaffList(
+          users.map((u) => ({
+            id: u.id || u.uid,
+            name: u.name || "",
+            email: u.email || "",
+            role: u.role || "staff",
+            avatar: u.avatar || `https://i.pravatar.cc/150?u=${u.id}`,
+            status: u.status || "Active",
+          })),
+        );
+      } catch (err) {
+        console.error(err);
+        setPageError("Unable to load staff from Firebase.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadStaff();
+  }, []);
 
+  // ── Open add/edit modal ──────────────────────────────────────────────────────
   const handleOpenModal = (staff = null) => {
+    setFormError("");
     if (staff) {
       setEditingStaff(staff);
       setFormData({
         name: staff.name,
         email: staff.email,
-        role: staff.role || "staff", // fallback to "staff" if role is undefined
+        role: staff.role || "staff",
         status: staff.status || "Active",
       });
     } else {
@@ -74,88 +114,92 @@ const Staff = () => {
     setIsModalOpen(true);
   };
 
+  // ── Save ─────────────────────────────────────────────────────────────────────
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setError("");
+    setFormError("");
 
     try {
       if (editingStaff) {
-        // Update existing staff in Firestore
-        await updateUserProfile(editingStaff.id, formData);
-        setStaffList(
-          staffList.map((s) =>
-            s.id === editingStaff.id ? { ...s, ...formData } : s,
+        // Email is fixed after creation; only these fields are editable
+        const updates = {
+          name: formData.name,
+          role: formData.role,
+          status: formData.status,
+        };
+        await updateUserProfile(editingStaff.id, updates);
+        setStaffList((prev) =>
+          prev.map((s) =>
+            s.id === editingStaff.id ? { ...s, ...updates } : s,
           ),
         );
+        setIsModalOpen(false);
       } else {
-        // Create new staff profile in Firestore using timestamp as uid
-        const newUid = `staff_${Date.now()}`;
-        const profileData = await createUserProfile(newUid, {
-          ...formData,
-          avatar: `https://i.pravatar.cc/150?u=${newUid}`,
-        });
-        setStaffList([
-          ...staffList,
+        // Creates Firebase Auth account without disturbing admin session
+        const { uid, password } = await createStaffAccount(formData);
+        setStaffList((prev) => [
+          ...prev,
           {
-            id: newUid,
-            ...profileData,
-            avatar: `https://i.pravatar.cc/150?u=${newUid}`,
+            id: uid,
+            ...formData,
+            avatar: `https://i.pravatar.cc/150?u=${uid}`,
           },
         ]);
+        setIsModalOpen(false);
+        // Show credentials to admin so they can pass them to the new staff member
+        setShowPassword(false);
+        setCopied(false);
+        setSuccessInfo({
+          name: formData.name,
+          email: formData.email,
+          password,
+        });
       }
-      setIsModalOpen(false);
     } catch (err) {
-      console.error("Failed to save staff:", err);
-      setError("Failed to save. Please try again.");
+      console.error(err);
+      if (err.code === "auth/email-already-in-use") {
+        setFormError("An account with this email already exists.");
+      } else {
+        setFormError(err.message || "Failed to save. Please try again.");
+      }
     } finally {
       setSaving(false);
     }
   };
 
+  // ── Delete ───────────────────────────────────────────────────────────────────
   const handleDelete = async (id) => {
     if (!window.confirm("Remove this staff member?")) return;
     try {
       await deleteDoc(doc(db, "users", id));
-      setStaffList(staffList.filter((s) => s.id !== id));
+      setStaffList((prev) => prev.filter((s) => s.id !== id));
     } catch (err) {
-      console.error("Failed to delete staff:", err);
-      setError("Failed to delete staff member.");
+      console.error(err);
+      setPageError("Failed to delete staff member.");
     }
   };
 
-  useEffect(() => {
-    const loadStaff = async () => {
-      try {
-        setLoading(true);
-        const users = await getAllUsers();
-        setStaffList(
-          users.map((user) => ({
-            id: user.id || user.uid || user.email,
-            name: user.name || "",
-            email: user.email || "",
-            role: user.role || "staff",
-            avatar:
-              user.avatar ||
-              `https://i.pravatar.cc/150?u=${user.id || user.email}`,
-            status: user.status || "Active",
-          })),
-        );
-      } catch (err) {
-        console.error("Failed to load staff:", err);
-        setError("Unable to load staff from Firebase.");
-      } finally {
-        setLoading(false);
-      }
-    };
+  const handleCopy = () => {
+    navigator.clipboard.writeText(successInfo.password).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    });
+  };
 
-    loadStaff();
-  }, []);
+  const filteredStaff = staffList.filter(
+    (u) =>
+      u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.email.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
 
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="staff-page">
       {loading && <p>Loading staff...</p>}
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      {pageError && <p style={{ color: "red" }}>{pageError}</p>}
+
+      {/* Header */}
       <div
         style={{
           display: "flex",
@@ -178,14 +222,21 @@ const Staff = () => {
               fontSize: "0.85rem",
               marginTop: "4px",
             }}>
-            Manage user access and pharmacy roles.
+            {isAdmin
+              ? "Manage user access and pharmacy roles."
+              : "View pharmacy staff members."}
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => handleOpenModal()}>
-          <Plus size={20} /> Add New Staff
-        </button>
+
+        {/* Only admins see this button */}
+        {isAdmin && (
+          <button className="btn btn-primary" onClick={() => handleOpenModal()}>
+            <Plus size={20} /> Add New Staff
+          </button>
+        )}
       </div>
 
+      {/* Table */}
       <div className="card" style={{ padding: "0", overflow: "hidden" }}>
         <div style={{ padding: "24px 32px" }}>
           <div
@@ -209,9 +260,11 @@ const Staff = () => {
                 <th>Role</th>
                 <th>Email Address</th>
                 <th>Status</th>
-                <th style={{ textAlign: "right", paddingRight: "32px" }}>
-                  Actions
-                </th>
+                {isAdmin && (
+                  <th style={{ textAlign: "right", paddingRight: "32px" }}>
+                    Actions
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -246,6 +299,7 @@ const Staff = () => {
                       </span>
                     </div>
                   </td>
+
                   <td>
                     <div
                       style={{
@@ -264,9 +318,12 @@ const Staff = () => {
                       {(staff.role || "staff").toUpperCase()}
                     </div>
                   </td>
+
+                  {/* Admins see full email; managers and others see masked */}
                   <td style={{ color: "#475569", fontWeight: "500" }}>
-                    {staff.email}
+                    {isAdmin ? staff.email : maskEmail(staff.email)}
                   </td>
+
                   <td>
                     <span
                       className="status-badge"
@@ -280,33 +337,37 @@ const Staff = () => {
                       {staff.status}
                     </span>
                   </td>
-                  <td style={{ paddingRight: "32px" }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "12px",
-                        justifyContent: "flex-end",
-                      }}>
-                      <button
-                        className="icon-button"
-                        onClick={() => handleOpenModal(staff)}
-                        style={{ width: "40px", height: "40px" }}
-                        title="Edit">
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        className="icon-button"
-                        onClick={() => handleDelete(staff.id)}
+
+                  {/* Edit/Delete only for admins */}
+                  {isAdmin && (
+                    <td style={{ paddingRight: "32px" }}>
+                      <div
                         style={{
-                          width: "40px",
-                          height: "40px",
-                          color: "#EF4444",
-                        }}
-                        title="Delete">
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
+                          display: "flex",
+                          gap: "12px",
+                          justifyContent: "flex-end",
+                        }}>
+                        <button
+                          className="icon-button"
+                          onClick={() => handleOpenModal(staff)}
+                          style={{ width: "40px", height: "40px" }}
+                          title="Edit">
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          className="icon-button"
+                          onClick={() => handleDelete(staff.id)}
+                          style={{
+                            width: "40px",
+                            height: "40px",
+                            color: "#EF4444",
+                          }}
+                          title="Delete">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -314,6 +375,7 @@ const Staff = () => {
         </div>
       </div>
 
+      {/* ── Add / Edit modal ─────────────────────────────────────────────────── */}
       <FormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -342,9 +404,9 @@ const Staff = () => {
             </div>
           </div>
 
-          {error && (
+          {formError && (
             <p style={{ color: "#DC2626", fontSize: "0.85rem", margin: 0 }}>
-              {error}
+              {formError}
             </p>
           )}
 
@@ -373,6 +435,7 @@ const Staff = () => {
               }
             />
           </div>
+
           <div>
             <label
               style={{
@@ -386,18 +449,31 @@ const Staff = () => {
             <input
               type="email"
               required
+              disabled={!!editingStaff}
               className="search-bar"
               style={{
                 width: "100%",
-                background: "#F8FAFC",
+                background: editingStaff ? "#F1F5F9" : "#F8FAFC",
                 padding: "14px 20px",
+                cursor: editingStaff ? "not-allowed" : "text",
               }}
               value={formData.email}
               onChange={(e) =>
                 setFormData({ ...formData, email: e.target.value })
               }
             />
+            {!editingStaff && (
+              <p
+                style={{
+                  fontSize: "0.78rem",
+                  color: "#64748B",
+                  marginTop: "6px",
+                }}>
+                A login password will be auto-generated from the email address.
+              </p>
+            )}
           </div>
+
           <div
             style={{
               display: "grid",
@@ -426,7 +502,6 @@ const Staff = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, role: e.target.value })
                 }>
-                {/* All 4 roles are now listed so the value always matches */}
                 {ROLE_OPTIONS.map(({ value, label }) => (
                   <option key={value} value={value}>
                     {label}
@@ -461,6 +536,7 @@ const Staff = () => {
               </select>
             </div>
           </div>
+
           <button
             type="submit"
             className="btn btn-primary"
@@ -469,10 +545,138 @@ const Staff = () => {
             {saving
               ? "Saving..."
               : editingStaff
-                ? "Update Permissions"
-                : "Create Staff Profile"}
+                ? "Update Staff Member"
+                : "Create Staff Account"}
           </button>
         </form>
+      </FormModal>
+
+      {/* ── Credentials modal ────────────────────────────────────────────────── */}
+      <FormModal
+        isOpen={!!successInfo}
+        onClose={() => setSuccessInfo(null)}
+        title="Staff Account Created">
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <div
+              style={{
+                width: "72px",
+                height: "72px",
+                borderRadius: "50%",
+                background: "#ECFDF5",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#059669",
+                fontSize: "2rem",
+              }}>
+              ✓
+            </div>
+          </div>
+
+          <p style={{ textAlign: "center", color: "#475569", margin: 0 }}>
+            Account created for{" "}
+            <strong style={{ color: "#1E293B" }}>{successInfo?.name}</strong>.
+            Share these login credentials with them.
+          </p>
+
+          <div
+            style={{
+              background: "#F8FAFC",
+              borderRadius: "12px",
+              padding: "16px 20px",
+            }}>
+            <p
+              style={{
+                fontSize: "0.75rem",
+                fontWeight: "700",
+                color: "#94A3B8",
+                marginBottom: "6px",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}>
+              Email
+            </p>
+            <p style={{ fontWeight: "600", color: "#1E293B", margin: 0 }}>
+              {successInfo?.email}
+            </p>
+          </div>
+
+          <div
+            style={{
+              background: "#F8FAFC",
+              borderRadius: "12px",
+              padding: "16px 20px",
+            }}>
+            <p
+              style={{
+                fontSize: "0.75rem",
+                fontWeight: "700",
+                color: "#94A3B8",
+                marginBottom: "6px",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}>
+              Password
+            </p>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "12px",
+              }}>
+              <p
+                style={{
+                  fontWeight: "700",
+                  color: "#0D9488",
+                  fontSize: "1.1rem",
+                  margin: 0,
+                  letterSpacing: "0.05em",
+                  fontFamily: "monospace",
+                }}>
+                {showPassword ? successInfo?.password : "••••••••••"}
+              </p>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button
+                  className="icon-button"
+                  style={{ width: "36px", height: "36px" }}
+                  title={showPassword ? "Hide" : "Show"}
+                  onClick={() => setShowPassword((v) => !v)}>
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+                <button
+                  className="icon-button"
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    color: copied ? "#059669" : undefined,
+                  }}
+                  title="Copy password"
+                  onClick={handleCopy}>
+                  {copied ? <CheckCheck size={16} /> : <Copy size={16} />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <p
+            style={{
+              fontSize: "0.78rem",
+              color: "#94A3B8",
+              textAlign: "center",
+              margin: 0,
+            }}>
+            This password won't be shown again. Copy it before closing.
+          </p>
+
+          <button
+            className="btn btn-primary"
+            style={{ height: "48px" }}
+            onClick={() => setSuccessInfo(null)}>
+            Done
+          </button>
+        </div>
       </FormModal>
     </div>
   );
