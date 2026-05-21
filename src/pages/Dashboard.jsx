@@ -15,7 +15,6 @@ import {
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import { getAllMedicines, getAllSales } from "../services/firestoreService";
-import { inventoryChartData } from "../data/mockData";
 
 ChartJS.register(
   CategoryScale,
@@ -39,19 +38,35 @@ const Dashboard = () => {
     outOfStock: 0,
     expired: 0,
   });
+
+  // Real computed inventory breakdown for the status bars
+  const [inventoryBreakdown, setInventoryBreakdown] = useState([
+    { label: "In Stock", percent: 0, color: "#10B981" },
+    { label: "Low Stock", percent: 0, color: "#F59E0B" },
+    { label: "Out of Stock", percent: 0, color: "#EF4444" },
+  ]);
+
   const [chartData, setChartData] = useState({ labels: [], datasets: [] });
   const [recentSales, setRecentSales] = useState([]);
-
-  const getSaleDate = (sale) => {
-    if (sale.createdAt && typeof sale.createdAt.toDate === "function") {
-      return sale.createdAt.toDate();
-    }
-    if (sale.date) {
-      const parsed = new Date(sale.date);
-      if (!Number.isNaN(parsed.getTime())) return parsed;
-    }
-    return new Date();
-  };
+const getSaleDate = (sale) => {
+  if (sale.date) {
+    const parsed = new Date(sale.date); // handles "MM/DD/YYYY" natively
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  if (sale.createdAt?.toDate) return sale.createdAt.toDate();
+  if (sale.createdAt instanceof Date) return sale.createdAt;
+  return null;
+};
+  // const getSaleDate = (sale) => {
+  //   if (sale.createdAt && typeof sale.createdAt.toDate === "function") {
+  //     return sale.createdAt.toDate();
+  //   }
+  //   if (sale.date) {
+  //     const parsed = new Date(sale.date);
+  //     if (!Number.isNaN(parsed.getTime())) return parsed;
+  //   }
+  //   return new Date();
+  // };
 
   const buildLabels = (filter) => {
     const now = new Date();
@@ -71,60 +86,30 @@ const Dashboard = () => {
     }
     if (filter === "Month") {
       return Array.from({ length: 6 }, (_, index) => {
-        const date = new Date(
-          now.getFullYear(),
-          now.getMonth() - (5 - index),
-          1,
-        );
+        const date = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
         return date.toLocaleString("default", { month: "short" });
       });
     }
     return Array.from({ length: 12 }, (_, index) => {
-      const date = new Date(
-        now.getFullYear(),
-        now.getMonth() - (11 - index),
-        1,
-      );
+      const date = new Date(now.getFullYear(), now.getMonth() - (11 - index), 1);
       return date.toLocaleString("default", { month: "short" });
     });
-  };
-
-  const getPeriodKey = (date, filter) => {
-    const value = new Date(date);
-    if (filter === "Day") {
-      return value.toISOString().slice(0, 10);
-    }
-    if (filter === "Week") {
-      const sunday = new Date(value);
-      sunday.setDate(value.getDate() - value.getDay());
-      return sunday.toISOString().slice(0, 10);
-    }
-    if (filter === "Month") {
-      return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}`;
-    }
-    return String(value.getFullYear());
   };
 
   const buildTimeSeries = (salesList, filter) => {
     const labels = buildLabels(filter);
     const buckets = {};
-    labels.forEach((label) => {
-      buckets[label] = 0;
-    });
+    labels.forEach((label) => { buckets[label] = 0; });
 
     salesList.forEach((sale) => {
       const date = getSaleDate(sale);
-      const key = getPeriodKey(date, filter);
       if (filter === "Day") {
         const label = date.toLocaleDateString("default", { weekday: "short" });
-        buckets[label] = (buckets[label] || 0) + Number(sale.amount || 0);
+        if (label in buckets) buckets[label] += Number(sale.amount || 0);
       } else if (filter === "Week") {
         const sunday = new Date(date);
         sunday.setDate(date.getDate() - date.getDay());
         const label = `Wk ${sunday.getMonth() + 1}/${sunday.getDate()}`;
-        if (label in buckets) buckets[label] += Number(sale.amount || 0);
-      } else if (filter === "Month") {
-        const label = date.toLocaleString("default", { month: "short" });
         if (label in buckets) buckets[label] += Number(sale.amount || 0);
       } else {
         const label = date.toLocaleString("default", { month: "short" });
@@ -152,6 +137,42 @@ const Dashboard = () => {
     };
   };
 
+  // Compute inventory status breakdown from real medicines data
+  // Low stock threshold: stock > 0 but <= 10 units
+  const LOW_STOCK_THRESHOLD = 10;
+
+  const computeInventoryBreakdown = (medicinesList) => {
+    const total = medicinesList.length;
+    if (total === 0) {
+      return [
+        { label: "In Stock", percent: 0, color: "#10B981" },
+        { label: "Low Stock", percent: 0, color: "#F59E0B" },
+        { label: "Out of Stock", percent: 0, color: "#EF4444" },
+      ];
+    }
+
+    const outOfStockCount = medicinesList.filter(
+      (m) => Number(m.stock) === 0
+    ).length;
+
+    const lowStockCount = medicinesList.filter(
+      (m) => Number(m.stock) > 0 && Number(m.stock) <= LOW_STOCK_THRESHOLD
+    ).length;
+
+    const inStockCount = total - outOfStockCount - lowStockCount;
+
+    // Round to whole numbers; ensure they sum to 100
+    const outPct = Math.round((outOfStockCount / total) * 100);
+    const lowPct = Math.round((lowStockCount / total) * 100);
+    const inPct = 100 - outPct - lowPct;
+
+    return [
+      { label: "In Stock", percent: inPct, color: "#10B981" },
+      { label: "Low Stock", percent: lowPct, color: "#F59E0B" },
+      { label: "Out of Stock", percent: outPct, color: "#EF4444" },
+    ];
+  };
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -159,27 +180,25 @@ const Dashboard = () => {
           getAllMedicines(),
           getAllSales(),
         ]);
+
         setSales(salesList);
 
         const totalRevenue = salesList.reduce(
-          (sum, sale) => sum + Number(sale.amount || 0),
-          0,
+          (sum, sale) => sum + Number(sale.amount || 0), 0
         );
         const inventoryStock = medicinesList.reduce(
-          (sum, med) => sum + Number(med.stock || 0),
-          0,
+          (sum, med) => sum + Number(med.stock || 0), 0
         );
         const outOfStock = medicinesList.filter(
-          (med) => Number(med.stock) === 0,
+          (med) => Number(med.stock) === 0
         ).length;
         const expired = medicinesList.filter((med) => {
           const date = new Date(med.expiry);
-          return (
-            med.expiry && !Number.isNaN(date.getTime()) && date < new Date()
-          );
+          return med.expiry && !Number.isNaN(date.getTime()) && date < new Date();
         }).length;
 
         setStockStats({ totalRevenue, inventoryStock, outOfStock, expired });
+        setInventoryBreakdown(computeInventoryBreakdown(medicinesList));
         setChartData(buildTimeSeries(salesList, timeFilter));
         setRecentSales(salesList.slice(0, 5));
       } catch (error) {
@@ -222,16 +241,12 @@ const Dashboard = () => {
           }}>
           Dashboard
         </h1>
-        <p
-          style={{
-            color: "var(--text-muted)",
-            fontSize: "0.95rem",
-            marginTop: "4px",
-          }}>
+        <p style={{ color: "var(--text-muted)", fontSize: "0.95rem", marginTop: "4px" }}>
           Welcome back! Here's what's happening today.
         </p>
       </div>
 
+      {/* ── Stat cards ─────────────────────────────────────────────────────── */}
       <div
         className="stats-grid"
         style={{ gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
@@ -245,7 +260,7 @@ const Dashboard = () => {
           },
           {
             label: "Inventory Stock",
-            value: stockStats.inventoryStock,
+            value: stockStats.inventoryStock.toLocaleString(),
             icon: <Package size={20} />,
             bg: "#EFF6FF",
             color: "#3B82F6",
@@ -281,14 +296,10 @@ const Dashboard = () => {
               {stat.icon}
             </div>
             <div className="stat-info">
-              <span
-                className="label"
-                style={{ fontSize: "0.65rem", letterSpacing: "0.05em" }}>
+              <span className="label" style={{ fontSize: "0.65rem", letterSpacing: "0.05em" }}>
                 {stat.label}
               </span>
-              <div
-                className="value"
-                style={{ fontSize: "1.1rem", marginTop: "0" }}>
+              <div className="value" style={{ fontSize: "1.1rem", marginTop: "0" }}>
                 {stat.value}
               </div>
             </div>
@@ -297,9 +308,8 @@ const Dashboard = () => {
       </div>
 
       <div className="dashboard-grid">
-        <div
-          className="card"
-          style={{ display: "flex", flexDirection: "column" }}>
+        {/* ── Sales chart ──────────────────────────────────────────────────── */}
+        <div className="card" style={{ display: "flex", flexDirection: "column" }}>
           <div
             style={{
               display: "flex",
@@ -307,9 +317,7 @@ const Dashboard = () => {
               alignItems: "center",
               marginBottom: "24px",
             }}>
-            <h2 style={{ fontSize: "1.1rem", fontWeight: "700" }}>
-              Sales Overview
-            </h2>
+            <h2 style={{ fontSize: "1.1rem", fontWeight: "700" }}>Sales Overview</h2>
             <div className="tabs">
               {["Day", "Week", "Month", "Year"].map((t) => (
                 <div
@@ -326,18 +334,14 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* ── Inventory status ─────────────────────────────────────────────── */}
         <div className="card">
-          <h2
-            style={{
-              fontSize: "1.1rem",
-              fontWeight: "700",
-              marginBottom: "24px",
-            }}>
+          <h2 style={{ fontSize: "1.1rem", fontWeight: "700", marginBottom: "24px" }}>
             Inventory Status
           </h2>
-          <div
-            style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-            {inventoryChartData.labels.map((label, idx) => (
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            {inventoryBreakdown.map(({ label, percent, color }) => (
               <div key={label}>
                 <div
                   style={{
@@ -346,12 +350,8 @@ const Dashboard = () => {
                     marginBottom: "8px",
                     fontSize: "0.9rem",
                   }}>
-                  <span style={{ fontWeight: "500", color: "#64748B" }}>
-                    {label}
-                  </span>
-                  <span style={{ fontWeight: "700" }}>
-                    {idx === 0 ? "75%" : idx === 1 ? "15%" : "10%"}
-                  </span>
+                  <span style={{ fontWeight: "500", color: "#64748B" }}>{label}</span>
+                  <span style={{ fontWeight: "700" }}>{percent}%</span>
                 </div>
                 <div
                   style={{
@@ -362,21 +362,18 @@ const Dashboard = () => {
                   }}>
                   <div
                     style={{
-                      width: idx === 0 ? "75%" : idx === 1 ? "15%" : "10%",
+                      width: `${percent}%`,
                       height: "100%",
-                      background:
-                        idx === 0
-                          ? "#10B981"
-                          : idx === 1
-                            ? "#F59E0B"
-                            : "#EF4444",
+                      background: color,
                       borderRadius: "10px",
+                      transition: "width 0.6s ease",
                     }}
                   />
                 </div>
               </div>
             ))}
           </div>
+
           <div
             style={{
               marginTop: "32px",
@@ -412,6 +409,7 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* ── Recent sales table ───────────────────────────────────────────────── */}
       <div className="card" style={{ marginTop: "32px", padding: "0" }}>
         <div
           style={{
@@ -438,53 +436,59 @@ const Dashboard = () => {
               </tr>
             </thead>
             <tbody>
-              {recentSales.map((sale) => (
-                <tr key={sale.id}>
+              {recentSales.length === 0 ? (
+                <tr>
                   <td
-                    style={{
-                      fontWeight: "700",
-                      color: "var(--primary)",
-                      padding: "20px 32px",
-                    }}>
-                    #{sale.invoiceId || sale.id}
-                  </td>
-                  <td style={{ padding: "20px 32px" }}>
-                    <div style={{ fontWeight: "600" }}>
-                      {sale.item || sale.product || "Unknown"}
-                    </div>
-                    <div style={{ fontSize: "0.75rem", color: "#94A3B8" }}>
-                      Batch: {sale.batch || "N/A"}
-                    </div>
-                  </td>
-                  <td style={{ padding: "20px 32px" }}>{sale.quantity}</td>
-                  <td style={{ padding: "20px 32px" }}>
-                    <div>
-                      {new Date(getSaleDate(sale)).toLocaleDateString()}
-                    </div>
-                    <div style={{ fontSize: "0.75rem", color: "#94A3B8" }}>
-                      {new Date(getSaleDate(sale)).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </div>
-                  </td>
-                  <td style={{ fontWeight: "800", padding: "20px 32px" }}>
-                    ETB {Number(sale.amount || 0).toLocaleString()}
-                  </td>
-                  <td style={{ padding: "20px 32px" }}>
-                    <span
-                      className="status-badge"
-                      style={{
-                        background:
-                          sale.status === "Delivered" ? "#ECFDF5" : "#FFFBEB",
-                        color:
-                          sale.status === "Delivered" ? "#059669" : "#D97706",
-                      }}>
-                      {sale.status || "N/A"}
-                    </span>
+                    colSpan={6}
+                    style={{ textAlign: "center", color: "#94A3B8", padding: "40px" }}>
+                    No sales transactions yet.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                recentSales.map((sale) => (
+                  <tr key={sale.id}>
+                    <td
+                      style={{
+                        fontWeight: "700",
+                        color: "var(--primary)",
+                        padding: "20px 32px",
+                      }}>
+                      #{sale.invoiceId || sale.id}
+                    </td>
+                    <td style={{ padding: "20px 32px" }}>
+                      <div style={{ fontWeight: "600" }}>
+                        {sale.item || sale.product || "Unknown"}
+                      </div>
+                      <div style={{ fontSize: "0.75rem", color: "#94A3B8" }}>
+                        Batch: {sale.batch || "N/A"}
+                      </div>
+                    </td>
+                    <td style={{ padding: "20px 32px" }}>{sale.quantity}</td>
+                    <td style={{ padding: "20px 32px" }}>
+                      <div>{new Date(getSaleDate(sale)).toLocaleDateString()}</div>
+                      <div style={{ fontSize: "0.75rem", color: "#94A3B8" }}>
+                        {new Date(getSaleDate(sale)).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </div>
+                    </td>
+                    <td style={{ fontWeight: "800", padding: "20px 32px" }}>
+                      ETB {Number(sale.amount || 0).toLocaleString()}
+                    </td>
+                    <td style={{ padding: "20px 32px" }}>
+                      <span
+                        className="status-badge"
+                        style={{
+                          background: sale.status === "Delivered" ? "#ECFDF5" : "#FFFBEB",
+                          color: sale.status === "Delivered" ? "#059669" : "#D97706",
+                        }}>
+                        {sale.status || "N/A"}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
