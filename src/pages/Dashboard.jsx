@@ -37,7 +37,8 @@ const Dashboard = () => {
     inventoryStock: 0,
     outOfStock: 0,
     expired: 0,
-  });
+  } );
+  
 
   // Real computed inventory breakdown for the status bars
   const [inventoryBreakdown, setInventoryBreakdown] = useState([
@@ -47,16 +48,27 @@ const Dashboard = () => {
   ]);
 
   const [chartData, setChartData] = useState({ labels: [], datasets: [] });
-  const [recentSales, setRecentSales] = useState([]);
-  const getSaleDate = (sale) => {
-    if (sale.date) {
-      const parsed = new Date(sale.date); // handles "MM/DD/YYYY" natively
-      if (!Number.isNaN(parsed.getTime())) return parsed;
-    }
-    if (sale.createdAt?.toDate) return sale.createdAt.toDate();
-    if (sale.createdAt instanceof Date) return sale.createdAt;
-    return null;
+  const [recentSales, setRecentSales] = useState( [] );
+ const parseDateString = (str) => {
+   if (!str) return null;
+   const parts = str.split("/");
+   if (parts.length !== 3) return null;
+   const [month, day, year] = parts.map(Number);
+   if (!month || !day || !year) return null;
+   return new Date(year, month - 1, day); // month is 0-indexed
   };
+  
+const getSaleDate = (sale) => {
+  if (sale.date) {
+    const parsed = parseDateString( sale.date );
+   console.log(sale)
+    console.log("raw date:", sale.date, "→ parsed:", parsed?.getFullYear());
+    if (parsed) return parsed;
+  }
+  if (sale.createdAt?.toDate) return sale.createdAt.toDate();
+  if (sale.createdAt instanceof Date) return sale.createdAt;
+  return null;
+};
   // const getSaleDate = (sale) => {
   //   if (sale.createdAt && typeof sale.createdAt.toDate === "function") {
   //     return sale.createdAt.toDate();
