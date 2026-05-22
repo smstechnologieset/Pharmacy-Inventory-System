@@ -9,7 +9,7 @@ import {
   collection,
   serverTimestamp,
 } from "firebase/firestore";
-import { medicines, suppliers } from "../src/data/mockData.js";
+import { medicines } from "../src/data/mockData.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -68,31 +68,23 @@ const main = async () => {
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  const collections = [
-    { name: "medicines", items: medicines },
-    { name: "suppliers", items: suppliers },
-  ];
+  console.log(`Seeding collection: medicines`);
+  console.log(`Total medicines to seed: ${medicines.length}`);
 
-  for (const collectionEntry of collections) 
-    console.log(`Seeding collection: ${collectionEntry.name}`);
-    for (const item of collectionEntry.items) {
-      const { id: legacyId, ...payload } = item;
-      const itemData = {
-        ...payload,
-        legacyId,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
-      const docRef = await addDoc(
-        collection(db, collectionEntry.name),
-        itemData,
-      );
-      console.log(`  - seeded ${collectionEntry.name}/${docRef.id}`);
-    }
+  for (const item of medicines) {
+    const { id: legacyId, ...payload } = item;
+    const itemData = {
+      ...payload,
+      legacyId: legacyId || null,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+    const docRef = await addDoc(collection(db, "medicines"), itemData);
+    console.log(`  ✓ seeded: ${item.name} (${docRef.id})`);
   }
 
-  console.log("Seeding complete.");
-
+  console.log(`\nSeeding complete! ${medicines.length} medicines added.`);
+};
 
 main().catch((error) => {
   console.error("Seeding failed:", error.message || error);
