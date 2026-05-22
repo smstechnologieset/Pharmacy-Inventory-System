@@ -85,46 +85,50 @@ console.log(sales)
   //   return new Date();
   // };
 
-  const buildLabels = (filter) => {
-    const now = new Date();
-    if (filter === "Day") {
-      return Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(now);
-        d.setDate(now.getDate() - (6 - i));
-        return {
-          key: d.toISOString().slice(0, 10),
-          display: d.toLocaleDateString("default", { weekday: "short" }),
-        };
-      });
-    }
-    if (filter === "Week") {
-      const thisWeekStart = new Date(now);
-      thisWeekStart.setDate(now.getDate() - now.getDay());
-      thisWeekStart.setHours(0, 0, 0, 0);
-      return Array.from({ length: 8 }, (_, i) => {
-        const weekStart = new Date(thisWeekStart);
-        weekStart.setDate(thisWeekStart.getDate() - (7 - i) * 7);
-        return {
-          key: weekStart.toISOString().slice(0, 10),
-          display: `${weekStart.getMonth() + 1}/${weekStart.getDate()}`,
-        };
-      });
-    }
-    if (filter === "Month") {
-      return Array.from({ length: 6 }, (_, i) => {
-        const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-        return {
-          key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
-          display: d.toLocaleString("default", { month: "short" }),
-        };
-      });
-    }
-    // Year — last 5 years
-    return Array.from({ length: 5 }, (_, i) => {
-      const year = now.getFullYear() - (4 - i);
-      return { key: String(year), display: String(year) };
+const buildLabels = (filter) => {
+  const now = new Date();
+  if (filter === "Day") {
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(now);
+      d.setDate(now.getDate() - (6 - i));
+      return {
+        key: d.toISOString().slice(0, 10),
+        display: d.toLocaleDateString("default", { weekday: "short" }),
+      };
     });
-  };
+  }
+  if (filter === "Week") {
+    const thisWeekStart = new Date(now);
+    thisWeekStart.setDate(now.getDate() - now.getDay());
+    thisWeekStart.setHours(0, 0, 0, 0);
+    return Array.from({ length: 8 }, (_, i) => {
+      const weekStart = new Date(thisWeekStart);
+      weekStart.setDate(thisWeekStart.getDate() - (7 - i) * 7);
+      return {
+        key: weekStart.toISOString().slice(0, 10),
+        display: `${weekStart.getMonth() + 1}/${weekStart.getDate()}`,
+      };
+    });
+  }
+  if (filter === "Month") {
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+      return {
+        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+        display: d.toLocaleString("default", { month: "short" }),
+      };
+    });
+  }
+  // Year — show ALL years from 2020 to current year
+  const startYear = 2020;
+  const currentYear = now.getFullYear();
+  const yearsCount = currentYear - startYear + 1;
+
+  return Array.from({ length: yearsCount }, (_, i) => {
+    const year = startYear + i;
+    return { key: String(year), display: String(year) };
+  });
+};
 
   const getBucketKey = (date, filter, weekLabels) => {
     if (filter === "Day") {
