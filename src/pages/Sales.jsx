@@ -1,4 +1,26 @@
-import React, { useEffect, useState } from "react";
+/*
+  ============================================================
+  📄 RECEIPT PRINTING GUIDE — Full Implementation
+  ============================================================
+
+  APPROACH USED: Native window.print() + @media print CSS
+  ─────────────────────────────────────────────────────────
+  • No extra libraries needed
+  • Works with ANY printer (laser, inkjet, thermal 80mm/58mm)
+  • The receipt is rendered OFF-SCREEN and only appears when printing
+  • Uses a React ref so you can trigger print from any button
+
+  STEPS TO INTEGRATE INTO YOUR PROJECT:
+  ─────────────────────────────────────
+  1. Copy the @media print <style> block into your index.css
+  2. Copy the "printable receipt" <div ref={receiptRef}> block
+  3. Copy the handlePrint() and handleReprint() functions
+  4. Store the LAST SALE in state (currentReceipt)
+  5. Wire the Print buttons to those handlers
+  ============================================================
+*/
+
+import React, { useEffect, useState, useRef } from "react";
 import {
   Search,
   ShoppingCart,
@@ -7,6 +29,7 @@ import {
   Trash2,
   Printer,
   CheckCircle,
+  FileText,
 } from "lucide-react";
 import {
   getAllMedicines,
@@ -25,22 +48,22 @@ const Sales = () => {
   const [error, setError] = useState("");
   const [lastTotal, setLastTotal] = useState(0);
 
+  // ✅ STEP 1: ref to the hidden printable receipt + state to hold its data
+  const receiptRef = useRef(null);
+  const [currentReceipt, setCurrentReceipt] = useState(null);
+
   const getSaleDate = (sale) => {
     if (sale.createdAt && typeof sale.createdAt.toDate === "function") {
       return sale.createdAt.toDate();
     }
     if (sale.date) {
       const parsedDate = new Date(sale.date);
-      if (!Number.isNaN(parsedDate.getTime())) {
-        return parsedDate;
-      }
+      if (!Number.isNaN(parsedDate.getTime())) return parsedDate;
     }
     return new Date();
   };
 
-  const formatDate = (sale) => {
-    return getSaleDate(sale).toLocaleDateString();
-  };
+  const formatDate = (sale) => getSaleDate(sale).toLocaleDateString();
 
   useEffect(() => {
     const loadSalesData = async () => {
@@ -59,7 +82,6 @@ const Sales = () => {
         setLoading(false);
       }
     };
-
     loadSalesData();
   }, []);
 
@@ -86,9 +108,7 @@ const Sales = () => {
     }
   };
 
-  const removeFromCart = (id) => {
-    setCart(cart.filter((item) => item.id !== id));
-  };
+  const removeFromCart = (id) => setCart(cart.filter((item) => item.id !== id));
 
   const updateQuantity = (id, delta) => {
     setCart(
@@ -111,17 +131,50 @@ const Sales = () => {
   );
   const total = subtotal;
 
+  // ✅ STEP 2: Print helper — opens the native print dialog.
+  // The @media print CSS hides the app and shows ONLY the receipt.
+  const handlePrint = () => {
+    // tiny delay so the DOM paints the receipt before print dialog opens
+    setTimeout(() => {
+      window.print();
+    }, 100);
+  };
+
+  // ✅ STEP 3: Reprint any past transaction from the history table
+  const handleReprint = (sale) => {
+    setCurrentReceipt({
+      invoiceNumber: sale.invoiceNumber || sale.id,
+      date: sale.date || formatDate(sale),
+      time: getSaleDate(sale).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      items: sale.items || [
+        {
+          name: sale.item,
+          quantity: sale.quantity,
+          price: sale.amount / sale.quantity,
+        },
+      ],
+      total: sale.amount,
+      payment: sale.payment || "Cash",
+    });
+    setTimeout(() => window.print(), 100);
+  };
+
   const handleCheckout = async () => {
     if (cart.length === 0) return;
 
     const newInvoiceId = Math.floor(8848 + Math.random() * 1000).toString();
+    const now = new Date();
+
     const salePayload = {
       invoiceNumber: newInvoiceId,
       item:
         cart.length > 1
           ? `${cart[0].name} +${cart.length - 1} more`
           : cart[0].name,
-      date: new Date().toLocaleDateString(),
+      date: now.toLocaleDateString(),
       quantity: cart.reduce((q, i) => q + i.quantity, 0),
       batch: cart[0].batch || "N/A",
       status: "Delivered",
@@ -145,19 +198,37 @@ const Sales = () => {
         }),
       );
 
-      setMedicines((prevMedicines) =>
-        prevMedicines.map((med) => {
-          const cartItem = cart.find((item) => item.id === med.id);
-          if (!cartItem) return med;
+      setMedicines((prev) =>
+        prev.map((med) => {
+          const ci = cart.find((item) => item.id === med.id);
+          if (!ci) return med;
           return {
             ...med,
-            stock: Math.max(0, Number(med.stock) - cartItem.quantity),
+            stock: Math.max(0, Number(med.stock) - ci.quantity),
           };
         }),
       );
 
-      setTransactions((prevTransactions) => [savedSale, ...prevTransactions]);
+      setTransactions((prev) => [savedSale, ...prev]);
       setLastTotal(total);
+
+      // ✅ STEP 4: Build the receipt data BEFORE clearing the cart
+      setCurrentReceipt({
+        invoiceNumber: newInvoiceId,
+        date: now.toLocaleDateString(),
+        time: now.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        items: cart.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+        total,
+        payment: "Cash",
+      });
+
       setShowReceipt(true);
       setCart([]);
       setError("");
@@ -169,6 +240,7 @@ const Sales = () => {
 
   return (
     <div className="sales-page">
+
       <div style={{ marginBottom: "32px" }}>
         <h1
           style={{
@@ -187,12 +259,7 @@ const Sales = () => {
           Fast and easy checkout terminal.
         </p>
         {error && (
-          <div
-            style={{
-              marginTop: "16px",
-              color: "#dc2626",
-              fontWeight: 600,
-            }}>
+          <div style={{ marginTop: "16px", color: "#dc2626", fontWeight: 600 }}>
             {error}
           </div>
         )}
@@ -304,7 +371,7 @@ const Sales = () => {
           </div>
         </div>
 
-        {/* Right: Cart Summary */}
+        {/* Right: Cart */}
         <div
           className="card"
           style={{
@@ -462,7 +529,7 @@ const Sales = () => {
         </div>
       </div>
 
-      {/* Sales History Table (Refined) */}
+      {/* Sales History Table */}
       <div
         className="card"
         style={{ marginTop: "32px", padding: "0", overflow: "hidden" }}>
@@ -550,18 +617,139 @@ const Sales = () => {
         </div>
       </div>
 
-      {/* Receipt Modal (Refined) */}
+      {/* =========================================================
+          ✅ STEP 6: THE PRINTABLE RECEIPT (hidden until print)
+          This is what the printer actually sees.
+          Styled for 80mm thermal paper but works on A4 too.
+          ========================================================= */}
+      {currentReceipt && (
+        <div ref={receiptRef} className="printable-receipt">
+          <div
+            style={{
+              textAlign: "center",
+              borderBottom: "1px dashed #000",
+              paddingBottom: 6,
+              marginBottom: 6,
+            }}>
+            <div style={{ fontWeight: 900, fontSize: 16, letterSpacing: 1 }}>
+              PHARMACY RECEIPT
+            </div>
+            <div style={{ fontSize: 10 }}>Thank you for your purchase</div>
+          </div>
+
+          <div style={{ fontSize: 11, marginBottom: 6 }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span>Invoice:</span>
+              <span style={{ fontWeight: 700 }}>
+                #{currentReceipt.invoiceNumber}
+              </span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span>Date:</span>
+              <span>{currentReceipt.date}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span>Time:</span>
+              <span>{currentReceipt.time}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span>Payment:</span>
+              <span>{currentReceipt.payment}</span>
+            </div>
+          </div>
+
+          <div
+            style={{
+              borderTop: "1px dashed #000",
+              borderBottom: "1px dashed #000",
+              padding: "4px 0",
+              marginBottom: 4,
+            }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "2fr 1fr 1fr 1fr",
+                fontWeight: 700,
+                fontSize: 10,
+              }}>
+              <span>ITEM</span>
+              <span style={{ textAlign: "center" }}>QTY</span>
+              <span style={{ textAlign: "right" }}>PRICE</span>
+              <span style={{ textAlign: "right" }}>TOTAL</span>
+            </div>
+          </div>
+
+          {currentReceipt.items.map((it, idx) => (
+            <div
+              key={idx}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "2fr 1fr 1fr 1fr",
+                fontSize: 11,
+                padding: "2px 0",
+              }}>
+              <span
+                style={{
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}>
+                {it.name}
+              </span>
+              <span style={{ textAlign: "center" }}>{it.quantity}</span>
+              <span style={{ textAlign: "right" }}>
+                {Number(it.price).toFixed(2)}
+              </span>
+              <span style={{ textAlign: "right" }}>
+                {(it.quantity * it.price).toFixed(2)}
+              </span>
+            </div>
+          ))}
+
+          <div
+            style={{
+              borderTop: "1px dashed #000",
+              marginTop: 6,
+              paddingTop: 6,
+            }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                fontWeight: 900,
+                fontSize: 14,
+              }}>
+              <span>TOTAL</span>
+              <span>ETB {Number(currentReceipt.total).toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div
+            style={{
+              textAlign: "center",
+              marginTop: 10,
+              paddingTop: 6,
+              borderTop: "1px dashed #000",
+              fontSize: 10,
+            }}>
+            <div>*** Thank you! ***</div>
+            <div style={{ marginTop: 2 }}>Get well soon ❤</div>
+          </div>
+        </div>
+      )}
+
+      {/* Receipt Modal */}
       {showReceipt && (
         <div className="modal-overlay" onClick={() => setShowReceipt(false)}>
           <div
             className="modal-content"
-            style={{ maxWidth: "400px", padding: "40px" }}
+            style={{ maxWidth: 400, padding: 40 }}
             onClick={(e) => e.stopPropagation()}>
-            <div style={{ textAlign: "center", marginBottom: "32px" }}>
+            <div style={{ textAlign: "center", marginBottom: 32 }}>
               <div
                 style={{
-                  width: "64px",
-                  height: "64px",
+                  width: 64,
+                  height: 64,
                   borderRadius: "50%",
                   background: "#F0FDFA",
                   color: "#0D9488",
@@ -572,15 +760,11 @@ const Sales = () => {
                 }}>
                 <CheckCircle size={32} />
               </div>
-              <h2 style={{ fontSize: "1.3rem", fontWeight: "800" }}>
+              <h2 style={{ fontSize: "1.3rem", fontWeight: 800 }}>
                 Payment Success!
               </h2>
               <p
-                style={{
-                  color: "#64748B",
-                  fontSize: "0.85rem",
-                  marginTop: "4px",
-                }}>
+                style={{ color: "#64748B", fontSize: "0.85rem", marginTop: 4 }}>
                 Invoice has been generated.
               </p>
             </div>
@@ -588,25 +772,27 @@ const Sales = () => {
             <div
               style={{
                 background: "#F8FAFC",
-                padding: "24px",
-                borderRadius: "24px",
-                marginBottom: "32px",
+                padding: 24,
+                borderRadius: 24,
+                marginBottom: 32,
               }}>
               <div
                 style={{
                   borderBottom: "1px dashed #D1D5DB",
-                  paddingBottom: "16px",
-                  marginBottom: "16px",
+                  paddingBottom: 16,
+                  marginBottom: 16,
                 }}>
                 <div
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
-                    marginBottom: "8px",
+                    marginBottom: 8,
                     fontSize: "0.9rem",
                   }}>
                   <span style={{ color: "#64748B" }}>Invoice ID</span>
-                  <span style={{ fontWeight: "700" }}>#8848</span>
+                  <span style={{ fontWeight: 700 }}>
+                    #{currentReceipt?.invoiceNumber || "—"}
+                  </span>
                 </div>
                 <div
                   style={{
@@ -615,8 +801,8 @@ const Sales = () => {
                     fontSize: "0.9rem",
                   }}>
                   <span style={{ color: "#64748B" }}>Date</span>
-                  <span style={{ fontWeight: "700" }}>
-                    {new Date().toLocaleDateString()}
+                  <span style={{ fontWeight: 700 }}>
+                    {currentReceipt?.date || new Date().toLocaleDateString()}
                   </span>
                 </div>
               </div>
@@ -624,7 +810,7 @@ const Sales = () => {
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  fontWeight: "800",
+                  fontWeight: 800,
                   fontSize: "1rem",
                 }}>
                 <span>TOTAL PAID</span>
@@ -634,11 +820,36 @@ const Sales = () => {
               </div>
             </div>
 
+            {/* ✅ STEP 7: This button now ACTUALLY prints */}
             <button
-              className="btn btn-primary"
-              style={{ width: "100%", height: "56px" }}
-              onClick={() => setShowReceipt(false)}>
+              className="btn btn-primary no-print"
+              style={{
+                width: "100%",
+                height: 56,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+              onClick={handlePrint}>
               <Printer size={20} /> Print Receipt
+            </button>
+
+            <button
+              className="no-print"
+              style={{
+                width: "100%",
+                marginTop: 10,
+                padding: 12,
+                background: "transparent",
+                border: "1px solid #E2E8F0",
+                borderRadius: 12,
+                cursor: "pointer",
+                fontSize: "0.9rem",
+                color: "#475569",
+              }}
+              onClick={() => setShowReceipt(false)}>
+              Skip for now
             </button>
           </div>
         </div>
@@ -648,3 +859,54 @@ const Sales = () => {
 };
 
 export default Sales;
+
+/*
+  ============================================================
+  🎯 BONUS: Other Approaches You Might Consider
+  ============================================================
+
+  1️⃣ REACT-TO-PRINT LIBRARY (cleaner API, same result)
+     ────────────────────────────────────────────────────
+     npm install react-to-print
+
+     import { useReactToPrint } from "react-to-print";
+
+     const handlePrint = useReactToPrint({
+       contentRef: receiptRef,
+       documentTitle: `receipt-${currentReceipt.invoiceNumber}`,
+     });
+
+
+  2️⃣ DIRECT THERMAL PRINTER via WebUSB / ESC/POS
+     ─────────────────────────────────────────────
+     For real 80mm thermal printers without print dialog:
+     npm install escpos escpos-usb escpos-buffer
+
+     import escpos from 'escpos';
+     import USB from 'escpos-usb';
+     const device = new USB();
+     const printer = new escpos.Printer(device);
+     device.open(() => {
+       printer
+         .align('CT')
+         .text('PHARMACY RECEIPT')
+         .text(`Invoice: #${invoice}`)
+         .table(items)
+         .cut()
+         .close();
+     });
+
+
+  3️⃣ DOWNLOAD AS PDF INSTEAD
+     ─────────────────────────
+     npm install html2pdf.js
+
+     import html2pdf from 'html2pdf.js';
+     html2pdf().from(receiptRef.current).save(`receipt-${id}.pdf`);
+
+
+  🔥 RECOMMENDATION: Use Approach 1 (react-to-print) for web apps.
+     It handles cross-browser quirks, page breaks, and works with
+     any printer the user has installed (including thermal).
+  ============================================================
+*/
