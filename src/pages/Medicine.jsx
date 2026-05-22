@@ -6,10 +6,12 @@ import {
   getAllMedicines,
   updateMedicine,
   deleteMedicine,
+  getAllSuppliers, // ✅ Added: load suppliers from Firestore
 } from "../services/firestoreService";
 
 const Medicine = () => {
   const [productList, setProductList] = useState([]);
+  const [suppliers, setSuppliers] = useState([]); // ✅ Added
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -20,6 +22,8 @@ const Medicine = () => {
     description: "",
     batch: "",
     expiry: "",
+    supplierId: "", // ✅ Added: selected supplier id
+    supplierName: "", // ✅ Added: selected supplier name (denormalized for display)
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -29,9 +33,14 @@ const Medicine = () => {
     const loadMedicines = async () => {
       try {
         setLoading(true);
-        const medicines = await getAllMedicines();
+        // ✅ Added: load suppliers in parallel with medicines
+        const [medicines, suppliersList] = await Promise.all([
+          getAllMedicines(),
+          getAllSuppliers().catch(() => []), // graceful fallback
+        ]);
         setProductList(medicines);
-      } catch ( err ) {
+        setSuppliers(suppliersList);
+      } catch (err) {
         setLoading(false);
         setError(err.message || "Failed to load medicines.");
       } finally {
@@ -41,7 +50,7 @@ const Medicine = () => {
 
     loadMedicines();
   }, []);
-console.log("Loaded medicines:", productList);
+  console.log("Loaded medicines:", productList);
   if (loading) {
     return (
       <div className="medicine-page" style={{ padding: "32px" }}>
@@ -66,6 +75,8 @@ console.log("Loaded medicines:", productList);
         description: product.description,
         batch: product.batch || "",
         expiry: product.expiry || "",
+        supplierId: product.supplierId || "",
+        supplierName: product.supplierName || "",
       });
     } else {
       setEditingProduct(null);
@@ -76,9 +87,21 @@ console.log("Loaded medicines:", productList);
         description: "",
         batch: "",
         expiry: "",
+        supplierId: suppliers[0]?.id || "", // ✅ Auto-select first supplier
+        supplierName: suppliers[0]?.name || "",
       });
     }
     setIsModalOpen(true);
+  };
+
+  // ✅ Added: handle supplier selection (stores id + name)
+  const handleSupplierChange = (supplierId) => {
+    const selected = suppliers.find((s) => s.id === supplierId);
+    setFormData({
+      ...formData,
+      supplierId,
+      supplierName: selected?.name || "",
+    });
   };
 
   const handleSave = async (e) => {
@@ -106,6 +129,8 @@ console.log("Loaded medicines:", productList);
           stock: 0,
           batch: formData.batch || "N/A",
           expiry: formData.expiry || "N/A",
+          supplierId: formData.supplierId || "N/A",
+          supplierName: formData.supplierName || "N/A",
           status: "Out of Stock",
         };
 
@@ -214,6 +239,17 @@ console.log("Loaded medicines:", productList);
                       }}>
                       Batch: {p.batch || "N/A"}
                     </div>
+                    {/* ✅ Added: supplier info under medicine name */}
+                    {p.supplierName && (
+                      <div
+                        style={{
+                          fontSize: "0.7rem",
+                          color: "#0D9488",
+                          marginTop: "2px",
+                        }}>
+                        Supplier: {p.supplierName}
+                      </div>
+                    )}
                   </td>
                   <td>
                     <span
@@ -310,10 +346,11 @@ console.log("Loaded medicines:", productList);
               }
             />
           </div>
+          {/* ✅ Modified: 3-column row now includes Supplier */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr",
+              gridTemplateColumns: "1fr 1.3fr 1fr",
               gap: "16px",
             }}>
             <div>
@@ -347,6 +384,44 @@ console.log("Loaded medicines:", productList);
                 <option value="Antibiotics">Antibiotics</option>
               </select>
             </div>
+
+            {/* ✅ Added: Supplier dropdown */}
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.9rem",
+                  fontWeight: "700",
+                  marginBottom: "8px",
+                  color: "#1E293B",
+                }}>
+                Supplier
+              </label>
+              <select
+                className="search-bar"
+                required
+                style={{
+                  width: "100%",
+                  background: "#F8FAFC",
+                  padding: "14px 20px",
+                  appearance: "auto",
+                  color: formData.supplierId ? "#1E293B" : "#94A3B8",
+                }}
+                value={formData.supplierId}
+                onChange={(e) => handleSupplierChange(e.target.value)}>
+                <option value="" disabled>
+                  {suppliers.length === 0
+                    ? "No suppliers available"
+                    : "Select a supplier"}
+                </option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label
                 style={{
@@ -473,6 +548,20 @@ console.log("Loaded medicines:", productList);
                 marginBottom: "10px",
               }}>
               {error}
+            </div>
+          )}
+          {/* ✅ Added: helpful hint if no suppliers exist */}
+          {suppliers.length === 0 && (
+            <div
+              style={{
+                color: "#92400E",
+                background: "#FEF3C7",
+                padding: "12px 16px",
+                borderRadius: "16px",
+                fontSize: "0.85rem",
+              }}>
+              No suppliers found. Please add suppliers first in the Suppliers
+              section to assign one to this medicine.
             </div>
           )}
           <button
