@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Bell, ChevronDown, Package, X } from 'lucide-react';
+import { Search, Bell, Package, X, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { roles, notifications } from '../data/mockData';
+import { notifications } from '../data/mockData';
 import { getAllMedicines } from '../services/firestoreService';
 
 // ── Stock status helper ───────────────────────────────────────────────────────
@@ -25,7 +26,8 @@ const getExpiryStatus = (expiry) => {
 };
 
 const Header = () => {
-  const { user, setRole } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [showNotifs, setShowNotifs] = useState(false);
 
   // ── Search state ─────────────────────────────────────────────────────────────
@@ -110,6 +112,15 @@ const Header = () => {
     setResults([]);
     setShowDropdown(false);
     inputRef.current?.focus();
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/login", { replace: true });
+    } catch (err) {
+      console.error("Failed to logout:", err);
+    }
   };
 
   return (
@@ -306,31 +317,8 @@ const Header = () => {
         )}
       </div>
 
-      {/* ── Right side (unchanged) ────────────────────────────────────────── */}
+      {/* ── Right side ────────────────────────────────────────── */}
       <div className="header-right">
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <span style={{ fontSize: "9px", color: "#64748B", fontWeight: "400", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            Mode:
-          </span>
-          <select
-            onChange={(e) => setRole(e.target.value)}
-            value={user?.role}
-            style={{
-              padding: "6px 10px",
-              borderRadius: "12px",
-              border: "1px solid #F1F5F9",
-              outline: "none",
-              fontSize: "13px",
-              background: "white",
-              fontWeight: "600",
-              cursor: "pointer",
-            }}>
-            <option value={roles.ADMIN}>Admin</option>
-            <option value={roles.PHARMACIST}>Pharmacist</option>
-            <option value={roles.MANAGER}>Manager</option>
-          </select>
-        </div>
-
         <div className="icon-button" onClick={() => setShowNotifs(!showNotifs)}>
           <Bell size={22} />
           <div className="badge"></div>
@@ -364,13 +352,40 @@ const Header = () => {
           )}
         </div>
 
-        <div className="user-profile">
-          <img src={user?.avatar} alt={user?.name} />
-          <div className="info">
-            <span className="name" style={{ color: "#0F172A" }}>{user?.name}</span>
-          </div>
-          <ChevronDown size={14} style={{ color: "#94A3B8" }} />
+        <div
+          title={user?.name || "User"}
+          aria-label={user?.name || "User avatar"}
+          style={{
+            width: "44px",
+            height: "44px",
+            borderRadius: "50%",
+            overflow: "hidden",
+            border: "3px solid #F0FDFA",
+            background: "#F8FAFC",
+            flexShrink: 0,
+          }}>
+          <img
+            src={user?.avatar}
+            alt={user?.name || "User avatar"}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
         </div>
+
+        <button
+          className="icon-button"
+          onClick={handleLogout}
+          title="Logout"
+          aria-label="Logout"
+          style={{
+            background: "#FEF2F2",
+            color: "#DC2626",
+            border: "1px solid #FECACA",
+            width: "44px",
+            height: "44px",
+            flexShrink: 0,
+          }}>
+          <LogOut size={16} />
+        </button>
       </div>
     </header>
   );
