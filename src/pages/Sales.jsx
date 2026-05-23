@@ -1,25 +1,3 @@
-/*
-  ============================================================
-  📄 RECEIPT PRINTING GUIDE — Full Implementation
-  ============================================================
-
-  APPROACH USED: Native window.print() + @media print CSS
-  ─────────────────────────────────────────────────────────
-  • No extra libraries needed
-  • Works with ANY printer (laser, inkjet, thermal 80mm/58mm)
-  • The receipt is rendered OFF-SCREEN and only appears when printing
-  • Uses a React ref so you can trigger print from any button
-
-  STEPS TO INTEGRATE INTO YOUR PROJECT:
-  ─────────────────────────────────────
-  1. Copy the @media print <style> block into your index.css
-  2. Copy the "printable receipt" <div ref={receiptRef}> block
-  3. Copy the handlePrint() and handleReprint() functions
-  4. Store the LAST SALE in state (currentReceipt)
-  5. Wire the Print buttons to those handlers
-  ============================================================
-*/
-
 import React, { useEffect, useState, useRef } from "react";
 import {
   Search,
@@ -240,7 +218,6 @@ const Sales = () => {
 
   return (
     <div className="sales-page">
-
       <div style={{ marginBottom: "32px" }}>
         <h1
           style={{
@@ -859,54 +836,3 @@ const Sales = () => {
 };
 
 export default Sales;
-
-/*
-  ============================================================
-  🎯 BONUS: Other Approaches You Might Consider
-  ============================================================
-
-  1️⃣ REACT-TO-PRINT LIBRARY (cleaner API, same result)
-     ────────────────────────────────────────────────────
-     npm install react-to-print
-
-     import { useReactToPrint } from "react-to-print";
-
-     const handlePrint = useReactToPrint({
-       contentRef: receiptRef,
-       documentTitle: `receipt-${currentReceipt.invoiceNumber}`,
-     });
-
-
-  2️⃣ DIRECT THERMAL PRINTER via WebUSB / ESC/POS
-     ─────────────────────────────────────────────
-     For real 80mm thermal printers without print dialog:
-     npm install escpos escpos-usb escpos-buffer
-
-     import escpos from 'escpos';
-     import USB from 'escpos-usb';
-     const device = new USB();
-     const printer = new escpos.Printer(device);
-     device.open(() => {
-       printer
-         .align('CT')
-         .text('PHARMACY RECEIPT')
-         .text(`Invoice: #${invoice}`)
-         .table(items)
-         .cut()
-         .close();
-     });
-
-
-  3️⃣ DOWNLOAD AS PDF INSTEAD
-     ─────────────────────────
-     npm install html2pdf.js
-
-     import html2pdf from 'html2pdf.js';
-     html2pdf().from(receiptRef.current).save(`receipt-${id}.pdf`);
-
-
-  🔥 RECOMMENDATION: Use Approach 1 (react-to-print) for web apps.
-     It handles cross-browser quirks, page breaks, and works with
-     any printer the user has installed (including thermal).
-  ============================================================
-*/
