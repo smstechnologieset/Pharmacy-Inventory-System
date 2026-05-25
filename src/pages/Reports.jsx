@@ -221,7 +221,7 @@ const exportToPDF = (activeTab, period, filteredSales, stats, medicines, customS
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(20);
   doc.setFont("helvetica", "bold");
-  doc.text("PharmaStock", 14, 16);
+  doc.text("PharmaCare", 14, 16);
   doc.setFontSize(11);
   doc.setFont("helvetica", "normal");
   doc.text("Pharmacy Inventory & Stock Management", 14, 24);
@@ -1203,18 +1203,43 @@ const Reports = () => {
                       <tr key={med.id}>
                         <td style={{ padding: "16px 28px" }}>
                           <div style={{ fontWeight: "600" }}>{med.name}</div>
-                          <div style={{ fontSize: "0.72rem", color: "#94A3B8" }}>{med.dosage || "N/A"}</div>
+                          <div
+                            style={{ fontSize: "0.72rem", color: "#94A3B8" }}>
+                            {med.dosage || "N/A"}
+                          </div>
                         </td>
-                        <td style={{ padding: "16px 28px" }}>{med.category || "—"}</td>
-                        <td style={{ padding: "16px 28px", fontWeight: "700" }}>{stock}</td>
-                        <td style={{ padding: "16px 28px" }}>ETB {Number(med.price || 0).toLocaleString()}</td>
-                        <td style={{ padding: "16px 28px" }}>{med.supplier || "—"}</td>
                         <td style={{ padding: "16px 28px" }}>
-                          <span className="status-badge" style={{
-                            background: isOut ? "#FEF2F2" : isLow ? "#FFFBEB" : "#ECFDF5",
-                            color: isOut ? "#DC2626" : isLow ? "#D97706" : "#059669",
-                          }}>
-                            {isOut ? "Out of Stock" : isLow ? "Low Stock" : "In Stock"}
+                          {med.category || "—"}
+                        </td>
+                        <td style={{ padding: "16px 28px", fontWeight: "700" }}>
+                          {stock}
+                        </td>
+                        <td style={{ padding: "16px 28px" }}>
+                          ETB {Number(med.price || 0).toLocaleString()}
+                        </td>
+                        <td style={{ padding: "16px 28px" }}>
+                          {med.supplier || "—"}
+                        </td>
+                        <td style={{ padding: "16px 28px" }}>
+                          <span
+                            className="status-badge"
+                            style={{
+                              background: isOut
+                                ? "#FEF2F2"
+                                : isLow
+                                  ? "#FFFBEB"
+                                  : "#ECFDF5",
+                              color: isOut
+                                ? "#DC2626"
+                                : isLow
+                                  ? "#D97706"
+                                  : "#059669",
+                            }}>
+                            {isOut
+                              ? "Out of Stock"
+                              : isLow
+                                ? "Low Stock"
+                                : "In Stock"}
                           </span>
                         </td>
                       </tr>
