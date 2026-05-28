@@ -7,6 +7,7 @@ import {
   Trash2,
   Printer,
   CheckCircle,
+  RotateCcw,
 } from "lucide-react";
 import {
   getAllMedicines,
@@ -14,6 +15,7 @@ import {
   getAllStockBatches,
   processCheckoutTransaction,
   createStockMovement,
+  processRefundTransaction,
 } from "../services/firestoreService";
 import { useAuth } from "../context/AuthContext";
 
@@ -142,6 +144,7 @@ const Sales = () => {
             medicineId: med.id,
             name: med.name,
             price: batch.sellingPrice || med.price,
+            costPrice: batch.costPrice || 0, // ← ADD THIS LINE
             quantity: 1,
             maxQty: batch.quantity,
             batchNo: batch.batchNo,
@@ -253,6 +256,44 @@ const Sales = () => {
       );
     } finally {
       setIsCheckingOut(false);
+    }
+  };
+
+  const handleRefund = async (sale) => {
+    if (!sale.items || sale.items.length === 0) {
+      alert("Cannot refund: This legacy sale has no batch details recorded.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Are you sure you want to refund Invoice ${sale.invoiceNumber}? Stock will be restored to inventory.`,
+      )
+    )
+      return;
+
+    try {
+      await processRefundTransaction(sale.id, sale.items, user?.uid);
+
+      // Log stock movements for audit trail
+      for (const item of sale.items) {
+        await createStockMovement({
+          medicineId: item.medicineId,
+          medicineName: item.name,
+          batchNo: item.batchNo,
+          type: "return",
+          quantityChanged: item.quantity, // Positive because it's returning to stock
+          reason: `Refund for Invoice: ${sale.invoiceNumber}`,
+          performedBy: user?.uid || "Unknown",
+        });
+      }
+
+      // Refresh sales list
+      const salesList = await getAllSales();
+      setTransactions(salesList);
+      alert("Refund successful! Stock has been restored.");
+    } catch (err) {
+      console.error("Refund failed:", err);
+      alert(err.message || "Failed to process refund.");
     }
   };
 
@@ -642,11 +683,44 @@ const Sales = () => {
                       : sale.total.toLocaleString()}
                   </td>
                   <td style={{ paddingRight: "32px" }}>
-                    <span
-                      className="status-badge"
-                      style={{ background: "#ECFDF5", color: "#059669" }}>
-                      {sale.status || "Completed"}
-                    </span>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "8px",
+                        justifyContent: "flex-end",
+                        alignItems: "center",
+                      }}>
+                      <span
+                        className="status-badge"
+                        style={{
+                          background:
+                            sale.status === "Refunded" ? "#F1F5F9" : "#ECFDF5",
+                          color:
+                            sale.status === "Refunded" ? "#64748B" : "#059669",
+                        }}>
+                        {sale.status || "Completed"}
+                      </span>
+                      {sale.status !== "Refunded" && sale.items && (
+                        <button
+                          className="icon-button"
+                          onClick={() => handleRefund(sale)}
+                          title="Refund & Restore Stock"
+                          style={{
+                            width: "32px",
+                            height: "32px",
+                            color: "#F59E0B",
+                            background: "#FFFBEB",
+                            border: "none",
+                            borderRadius: "8px",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}>
+                          <RotateCcw size={16} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -805,7 +879,7 @@ const Sales = () => {
                 }}>
                 <span>TOTAL PAID</span>
                 <span style={{ color: "var(--primary)" }}>
-                  ETB{ Number(currentReceipt?.total || 0).toLocaleString()}
+                  ETB{Number(currentReceipt?.total || 0).toLocaleString()}
                 </span>
               </div>
             </div>

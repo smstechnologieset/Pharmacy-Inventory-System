@@ -11,7 +11,7 @@ import {
   orderBy,
   getDocs,
   serverTimestamp,
-  runTransaction
+  runTransaction,
 } from "firebase/firestore";
 
 import {
@@ -491,7 +491,6 @@ export const deleteStockBatch = async (batchId) => {
   }
 };
 
-
 /**
  * Process a secure, transaction-safe checkout.
  * Prevents overselling and generates sequential invoice numbers.
@@ -500,27 +499,27 @@ export const deleteStockBatch = async (batchId) => {
  * Process a secure, transaction-safe checkout.
  * Prevents overselling and generates sequential invoice numbers.
  */
-export const processCheckoutTransaction = async (cart, paymentMethod, userId) => {
+export const processCheckoutTransaction = async (
+  cart,
+  paymentMethod,
+  userId,
+) => {
   const saleDocRef = doc(collection(db, SALES_COLLECTION));
   const counterDocRef = doc(db, "counters", "invoiceNumber");
 
   const result = await runTransaction(db, async (transaction) => {
-    
-    // =========================================================
-    // STEP 1: ALL READS MUST HAPPEN FIRST
-    // =========================================================
-    
-    // Read Invoice Counter
     const counterSnap = await transaction.get(counterDocRef);
-    
+
     // Read all Batch References
-    const batchRefs = cart.map(item => doc(db, "stockBatches", item.batchId));
-    const batchSnaps = await Promise.all(batchRefs.map(ref => transaction.get(ref)));
-    
+    const batchRefs = cart.map((item) => doc(db, "stockBatches", item.batchId));
+    const batchSnaps = await Promise.all(
+      batchRefs.map((ref) => transaction.get(ref)),
+    );
+
     // =========================================================
     // STEP 2: VALIDATION
     // =========================================================
-    
+
     let nextInvoice = 1001; // Default starting number
     if (counterSnap.exists()) {
       nextInvoice = (counterSnap.data().sequence || 1000) + 1;
@@ -530,34 +529,39 @@ export const processCheckoutTransaction = async (cart, paymentMethod, userId) =>
     for (let i = 0; i < cart.length; i++) {
       const item = cart[i];
       const batchSnap = batchSnaps[i];
-      
+
       if (!batchSnap.exists()) {
         throw new Error(`Batch ${item.batchNo} no longer exists.`);
       }
-      
+
       const currentQty = batchSnap.data().quantity || 0;
       if (currentQty < item.quantity) {
-        throw new Error(`Insufficient stock for ${item.name} (Batch ${item.batchNo}). Only ${currentQty} left.`);
+        throw new Error(
+          `Insufficient stock for ${item.name} (Batch ${item.batchNo}). Only ${currentQty} left.`,
+        );
       }
     }
 
     // =========================================================
     // STEP 3: ALL WRITES HAPPEN AFTER ALL READS & VALIDATIONS
     // =========================================================
-    
+
     // Write Invoice Counter
-    transaction.set(counterDocRef, { sequence: nextInvoice, updatedAt: serverTimestamp() });
+    transaction.set(counterDocRef, {
+      sequence: nextInvoice,
+      updatedAt: serverTimestamp(),
+    });
 
     // Write Batch Updates (Deduct Stock)
     for (let i = 0; i < cart.length; i++) {
       const item = cart[i];
       const batchRef = batchRefs[i];
       const currentQty = batchSnaps[i].data().quantity || 0;
-      
-      transaction.update(batchRef, { 
+
+      transaction.update(batchRef, {
         quantity: currentQty - item.quantity,
-        status: (currentQty - item.quantity) === 0 ? "Out of Stock" : "In Stock",
-        updatedAt: serverTimestamp()
+        status: currentQty - item.quantity === 0 ? "Out of Stock" : "In Stock",
+        updatedAt: serverTimestamp(),
       });
     }
 
@@ -569,22 +573,27 @@ export const processCheckoutTransaction = async (cart, paymentMethod, userId) =>
       createdAt: serverTimestamp(),
       status: "Completed",
       paymentMethod: paymentMethod,
-      total: cart.reduce((sum, i) => sum + (i.price * i.quantity), 0),
-      items: cart.map(i => ({
+      total: cart.reduce((sum, i) => sum + i.price * i.quantity, 0),
+      items: cart.map((i) => ({
         batchId: i.batchId,
         medicineId: i.medicineId,
         name: i.name,
         batchNo: i.batchNo,
         quantity: i.quantity,
         price: i.price,
-        total: i.price * i.quantity
+        costPrice: i.costPrice || 0, // ← ADD THIS LINE
+        total: i.price * i.quantity,
       })),
-      performedBy: userId || "Unknown"
+      performedBy: userId || "Unknown",
     };
-    
+
     transaction.set(saleDocRef, salePayload);
-    
-    return { saleId: saleDocRef.id, invoiceNumber: `INV-${nextInvoice}`, salePayload };
+
+    return {
+      saleId: saleDocRef.id,
+      invoiceNumber: `INV-${nextInvoice}`,
+      salePayload,
+    };
   });
 
   return result;
@@ -601,7 +610,12 @@ export const getSystemSettings = async () => {
       return docSnap.data();
     }
     // Create defaults if they don't exist
-    const defaults = { lowStockThreshold: 10, expiryWarningDays: 60, currency: "ETB", language: "en" };
+    const defaults = {
+      lowStockThreshold: 10,
+      expiryWarningDays: 60,
+      currency: "ETB",
+      language: "en",
+    };
     await setDoc(docRef, defaults);
     return defaults;
   } catch (error) {
@@ -616,10 +630,62 @@ export const getSystemSettings = async () => {
 export const updateSystemSettings = async (updates) => {
   try {
     const docRef = doc(db, "settings", "global");
-    await setDoc(docRef, { ...updates, updatedAt: serverTimestamp() }, { merge: true });
+    await setDoc(
+      docRef,
+      { ...updates, updatedAt: serverTimestamp() },
+      { merge: true },
+    );
     return true;
   } catch (error) {
     console.error("Error updating settings:", error);
     throw new Error("Failed to save settings");
   }
+};
+/**
+ * Process a secure refund transaction.
+ * Restores stock to the exact batches and marks the sale as Refunded.
+ */
+export const processRefundTransaction = async (saleId, saleItems, userId) => {
+  const saleDocRef = doc(db, SALES_COLLECTION, saleId);
+
+  await runTransaction(db, async (transaction) => {
+    // 1. READ PHASE
+    const saleSnap = await transaction.get(saleDocRef);
+    if (!saleSnap.exists()) throw new Error("Sale record not found.");
+    if (saleSnap.data().status === "Refunded")
+      throw new Error("This sale has already been refunded.");
+
+    const batchRefs = saleItems.map((item) =>
+      doc(db, "stockBatches", item.batchId),
+    );
+    const batchSnaps = await Promise.all(
+      batchRefs.map((ref) => transaction.get(ref)),
+    );
+
+    // 2. WRITE PHASE
+    for (let i = 0; i < saleItems.length; i++) {
+      const item = saleItems[i];
+      if (!batchSnaps[i].exists()) {
+        throw new Error(
+          `Batch ${item.batchNo} was deleted from the system. Cannot restore stock.`,
+        );
+      }
+
+      const currentQty = batchSnaps[i].data().quantity || 0;
+      transaction.update(batchRefs[i], {
+        quantity: currentQty + item.quantity,
+        status: "In Stock", // Restoring stock makes it active again
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    // Update Sale Status
+    transaction.update(saleDocRef, {
+      status: "Refunded",
+      refundedAt: serverTimestamp(),
+      refundedBy: userId || "Unknown",
+    });
+  });
+
+  return true;
 };
