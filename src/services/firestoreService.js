@@ -11,6 +11,7 @@ import {
   orderBy,
   getDocs,
   serverTimestamp,
+  runTransaction
 } from "firebase/firestore";
 
 import {
@@ -488,4 +489,103 @@ export const deleteStockBatch = async (batchId) => {
     console.error("Error deleting stock batch:", error);
     throw new Error(`Failed to delete stock batch: ${error.message}`);
   }
+};
+
+
+/**
+ * Process a secure, transaction-safe checkout.
+ * Prevents overselling and generates sequential invoice numbers.
+ */
+/**
+ * Process a secure, transaction-safe checkout.
+ * Prevents overselling and generates sequential invoice numbers.
+ */
+export const processCheckoutTransaction = async (cart, paymentMethod, userId) => {
+  const saleDocRef = doc(collection(db, SALES_COLLECTION));
+  const counterDocRef = doc(db, "counters", "invoiceNumber");
+
+  const result = await runTransaction(db, async (transaction) => {
+    
+    // =========================================================
+    // STEP 1: ALL READS MUST HAPPEN FIRST
+    // =========================================================
+    
+    // Read Invoice Counter
+    const counterSnap = await transaction.get(counterDocRef);
+    
+    // Read all Batch References
+    const batchRefs = cart.map(item => doc(db, "stockBatches", item.batchId));
+    const batchSnaps = await Promise.all(batchRefs.map(ref => transaction.get(ref)));
+    
+    // =========================================================
+    // STEP 2: VALIDATION
+    // =========================================================
+    
+    let nextInvoice = 1001; // Default starting number
+    if (counterSnap.exists()) {
+      nextInvoice = (counterSnap.data().sequence || 1000) + 1;
+    }
+
+    // Check if all batches have enough stock
+    for (let i = 0; i < cart.length; i++) {
+      const item = cart[i];
+      const batchSnap = batchSnaps[i];
+      
+      if (!batchSnap.exists()) {
+        throw new Error(`Batch ${item.batchNo} no longer exists.`);
+      }
+      
+      const currentQty = batchSnap.data().quantity || 0;
+      if (currentQty < item.quantity) {
+        throw new Error(`Insufficient stock for ${item.name} (Batch ${item.batchNo}). Only ${currentQty} left.`);
+      }
+    }
+
+    // =========================================================
+    // STEP 3: ALL WRITES HAPPEN AFTER ALL READS & VALIDATIONS
+    // =========================================================
+    
+    // Write Invoice Counter
+    transaction.set(counterDocRef, { sequence: nextInvoice, updatedAt: serverTimestamp() });
+
+    // Write Batch Updates (Deduct Stock)
+    for (let i = 0; i < cart.length; i++) {
+      const item = cart[i];
+      const batchRef = batchRefs[i];
+      const currentQty = batchSnaps[i].data().quantity || 0;
+      
+      transaction.update(batchRef, { 
+        quantity: currentQty - item.quantity,
+        status: (currentQty - item.quantity) === 0 ? "Out of Stock" : "In Stock",
+        updatedAt: serverTimestamp()
+      });
+    }
+
+    // Write the Sale Record
+    const now = new Date();
+    const salePayload = {
+      invoiceNumber: `INV-${nextInvoice}`,
+      date: now.toLocaleDateString(),
+      createdAt: serverTimestamp(),
+      status: "Completed",
+      paymentMethod: paymentMethod,
+      total: cart.reduce((sum, i) => sum + (i.price * i.quantity), 0),
+      items: cart.map(i => ({
+        batchId: i.batchId,
+        medicineId: i.medicineId,
+        name: i.name,
+        batchNo: i.batchNo,
+        quantity: i.quantity,
+        price: i.price,
+        total: i.price * i.quantity
+      })),
+      performedBy: userId || "Unknown"
+    };
+    
+    transaction.set(saleDocRef, salePayload);
+    
+    return { saleId: saleDocRef.id, invoiceNumber: `INV-${nextInvoice}`, salePayload };
+  });
+
+  return result;
 };
