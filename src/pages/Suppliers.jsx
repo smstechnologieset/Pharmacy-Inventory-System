@@ -17,8 +17,10 @@ import {
   deleteSupplier,
 } from "../services/firestoreService";
 import FormModal from "../components/FormModal";
+import { useSettings } from "../context/SettingsContext";
 
 const Suppliers = () => {
+  const { t } = useSettings();
   const [supplierList, setSupplierList] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -42,7 +44,7 @@ const Suppliers = () => {
         setSupplierList(suppliers);
       } catch ( err ) {
         setLoading(false);
-        setError(err.message || "Failed to load suppliers");
+        setError(err.message || t("suppliers.failedToLoad") || "Failed to load suppliers");
       } finally {
         setLoading(false);
       }
@@ -98,18 +100,18 @@ const Suppliers = () => {
       }
       setIsModalOpen(false);
     } catch (err) {
-      setError(err.message || "Failed to save supplier");
+      setError(err.message || t("suppliers.failedToSave") || "Failed to save supplier");
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("Remove this supplier?")) {
+    if (window.confirm(t("suppliers.confirmDelete"))) {
       setError("");
       try {
         await deleteSupplier(id);
         setSupplierList((current) => current.filter((s) => s.id !== id));
       } catch (err) {
-        setError(err.message || "Failed to delete supplier");
+        setError(err.message || t("suppliers.failedToDelete") || "Failed to delete supplier");
       }
     }
   };
@@ -130,7 +132,7 @@ const Suppliers = () => {
               fontWeight: "800",
               letterSpacing: "-0.025em",
             }}>
-            Suppliers
+            {t("suppliers.title")}
           </h1>
           <p
             style={{
@@ -138,11 +140,11 @@ const Suppliers = () => {
               fontSize: "0.85rem",
               marginTop: "4px",
             }}>
-            Manage your pharmacy's vendors and suppliers.
+            {t("suppliers.subtitle")}
           </p>
         </div>
         <button className="btn btn-primary" onClick={() => handleOpenModal()}>
-          <Plus size={20} /> Add Supplier
+          <Plus size={20} /> {t("suppliers.addSupplier")}
         </button>
       </div>
 
@@ -153,7 +155,7 @@ const Suppliers = () => {
           <Search size={22} style={{ color: "#94A3B8" }} />
           <input
             type="text"
-            placeholder="Search suppliers by name or contact..."
+            placeholder={t("suppliers.searchPlaceholder")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -163,7 +165,7 @@ const Suppliers = () => {
       {/* Grid of Bubbly Cards as seen in screenshot */}
       {loading ? (
         <div style={{ padding: "24px 0", color: "#64748B" }}>
-          Loading suppliers...
+          {t("suppliers.loading")}
         </div>
       ) : error ? (
         <div style={{ padding: "24px 0", color: "#EF4444" }}>{error}</div>
@@ -209,7 +211,7 @@ const Suppliers = () => {
                       color: "#0D9488",
                       fontWeight: "700",
                     }}>
-                    {s.medicines?.length || 6} items supplied
+                    {s.medicines?.length || 6} {t("suppliers.itemsSupplied")}
                   </span>
                 </div>
               </div>
@@ -292,7 +294,7 @@ const Suppliers = () => {
       <FormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingSupplier ? "Edit Supplier" : "Add New Supplier"}>
+        title={editingSupplier ? t("suppliers.editSupplier") : t("suppliers.addNewSupplier")}>
         <form
           onSubmit={handleSave}
           style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
@@ -304,7 +306,7 @@ const Suppliers = () => {
                 fontWeight: "700",
                 marginBottom: "8px",
               }}>
-              Supplier Name
+              {t("suppliers.supplierName")}
             </label>
             <input
               type="text"
@@ -329,7 +331,7 @@ const Suppliers = () => {
                 fontWeight: "700",
                 marginBottom: "8px",
               }}>
-              Contact Person
+              {t("suppliers.contactPerson")}
             </label>
             <input
               type="text"
@@ -360,7 +362,7 @@ const Suppliers = () => {
                   fontWeight: "700",
                   marginBottom: "8px",
                 }}>
-                Phone
+                {t("suppliers.phone")}
               </label>
               <input
                 type="text"
@@ -385,7 +387,7 @@ const Suppliers = () => {
                   fontWeight: "700",
                   marginBottom: "8px",
                 }}>
-                Email
+                {t("suppliers.email")}
               </label>
               <input
                 type="email"
@@ -411,7 +413,7 @@ const Suppliers = () => {
                 fontWeight: "700",
                 marginBottom: "8px",
               }}>
-              Office Address
+              {t("suppliers.officeAddress")}
             </label>
             <input
               type="text"
@@ -432,7 +434,7 @@ const Suppliers = () => {
             type="submit"
             className="btn btn-primary"
             style={{ height: "52px", fontSize: "0.95rem", marginTop: "10px" }}>
-            {editingSupplier ? "Update Supplier" : "Confirm & Save Supplier"}
+            {editingSupplier ? t("suppliers.updateSupplier") : t("suppliers.confirmAdd")}
           </button>
         </form>
       </FormModal>

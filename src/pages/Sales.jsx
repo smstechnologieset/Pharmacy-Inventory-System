@@ -18,9 +18,12 @@ import {
   processRefundTransaction,
 } from "../services/firestoreService";
 import { useAuth } from "../context/AuthContext";
+import { useSettings } from "../context/SettingsContext";
+import CustomSelect from "../components/CustomSelect";
 
 const Sales = () => {
   const { user } = useAuth();
+  const { t } = useSettings();
   const [cart, setCart] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showReceipt, setShowReceipt] = useState(false);
@@ -306,7 +309,7 @@ const Sales = () => {
             fontWeight: "800",
             letterSpacing: "-0.025em",
           }}>
-          Point of Sale
+          {t("sales.title")}
         </h1>
         <p
           style={{
@@ -314,7 +317,7 @@ const Sales = () => {
             fontSize: "0.85rem",
             marginTop: "4px",
           }}>
-          Transaction-safe checkout terminal. (FEFO Batch Allocation Active)
+          {t("sales.subtitle")}
         </p>
         {error && (
           <div style={{ marginTop: "16px", color: "#dc2626", fontWeight: 600 }}>
@@ -336,7 +339,7 @@ const Sales = () => {
               <Search size={22} style={{ color: "#94A3B8" }} />
               <input
                 type="text"
-                placeholder="Search products..."
+                placeholder={t("sales.searchPlaceholder")}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -359,7 +362,7 @@ const Sales = () => {
                   textAlign: "center",
                   color: "#64748B",
                 }}>
-                Loading products...
+                {t("sales.loadingProducts")}
               </div>
             ) : productGrid.length === 0 ? (
               <div
@@ -368,7 +371,7 @@ const Sales = () => {
                   textAlign: "center",
                   color: "#64748B",
                 }}>
-                No available medicines found.
+                {t("sales.noMedicines")}
               </div>
             ) : (
               productGrid.map((med) => (
@@ -422,7 +425,7 @@ const Sales = () => {
                       color:
                         Number(med.availableStock) < 10 ? "#EF4444" : "#94A3B8",
                     }}>
-                    {Number(med.availableStock)} units left
+                    {Number(med.availableStock)} {t("sales.unitsLeft")}
                   </div>
                 </div>
               ))
@@ -447,10 +450,10 @@ const Sales = () => {
               color: "white",
             }}>
             <h2 style={{ fontSize: "1.1rem", fontWeight: "700" }}>
-              Current Cart
+              {t("sales.currentCart")}
             </h2>
             <p style={{ fontSize: "0.75rem", opacity: "0.9" }}>
-              {cart.length} items
+              {cart.length} {t("sales.items")}
             </p>
           </div>
 
@@ -475,7 +478,7 @@ const Sales = () => {
                   strokeWidth={1}
                   style={{ marginBottom: "16px", opacity: 0.5 }}
                 />
-                <p>Your cart is empty</p>
+                <p>{t("sales.cartEmpty")}</p>
               </div>
             ) : (
               cart.map((item) => (
@@ -496,7 +499,7 @@ const Sales = () => {
                         color: "#0D9488",
                         fontWeight: "600",
                       }}>
-                      Batch: {item.batchNo}
+                      {t("sales.batch")}: {item.batchNo}
                     </div>
                     <div style={{ fontSize: "0.8rem", color: "#64748B" }}>
                       ETB {item.price.toFixed(2)} x {item.quantity}
@@ -571,23 +574,18 @@ const Sales = () => {
                   marginBottom: "8px",
                   color: "#64748B",
                 }}>
-                Payment Method
+                {t("sales.paymentMethod")}
               </label>
-              <select
-                className="search-bar"
+              <CustomSelect
                 value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                style={{
-                  width: "100%",
-                  background: "white",
-                  padding: "10px 16px",
-                  fontWeight: "600",
-                }}>
-                <option value="Cash">Cash</option>
-                <option value="CBE Birr">CBE Birr</option>
-                <option value="Telebirr">Telebirr</option>
-                <option value="Bank Transfer">Bank Transfer</option>
-              </select>
+                onChange={(val) => setPaymentMethod(val)}
+                options={[
+                  { value: "Cash", label: "Cash" },
+                  { value: "CBE Birr", label: "CBE Birr" },
+                  { value: "Telebirr", label: "Telebirr" },
+                  { value: "Bank Transfer", label: "Bank Transfer" },
+                ]}
+              />
             </div>
             <div
               style={{
@@ -597,7 +595,7 @@ const Sales = () => {
                 fontSize: "1.15rem",
                 fontWeight: "800",
               }}>
-              <span>Total</span>
+              <span>{t("sales.total")}</span>
               <span>ETB {total.toLocaleString()}</span>
             </div>
             <button
@@ -605,7 +603,7 @@ const Sales = () => {
               style={{ width: "100%", height: "52px", fontSize: "1rem" }}
               disabled={cart.length === 0 || isCheckingOut}
               onClick={handleCheckout}>
-              {isCheckingOut ? "Processing..." : "Confirm Checkout"}
+              {isCheckingOut ? t("sales.processing") : t("sales.confirmCheckout")}
             </button>
           </div>
         </div>
@@ -618,20 +616,20 @@ const Sales = () => {
         <div
           style={{ padding: "24px 32px", borderBottom: "1px solid #F1F5F9" }}>
           <h2 style={{ fontSize: "1.1rem", fontWeight: "700" }}>
-            Transaction History
+            {t("sales.transactionHistory")}
           </h2>
         </div>
         <div className="table-container">
           <table style={{ borderSpacing: "0" }}>
             <thead style={{ background: "#F8FAFC" }}>
               <tr>
-                <th style={{ padding: "16px 32px" }}>Invoice</th>
-                <th>Items</th>
-                <th>Qty</th>
-                <th>Date / Time</th>
-                <th>Payment</th>
-                <th>Amount</th>
-                <th style={{ paddingRight: "32px" }}>Status</th>
+                <th style={{ padding: "16px 32px" }}>{t("sales.invoice")}</th>
+                <th>{t("sales.items")}</th>
+                <th>{t("sales.qty")}</th>
+                <th>{t("sales.dateTime")}</th>
+                <th>{t("sales.payment")}</th>
+                <th>{t("sales.amount")}</th>
+                <th style={{ paddingRight: "32px" }}>{t("sales.status")}</th>
               </tr>
             </thead>
             <tbody>
@@ -848,7 +846,7 @@ const Sales = () => {
                 <CheckCircle size={32} />
               </div>
               <h2 style={{ fontSize: "1.3rem", fontWeight: 800 }}>
-                Payment Success!
+                {t("sales.paymentSuccess")}
               </h2>
             </div>
             <div
@@ -865,7 +863,7 @@ const Sales = () => {
                   marginBottom: 8,
                   fontSize: "0.9rem",
                 }}>
-                <span style={{ color: "#64748B" }}>Invoice ID</span>
+                <span style={{ color: "#64748B" }}>{t("sales.invoiceId")}</span>
                 <span style={{ fontWeight: 700 }}>
                   #{currentReceipt?.invoiceNumber}
                 </span>
@@ -877,7 +875,7 @@ const Sales = () => {
                   fontWeight: 800,
                   fontSize: "1rem",
                 }}>
-                <span>TOTAL PAID</span>
+                <span>{t("sales.totalPaid")}</span>
                 <span style={{ color: "var(--primary)" }}>
                   ETB{Number(currentReceipt?.total || 0).toLocaleString()}
                 </span>
@@ -894,7 +892,7 @@ const Sales = () => {
                 gap: 8,
               }}
               onClick={handlePrint}>
-              <Printer size={20} /> Print Receipt
+              <Printer size={20} /> {t("sales.printReceipt")}
             </button>
             <button
               className="no-print"
@@ -910,7 +908,7 @@ const Sales = () => {
                 color: "#475569",
               }}
               onClick={() => setShowReceipt(false)}>
-              Close
+              {t("sales.close")}
             </button>
           </div>
         </div>

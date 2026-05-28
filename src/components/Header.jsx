@@ -8,28 +8,31 @@ import {
   getSystemSettings,
 } from "../services/firestoreService";
 
-const getStockStatus = (stock) => {
+import { useSettings } from "../context/SettingsContext";
+
+const getStockStatus = (stock, t) => {
   const s = Number(stock);
   if (s === 0)
-    return { label: "Out of Stock", color: "#EF4444", bg: "#FEF2F2" };
-  if (s <= 10) return { label: "Low Stock", color: "#F59E0B", bg: "#FFFBEB" };
-  return { label: "In Stock", color: "#10B981", bg: "#ECFDF5" };
+    return { label: t("header.outOfStock"), color: "#EF4444", bg: "#FEF2F2" };
+  if (s <= 10) return { label: t("header.lowStockAlert"), color: "#F59E0B", bg: "#FFFBEB" };
+  return { label: t("header.inStock") || "In Stock", color: "#10B981", bg: "#ECFDF5" };
 };
 
-const getExpiryStatus = (expiry) => {
+const getExpiryStatus = (expiry, t) => {
   if (!expiry) return { label: "N/A", color: "#94A3B8" };
   const date = expiry?.toDate ? expiry.toDate() : new Date(expiry);
   if (Number.isNaN(date.getTime())) return { label: "N/A", color: "#94A3B8" };
   const now = new Date();
   const daysLeft = Math.ceil((date - now) / (1000 * 60 * 60 * 24));
-  if (daysLeft < 0) return { label: "Expired", color: "#EF4444" };
+  if (daysLeft < 0) return { label: t("header.expiredStock"), color: "#EF4444" };
   if (daysLeft <= 30)
-    return { label: `Expires in ${daysLeft}d`, color: "#F59E0B" };
+    return { label: `${t("header.expiresIn") || "Expires in"} ${daysLeft}d`, color: "#F59E0B" };
   return { label: date.toLocaleDateString(), color: "#64748B" };
 };
 
 const Header = () => {
   const { user, logout } = useAuth();
+  const { t } = useSettings();
   const navigate = useNavigate();
   const [showNotifs, setShowNotifs] = useState(false);
   const [realNotifications, setRealNotifications] = useState([]);
@@ -116,14 +119,14 @@ const Header = () => {
             if (diffDays < 0) {
               notifs.push({
                 id: `exp-${b.id}`,
-                title: "Expired Stock",
+                title: t("header.expiredStock"),
                 message: `${medName} (Batch ${b.batchNo}) has expired.`,
                 type: "error",
               });
             } else if (diffDays <= warnDays) {
               notifs.push({
                 id: `warn-${b.id}`,
-                title: "Expiring Soon",
+                title: t("header.expiringSoon"),
                 message: `${medName} (Batch ${b.batchNo}) expires in ${diffDays} days.`,
                 type: "warning",
               });
@@ -133,14 +136,14 @@ const Header = () => {
           if (b.quantity <= threshold && b.quantity > 0) {
             notifs.push({
               id: `low-${b.id}`,
-              title: "Low Stock Alert",
+              title: t("header.lowStockAlert"),
               message: `${medName} (Batch ${b.batchNo}) is at ${b.quantity} units.`,
               type: "warning",
             });
           } else if (b.quantity === 0) {
             notifs.push({
               id: `out-${b.id}`,
-              title: "Out of Stock",
+              title: t("header.outOfStock"),
               message: `${medName} (Batch ${b.batchNo}) is completely out of stock.`,
               type: "error",
             });
@@ -220,7 +223,7 @@ const Header = () => {
           <input
             ref={inputRef}
             type="text"
-            placeholder="Search medicines by name or batch..."
+            placeholder={t("header.searchPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => setShowDropdown(true)}
@@ -266,8 +269,8 @@ const Header = () => {
                 {results.length > 0 ? (
                   <>
                     {results.map((med, i) => {
-                      const stock = getStockStatus(med.stock);
-                      const expiry = getExpiryStatus(med.expiry);
+                      const stock = getStockStatus(med.stock, t);
+                      const expiry = getExpiryStatus(med.expiry, t);
                       return (
                         <div
                           key={med.id}
@@ -374,7 +377,7 @@ const Header = () => {
                       style={{ marginBottom: "8px", opacity: 0.4 }}
                     />
                     <p style={{ fontWeight: "600", margin: "0 0 4px" }}>
-                      No medicines found
+                      {t("header.noMedicinesFound")}
                     </p>
                   </div>
                 )}
@@ -421,7 +424,7 @@ const Header = () => {
                   justifyContent: "space-between",
                   fontWeight: "700",
                 }}>
-                <span>Notifications ({realNotifications.length})</span>
+                <span>{t("header.notifications")} ({realNotifications.length})</span>
               </div>
               <div style={{ maxHeight: "400px", overflowY: "auto" }}>
                 {realNotifications.length === 0 ? (
@@ -431,7 +434,7 @@ const Header = () => {
                       textAlign: "center",
                       color: "#94A3B8",
                     }}>
-                    No new alerts!
+                    {t("header.noNewAlerts")}
                   </div>
                 ) : (
                   realNotifications.slice(0, 10).map((n) => (
@@ -488,7 +491,7 @@ const Header = () => {
         <button
           className="icon-button"
           onClick={handleLogout}
-          title="Logout"
+          title={t("header.logout")}
           style={{
             background: "#FEF2F2",
             color: "#DC2626",

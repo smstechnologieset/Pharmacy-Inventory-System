@@ -15,10 +15,10 @@ import {
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import {
-
   getAllSales,
   getAllStockBatches,
 } from "../services/firestoreService";
+import { useSettings } from "../context/SettingsContext";
 
 ChartJS.register(
   CategoryScale,
@@ -34,6 +34,7 @@ ChartJS.register(
 );
 
 const Dashboard = () => {
+  const { t } = useSettings();
   const [timeFilter, setTimeFilter] = useState("Week");
   const [sales, setSales] = useState([]);
   const [batches, setBatches] = useState([]);
@@ -90,9 +91,9 @@ const Dashboard = () => {
     const total = batches.length;
     if (total === 0)
       return [
-        { label: "In Stock", percent: 0, color: "#10B981" },
-        { label: "Low Stock", percent: 0, color: "#F59E0B" },
-        { label: "Out of Stock", percent: 0, color: "#EF4444" },
+        { label: t("dashboard.inStock"), percent: 0, color: "#10B981" },
+        { label: t("dashboard.lowStock"), percent: 0, color: "#F59E0B" },
+        { label: t("dashboard.outOfStock"), percent: 0, color: "#EF4444" },
       ];
 
     const out = batches.filter((b) => Number(b.quantity) === 0).length;
@@ -106,11 +107,11 @@ const Dashboard = () => {
     const inPct = 100 - outPct - lowPct;
 
     return [
-      { label: "In Stock", percent: inPct, color: "#10B981" },
-      { label: "Low Stock", percent: lowPct, color: "#F59E0B" },
-      { label: "Out of Stock", percent: outPct, color: "#EF4444" },
+      { label: t("dashboard.inStock"), percent: inPct, color: "#10B981" },
+      { label: t("dashboard.lowStock"), percent: lowPct, color: "#F59E0B" },
+      { label: t("dashboard.outOfStock"), percent: outPct, color: "#EF4444" },
     ];
-  }, [batches]);
+  }, [batches, t]);
 
   // ── Chart Logic ──
   const getSaleDate = (sale) => {
@@ -238,7 +239,7 @@ const Dashboard = () => {
             letterSpacing: "-0.025em",
             color: "#0F172A",
           }}>
-          Dashboard
+          {t("dashboard.overview")}
         </h1>
         <p
           style={{
@@ -246,7 +247,7 @@ const Dashboard = () => {
             fontSize: "0.95rem",
             marginTop: "4px",
           }}>
-          Welcome back! Here's what's happening today.
+          {t("dashboard.subtitle")}
         </p>
       </div>
 
@@ -255,28 +256,28 @@ const Dashboard = () => {
         style={{ gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
         {[
           {
-            label: "Total Revenue",
+            label: t("dashboard.totalRevenue"),
             value: `ETB ${stockStats.totalRevenue.toLocaleString()}`,
             icon: <DollarSign size={20} />,
             bg: "#F0FDFA",
             color: "#0D9488",
           },
           {
-            label: "Inventory Stock",
+            label: t("dashboard.inventoryStock"),
             value: stockStats.inventoryStock.toLocaleString(),
             icon: <Package size={20} />,
             bg: "#EFF6FF",
             color: "#3B82F6",
           },
           {
-            label: "Out of Stock",
+            label: t("dashboard.outOfStock"),
             value: stockStats.outOfStock,
             icon: <AlertCircle size={20} />,
             bg: "#FFF7ED",
             color: "#F59E0B",
           },
           {
-            label: "Expired Items",
+            label: t("dashboard.expiredItems"),
             value: stockStats.expired,
             icon: <CalendarX size={20} />,
             bg: "#FEF2F2",
@@ -326,7 +327,7 @@ const Dashboard = () => {
               marginBottom: "24px",
             }}>
             <h2 style={{ fontSize: "1.1rem", fontWeight: "700" }}>
-              Sales Overview
+              {t("dashboard.salesOverview")}
             </h2>
             <div className="tabs">
               {["Day", "Week", "Month", "Year"].map((t) => (
@@ -351,7 +352,7 @@ const Dashboard = () => {
               fontWeight: "700",
               marginBottom: "24px",
             }}>
-            Inventory Status
+            {t("dashboard.inventoryStatus")}
           </h2>
           <div
             style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
@@ -396,19 +397,19 @@ const Dashboard = () => {
         <div
           style={{ padding: "24px 32px", borderBottom: "1px solid #F1F5F9" }}>
           <h2 style={{ fontSize: "1.1rem", fontWeight: "700" }}>
-            Recent Sales Transactions
+            {t("dashboard.recentSales")}
           </h2>
         </div>
         <div className="table-container">
           <table style={{ margin: "0" }}>
             <thead style={{ background: "#F8FAFC" }}>
               <tr>
-                <th>Invoice</th>
-                <th>Items</th>
-                <th>Qty</th>
-                <th>Date</th>
-                <th>Amount (ETB)</th>
-                <th>Status</th>
+                <th>{t("dashboard.invoice")}</th>
+                <th>{t("dashboard.items")}</th>
+                <th>{t("dashboard.qty")}</th>
+                <th>{t("dashboard.date")}</th>
+                <th>{t("dashboard.amount")}</th>
+                <th>{t("dashboard.status")}</th>
               </tr>
             </thead>
             <tbody>
@@ -421,7 +422,7 @@ const Dashboard = () => {
                       color: "#94A3B8",
                       padding: "40px",
                     }}>
-                    No sales transactions yet.
+                    {t("dashboard.noRecentSales")}
                   </td>
                 </tr>
               ) : (

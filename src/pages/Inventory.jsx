@@ -10,9 +10,12 @@ import {
 } from "../services/firestoreService";
 import FormModal from "../components/FormModal";
 import { useAuth } from "../context/AuthContext";
+import { useSettings } from "../context/SettingsContext";
+import CustomSelect from "../components/CustomSelect";
 
 const Inventory = () => {
   const { user } = useAuth();
+  const { t } = useSettings();
   const [stockList, setStockList] = useState([]);
   const [medicines, setMedicines] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -209,7 +212,7 @@ const Inventory = () => {
               fontWeight: "800",
               letterSpacing: "-0.025em",
             }}>
-            Inventory & Stock Batches
+            {t("inventory.title")}
           </h1>
           <p
             style={{
@@ -217,14 +220,14 @@ const Inventory = () => {
               fontSize: "0.85rem",
               marginTop: "4px",
             }}>
-            Receive stock for existing medicines and manage batch expirations.
+            {t("inventory.subtitle")}
           </p>
         </div>
         <button
           className="btn btn-primary"
           onClick={() => handleOpenForm()}
           disabled={medicines.length === 0}>
-          <Plus size={20} /> Receive Stock
+          <Plus size={20} /> {t("inventory.receiveStock")}
         </button>
       </div>
 
@@ -237,8 +240,7 @@ const Inventory = () => {
             background: "#FEF3C7",
             marginBottom: "24px",
           }}>
-          You must add medicines to the <strong>Medicine Catalog</strong> before
-          you can receive stock batches.
+          <span dangerouslySetInnerHTML={{ __html: t("inventory.mustAddMedicines").replace('Medicine Catalog', '<strong>Medicine Catalog</strong>') }} />
         </div>
       )}
 
@@ -250,7 +252,7 @@ const Inventory = () => {
             <Search size={22} style={{ color: "#94A3B8" }} />
             <input
               type="text"
-              placeholder="Search by medicine name or batch..."
+              placeholder={t("inventory.searchPlaceholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -260,7 +262,7 @@ const Inventory = () => {
         <div className="table-container">
           {loading ? (
             <div style={{ padding: "24px 32px", color: "#64748B" }}>
-              Loading inventory...
+              {t("inventory.loading")}
             </div>
           ) : error ? (
             <div style={{ padding: "24px 32px", color: "#EF4444" }}>
@@ -270,14 +272,14 @@ const Inventory = () => {
             <table style={{ borderSpacing: "0" }}>
               <thead>
                 <tr style={{ background: "#F8FAFC" }}>
-                  <th style={{ padding: "16px 32px" }}>Medicine Name</th>
-                  <th>Batch No</th>
-                  <th>Quantity</th>
-                  <th>Cost / Price</th>
-                  <th>Expiry</th>
-                  <th>Status</th>
+                  <th style={{ padding: "16px 32px" }}>{t("inventory.medicineName")}</th>
+                  <th>{t("inventory.batchNo")}</th>
+                  <th>{t("inventory.quantity")}</th>
+                  <th>{t("inventory.costPrice")}</th>
+                  <th>{t("inventory.expiry")}</th>
+                  <th>{t("inventory.status")}</th>
                   <th style={{ textAlign: "right", paddingRight: "32px" }}>
-                    Actions
+                    {t("inventory.actions")}
                   </th>
                 </tr>
               </thead>
@@ -291,7 +293,7 @@ const Inventory = () => {
                         padding: "40px",
                         color: "#94A3B8",
                       }}>
-                      No stock batches found.
+                      {t("inventory.noBatches")}
                     </td>
                   </tr>
                 ) : (
@@ -357,10 +359,10 @@ const Inventory = () => {
                         </td>
                         <td>
                           <div style={{ fontSize: "0.8rem", color: "#64748B" }}>
-                            Cost: ETB {batch.costPrice || 0}
+                            {t("inventory.cost")}: ETB {batch.costPrice || 0}
                           </div>
                           <div style={{ fontWeight: "600" }}>
-                            Sell: ETB {batch.sellingPrice || 0}
+                            {t("inventory.sell")}: ETB {batch.sellingPrice || 0}
                           </div>
                         </td>
                         <td
@@ -389,10 +391,10 @@ const Inventory = () => {
                               fontSize: "0.75rem",
                             }}>
                             {batch.quantity === 0
-                              ? "Out of Stock"
+                              ? t("header.outOfStock")
                               : batch.quantity < 50
-                                ? "Low Stock"
-                                : "In Stock"}
+                                ? t("header.lowStockAlert")
+                                : t("header.inStock")}
                           </span>
                         </td>
                         <td style={{ paddingRight: "32px" }}>
@@ -447,24 +449,13 @@ const Inventory = () => {
               }}>
               Select Medicine
             </label>
-            <select
-              className="search-bar"
-              required
-              style={{
-                width: "100%",
-                background: "#F8FAFC",
-                padding: "14px 20px",
-              }}
+            <CustomSelect
               value={formData.medicineId}
-              onChange={(e) => handleMedicineChange(e.target.value)}
-              disabled={!!editingItem}>
-              <option value="">-- Choose existing medicine --</option>
-              {medicines.map((med) => (
-                <option key={med.id} value={med.id}>
-                  {med.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => handleMedicineChange(val)}
+              disabled={!!editingItem}
+              placeholder="-- Choose existing medicine --"
+              options={medicines.map((med) => ({ value: med.id, label: med.name }))}
+            />
           </div>
           <div
             style={{
