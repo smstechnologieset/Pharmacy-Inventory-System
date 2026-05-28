@@ -26,6 +26,7 @@ const Medicine = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [sortBy, setSortBy] = useState("name-asc");
 
   useEffect(() => {
     const loadData = async () => {
@@ -56,9 +57,28 @@ const Medicine = () => {
     loadData();
   }, []);
 
-  const filteredProducts = productList.filter((p) =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredProducts = productList
+    .filter((p) => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "name-asc":
+          return a.name.localeCompare(b.name);
+        case "name-desc":
+          return b.name.localeCompare(a.name);
+        case "stock-high":
+          return (stockCounts[b.id] || 0) - (stockCounts[a.id] || 0);
+        case "stock-low":
+          return (stockCounts[a.id] || 0) - (stockCounts[b.id] || 0);
+        case "price-high":
+          return Number(b.price) - Number(a.price);
+        case "price-low":
+          return Number(a.price) - Number(b.price);
+        case "category":
+          return a.category.localeCompare(b.category);
+        default:
+          return 0;
+      }
+    });
 
   const handleOpenModal = (product = null) => {
     if (product) {
@@ -135,10 +155,25 @@ const Medicine = () => {
       </div>
 
       <div className="card" style={{ padding: "0", overflow: "hidden" }}>
-        <div style={{ padding: "24px 32px" }}>
-          <div className="search-bar" style={{ width: "100%", maxWidth: "500px" }}>
+        <div style={{ padding: "24px 32px", display: "flex", gap: "16px", alignItems: "center" }}>
+          <div className="search-bar" style={{ flex: 1, maxWidth: "500px" }}>
             <Search size={22} style={{ color: "#94A3B8" }} />
             <input type="text" placeholder={t("medicine.searchPlaceholder")} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          </div>
+          <div style={{ width: "250px" }}>
+            <CustomSelect
+              value={sortBy}
+              onChange={(val) => setSortBy(val)}
+              options={[
+                { value: "name-asc", label: t("medicine.sortNameAsc") || "Name (A-Z)" },
+                { value: "name-desc", label: t("medicine.sortNameDesc") || "Name (Z-A)" },
+                { value: "stock-high", label: t("medicine.sortStockHigh") || "Stock (High to Low)" },
+                { value: "stock-low", label: t("medicine.sortStockLow") || "Stock (Low to High)" },
+                { value: "price-high", label: t("medicine.sortPriceHigh") || "Price (High to Low)" },
+                { value: "price-low", label: t("medicine.sortPriceLow") || "Price (Low to High)" },
+                { value: "category", label: t("medicine.sortCategory") || "Category (A-Z)" }
+              ]}
+            />
           </div>
         </div>
 

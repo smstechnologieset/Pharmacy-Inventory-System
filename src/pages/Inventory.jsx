@@ -32,6 +32,7 @@ const Inventory = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [sortBy, setSortBy] = useState("name-asc");
 
   useEffect(() => {
     const loadData = async () => {
@@ -63,12 +64,51 @@ const Inventory = () => {
     loadData();
   }, []);
 
-  const filteredBatches = stockList.filter(
-    (batch) =>
-      batch.medicineName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (batch.batchNo &&
-        batch.batchNo.toLowerCase().includes(searchTerm.toLowerCase())),
-  );
+  const getExpiryStatus = (expiry) => {
+    if (!expiry) return "ok";
+    const d = expiry?.toDate ? expiry.toDate() : new Date(expiry);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffDays = Math.ceil((d - today) / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) return "expired";
+    if (diffDays <= 30) return "expiring-soon";
+    return "ok";
+  };
+
+  const filteredBatches = stockList
+    .filter(
+      (batch) =>
+        batch.medicineName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (batch.batchNo &&
+          batch.batchNo.toLowerCase().includes(searchTerm.toLowerCase())),
+    )
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "name-asc":
+          return a.medicineName.localeCompare(b.medicineName);
+        case "name-desc":
+          return b.medicineName.localeCompare(a.medicineName);
+        case "qty-high":
+          return Number(b.quantity) - Number(a.quantity);
+        case "qty-low":
+          return Number(a.quantity) - Number(b.quantity);
+        case "cost-high":
+          return Number(b.costPrice) - Number(a.costPrice);
+        case "cost-low":
+          return Number(a.costPrice) - Number(b.costPrice);
+        case "expiry-soon": {
+          const dateA = a.expiry?.toDate ? a.expiry.toDate() : new Date(a.expiry || "9999-12-31");
+          const dateB = b.expiry?.toDate ? b.expiry.toDate() : new Date(b.expiry || "9999-12-31");
+          return dateA - dateB;
+        }
+        case "status": {
+          const statusOrder = { expired: 1, "expiring-soon": 2, ok: 3 };
+          return statusOrder[getExpiryStatus(a.expiry)] - statusOrder[getExpiryStatus(b.expiry)];
+        }
+        default:
+          return 0;
+      }
+    });
 
   const handleOpenForm = (item = null) => {
     if (item) {
@@ -185,16 +225,7 @@ const Inventory = () => {
     }
   };
 
-  const getExpiryStatus = (expiry) => {
-    if (!expiry) return "ok";
-    const d = expiry?.toDate ? expiry.toDate() : new Date(expiry);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const diffDays = Math.ceil((d - today) / (1000 * 60 * 60 * 24));
-    if (diffDays < 0) return "expired";
-    if (diffDays <= 30) return "expiring-soon";
-    return "ok";
-  };
+
 
   return (
     <div className="inventory-page">
@@ -245,16 +276,32 @@ const Inventory = () => {
       )}
 
       <div className="card" style={{ padding: "0", overflow: "hidden" }}>
-        <div style={{ padding: "24px 32px" }}>
+        <div style={{ padding: "24px 32px", display: "flex", gap: "16px", alignItems: "center" }}>
           <div
             className="search-bar"
-            style={{ width: "100%", maxWidth: "500px" }}>
+            style={{ flex: 1, maxWidth: "500px" }}>
             <Search size={22} style={{ color: "#94A3B8" }} />
             <input
               type="text"
               placeholder={t("inventory.searchPlaceholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div style={{ width: "250px" }}>
+            <CustomSelect
+              value={sortBy}
+              onChange={(val) => setSortBy(val)}
+              options={[
+                { value: "name-asc", label: t("inventory.sortNameAsc") || "Name (A-Z)" },
+                { value: "name-desc", label: t("inventory.sortNameDesc") || "Name (Z-A)" },
+                { value: "qty-high", label: t("inventory.sortQtyHigh") || "Quantity (High to Low)" },
+                { value: "qty-low", label: t("inventory.sortQtyLow") || "Quantity (Low to High)" },
+                { value: "cost-high", label: t("inventory.sortCostHigh") || "Cost (High to Low)" },
+                { value: "cost-low", label: t("inventory.sortCostLow") || "Cost (Low to High)" },
+                { value: "expiry-soon", label: t("inventory.sortExpirySoon") || "Expiry Date (Soonest)" },
+                { value: "status", label: t("inventory.sortStatus") || "Status (Severity)" }
+              ]}
             />
           </div>
         </div>
