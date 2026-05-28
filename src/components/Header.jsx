@@ -84,7 +84,7 @@ const Header = () => {
       }
     };
     load();
-  }, []);
+  }, [t]);
 
   // Generate Real Notifications based on Settings
   useEffect(() => {
@@ -156,7 +156,7 @@ const Header = () => {
       }
     };
     generateNotifs();
-  }, []);
+  }, [t]);
 
   // Filter Search
   // useEffect(() => {

@@ -1,5 +1,11 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
 import { getSystemSettings } from "../services/firestoreService";
 import { translations, getNestedTranslation } from "../data/translations";
 
@@ -34,11 +40,14 @@ export const SettingsProvider = ({ children }) => {
     localStorage.setItem("appLanguage", lang);
   };
 
-  const t = (key) => {
+  const t = useCallback((key) => {
     const langDict = translations[language] || translations.en;
     const translation = getNestedTranslation(langDict, key);
-    return translation !== undefined ? translation : key;
-  };
+    if (translation !== undefined) return translation;
+
+    const englishFallback = getNestedTranslation(translations.en, key);
+    return englishFallback !== undefined ? englishFallback : key;
+  }, [language]);
 
   const value = {
     settings: { ...globalSettings, language },

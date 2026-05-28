@@ -62,7 +62,7 @@ const Settings = () => {
     } catch (err) {
       console.error(err);
       // Note: In a full production app, replace this alert with your ConfirmModal/Toast system
-      alert("Failed to save settings.");
+      alert(t("settings.failedToSave"));
     } finally {
       setSaving(false);
     }
@@ -71,11 +71,11 @@ const Settings = () => {
   const handleChangePassword = async () => {
     setPwError("");
     if (!pwForm.current || !pwForm.newPw) {
-      setPwError("Please fill in both fields.");
+      setPwError(t("settings.passwordFieldsRequired"));
       return;
     }
     if (pwForm.newPw.length < 6) {
-      setPwError("New password must be at least 6 characters.");
+      setPwError(t("settings.passwordTooShort"));
       return;
     }
 
@@ -83,7 +83,7 @@ const Settings = () => {
     try {
       const auth = getAuth();
       const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error("No user logged in.");
+      if (!currentUser) throw new Error(t("settings.noUser"));
 
       // 1. Re-authenticate for security (Firebase requires this before sensitive changes)
       const credential = EmailAuthProvider.credential(
@@ -107,11 +107,11 @@ const Settings = () => {
         err.code === "auth/wrong-password" ||
         err.code === "auth/invalid-credential"
       ) {
-        setPwError("Current password is incorrect.");
+        setPwError(t("settings.currentPasswordIncorrect"));
       } else if (err.code === "auth/weak-password") {
-        setPwError("New password is too weak.");
+        setPwError(t("settings.weakPassword"));
       } else {
-        setPwError("Failed to update password. Please try again.");
+        setPwError(t("settings.passwordUpdateFailed"));
       }
     } finally {
       setPwLoading(false);
@@ -477,7 +477,8 @@ const Settings = () => {
                 alignItems: "center",
                 gap: "12px",
               }}>
-              <Lock size={20} color="var(--primary)" /> Change Password
+              <Lock size={20} color="var(--primary)" />{" "}
+              {t("settings.changePasswordTitle")}
             </h2>
 
             <div
@@ -491,7 +492,7 @@ const Settings = () => {
                     marginBottom: "8px",
                     color: "#475569",
                   }}>
-                  Current Password
+                  {t("settings.currentPassword")}
                 </label>
                 <input
                   type="password"
@@ -520,7 +521,7 @@ const Settings = () => {
                     marginBottom: "8px",
                     color: "#475569",
                   }}>
-                  New Password
+                  {t("settings.newPassword")}
                 </label>
                 <input
                   type="password"
@@ -564,7 +565,9 @@ const Settings = () => {
                   opacity: pwLoading ? 0.7 : 1,
                   width: "100%",
                 }}>
-                {pwLoading ? "Updating..." : "Update Password"}
+                {pwLoading
+                  ? t("settings.updatingPassword")
+                  : t("settings.updatePassword")}
               </button>
             </div>
           </div>

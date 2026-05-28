@@ -6,10 +6,13 @@ import {
   ArrowRight,
   AlertCircle,
   User,
+  X,
 } from "lucide-react";
+import { sendPasswordResetEmail } from "firebase/auth";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { useNavigate } from "react-router-dom";
+import { auth } from "../services/firebase";
 
 const Login = () => {
   const [isSignup, setIsSignup] = useState(false);
@@ -19,6 +22,11 @@ const Login = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [localError, setLocalError] = useState("");
   const [localLoading, setLocalLoading] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState("");
+  const [resetSuccess, setResetSuccess] = useState("");
 
   const {
     login,
@@ -81,10 +89,43 @@ const Login = () => {
     setConfirmPassword("");
   };
 
+  const openResetModal = () => {
+    setResetEmail(email);
+    setResetError("");
+    setResetSuccess("");
+    setShowResetModal(true);
+  };
+
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+    setResetError("");
+    setResetSuccess("");
+
+    if (!resetEmail.trim()) {
+      setResetError(t("login.resetEmailRequired"));
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, resetEmail.trim());
+      setResetSuccess(t("login.resetEmailSent"));
+    } catch (error) {
+      console.error("Password reset error:", error);
+      if (error.code === "auth/invalid-email") {
+        setResetError(t("login.resetInvalidEmail"));
+      } else if (error.code === "auth/user-not-found") {
+        setResetError(t("login.resetUserNotFound"));
+      } else {
+        setResetError(t("login.resetFailed"));
+      }
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   const displayError = localError || authError;
   const isLoading = localLoading || authLoading;
-
-  const showForm = !authLoading;
 
   return (
     <div
@@ -414,16 +455,21 @@ const Login = () => {
                   {t("login.password")}
                 </label>
                 {!isSignup && (
-                  <a
-                    href="#"
+                  <button
+                    type="button"
+                    onClick={openResetModal}
                     style={{
                       fontSize: "0.85rem",
                       color: "#0D9488",
                       fontWeight: "700",
                       textDecoration: "none",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: 0,
                     }}>
                     {t("login.forgotPassword")}
-                  </a>
+                  </button>
                 )}
               </div>
               <div style={{ position: "relative" }}>
@@ -616,6 +662,139 @@ const Login = () => {
           </div>
         </div>
       </div>
+
+      {showResetModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowResetModal(false)}
+          style={{ zIndex: 9999 }}>
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: "430px",
+              padding: "32px",
+              position: "relative",
+              background: "white",
+              borderRadius: "24px",
+            }}>
+            <button
+              onClick={() => setShowResetModal(false)}
+              title={t("modal.close")}
+              style={{
+                position: "absolute",
+                top: "20px",
+                right: "20px",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "#94A3B8",
+              }}>
+              <X size={20} />
+            </button>
+
+            <h2
+              style={{
+                fontSize: "1.2rem",
+                fontWeight: "800",
+                marginBottom: "8px",
+                color: "#0F172A",
+              }}>
+              {t("login.resetPasswordTitle")}
+            </h2>
+            <p
+              style={{
+                color: "#64748B",
+                fontSize: "0.9rem",
+                lineHeight: "1.5",
+                marginBottom: "24px",
+              }}>
+              {t("login.resetPasswordSubtitle")}
+            </p>
+
+            <form
+              onSubmit={handlePasswordReset}
+              style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "0.9rem",
+                    fontWeight: "700",
+                    marginBottom: "8px",
+                    color: "#1E293B",
+                  }}>
+                  {t("login.emailAddress")}
+                </label>
+                <input
+                  type="email"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  placeholder={t("login.emailPlaceholder")}
+                  className="search-bar"
+                  style={{
+                    width: "100%",
+                    background: "#F8FAFC",
+                    padding: "14px 18px",
+                  }}
+                  autoFocus
+                />
+              </div>
+
+              {resetError && (
+                <div
+                  style={{
+                    color: "#DC2626",
+                    background: "#FEF2F2",
+                    padding: "10px 12px",
+                    borderRadius: "10px",
+                    fontSize: "0.85rem",
+                    fontWeight: "600",
+                  }}>
+                  {resetError}
+                </div>
+              )}
+              {resetSuccess && (
+                <div
+                  style={{
+                    color: "#059669",
+                    background: "#ECFDF5",
+                    padding: "10px 12px",
+                    borderRadius: "10px",
+                    fontSize: "0.85rem",
+                    fontWeight: "600",
+                  }}>
+                  {resetSuccess}
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: "12px", marginTop: "8px" }}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setShowResetModal(false)}
+                  style={{
+                    flex: 1,
+                    background: "#F8FAFC",
+                    color: "#475569",
+                    border: "1px solid #E2E8F0",
+                  }}>
+                  {t("modal.cancel")}
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={resetLoading}
+                  style={{ flex: 1, opacity: resetLoading ? 0.7 : 1 }}>
+                  {resetLoading
+                    ? t("login.sendingReset")
+                    : t("login.sendResetLink")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

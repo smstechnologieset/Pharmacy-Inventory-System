@@ -83,7 +83,7 @@ const Expiration = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [t]);
 
   const handleAction = async (batchId, action) => {
     const item = items.find((i) => i.id === batchId);

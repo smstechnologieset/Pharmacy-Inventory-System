@@ -24,6 +24,13 @@ export const translations = {
       inStock: "In Stock",
       expiresIn: "Expires in",
     },
+    modal: {
+      confirmTitle: "Confirm Action",
+      confirmMessage: "Are you sure you want to continue?",
+      confirm: "Confirm",
+      cancel: "Cancel",
+      close: "Close",
+    },
     dashboard: {
       overview: "System Overview",
       subtitle: "Welcome back! Here's what's happening today.",
@@ -50,9 +57,11 @@ export const translations = {
     },
     inventory: {
       title: "Inventory & Stock Batches",
-      subtitle: "Receive stock for existing medicines and manage batch expirations.",
+      subtitle:
+        "Receive stock for existing medicines and manage batch expirations.",
       receiveStock: "Receive Stock",
-      mustAddMedicines: "You must add medicines to the Medicine Catalog before you can receive stock batches.",
+      mustAddMedicines:
+        "You must add medicines to the Medicine Catalog before you can receive stock batches.",
       searchPlaceholder: "Search by medicine name or batch...",
       loading: "Loading inventory...",
       medicineName: "Medicine Name",
@@ -68,7 +77,8 @@ export const translations = {
     },
     medicine: {
       title: "Medicine Catalog",
-      subtitle: "Manage product master data. Use the Inventory page to receive actual stock batches.",
+      subtitle:
+        "Manage product master data. Use the Inventory page to receive actual stock batches.",
       addMedicine: "Add Medicine",
       searchPlaceholder: "Search medicines...",
       loading: "Loading medicines....",
@@ -86,12 +96,14 @@ export const translations = {
       addNewMedicine: "Add New Medicine",
       confirmAdd: "Confirm & Add Medicine",
       updateProduct: "Update Product",
-      confirmDelete: "Delete this product master? (Note: Existing stock batches will remain but become unlinked)",
+      confirmDelete:
+        "Delete this product master? (Note: Existing stock batches will remain but become unlinked)",
       failedToDelete: "Failed to delete medicine.",
     },
     sales: {
       title: "Point of Sale",
-      subtitle: "Transaction-safe checkout terminal. (FEFO Batch Allocation Active)",
+      subtitle:
+        "Transaction-safe checkout terminal. (FEFO Batch Allocation Active)",
       searchPlaceholder: "Search products...",
       loadingProducts: "Loading products...",
       noMedicines: "No available medicines found.",
@@ -142,7 +154,8 @@ export const translations = {
       title: "Stock Expiration",
       subtitle: "Proactively manage items nearing expiry.",
       loading: "Loading expiration data...",
-      loadError: "Could not load expiration data. Please check your connection.",
+      loadError:
+        "Could not load expiration data. Please check your connection.",
       retry: "Retry",
       allAlerts: "All Alerts",
       expiringSoon: "Expiring Soon",
@@ -236,7 +249,8 @@ export const translations = {
       updateStaff: "Update Staff Member",
       registerStaff: "Register New Staff",
       fullName: "Full Name",
-      autoPasswordInfo: "A login password will be auto-generated from the email address.",
+      autoPasswordInfo:
+        "A login password will be auto-generated from the email address.",
       systemRole: "System Role",
       loginStatus: "Login Status",
       active: "Active",
@@ -254,6 +268,23 @@ export const translations = {
       failedToDelete: "Failed to delete staff member.",
       emailInUse: "An account with this email already exists.",
       failedToSave: "Failed to save. Please try again.",
+      edit: "Edit",
+      delete: "Delete",
+      showPassword: "Show password",
+      hidePassword: "Hide password",
+      copyPassword: "Copy password",
+      confirmDeleteTitle: "Remove Staff Member?",
+      confirmDeleteMsgPrefix: "Are you sure you want to remove",
+      confirmDeleteMsgSuffix:
+        "Their system access will be immediately revoked.",
+      yesDelete: "Yes, Delete",
+      cancel: "Cancel",
+      roles: {
+        admin: "Admin",
+        pharmacist: "Pharmacist",
+        manager: "Manager",
+        staff: "Staff",
+      },
     },
     login: {
       createAccount: "Create Account",
@@ -275,6 +306,17 @@ export const translations = {
       nameRequired: "Name is required",
       passwordsDoNotMatch: "Passwords do not match",
       passwordTooShort: "Password must be at least 6 characters",
+      emailPlaceholder: "name@company.com",
+      resetPasswordTitle: "Reset Password",
+      resetPasswordSubtitle:
+        "Enter your email address and we'll send you a password reset link.",
+      resetEmailRequired: "Please enter your email address.",
+      resetEmailSent: "Password reset link sent. Please check your email.",
+      resetInvalidEmail: "Please enter a valid email address.",
+      resetUserNotFound: "No account was found with this email address.",
+      resetFailed: "Failed to send reset link. Please try again.",
+      sendingReset: "Sending...",
+      sendResetLink: "Send Reset Link",
     },
     settings: {
       title: "Settings & Profile",
@@ -293,6 +335,19 @@ export const translations = {
       saveChanges: "Save All Changes",
       saving: "Saving...",
       successMsg: "Settings saved successfully!",
+      failedToSave: "Failed to save settings.",
+      passwordUpdated: "Password updated successfully!",
+      passwordFieldsRequired: "Please fill in both fields.",
+      passwordTooShort: "New password must be at least 6 characters.",
+      noUser: "No user logged in.",
+      currentPasswordIncorrect: "Current password is incorrect.",
+      weakPassword: "New password is too weak.",
+      passwordUpdateFailed: "Failed to update password. Please try again.",
+      changePasswordTitle: "Change Password",
+      currentPassword: "Current Password",
+      newPassword: "New Password",
+      updatingPassword: "Updating...",
+      updatePassword: "Update Password",
     },
   },
   am: {
@@ -319,6 +374,13 @@ export const translations = {
       outOfStock: "ክምችት አልቋል",
       inStock: "ክምችት ውስጥ ያለ",
       expiresIn: "ጊዜው የሚያልቀው በ",
+    },
+    modal: {
+      confirmTitle: "ድርጊቱን ያረጋግጡ",
+      confirmMessage: "መቀጠል እንደሚፈልጉ እርግጠኛ ነዎት?",
+      confirm: "አረጋግጥ",
+      cancel: "ሰርዝ",
+      close: "ዝጋ",
     },
     dashboard: {
       overview: "የስርዓት አጠቃላይ እይታ",
@@ -364,7 +426,8 @@ export const translations = {
     },
     medicine: {
       title: "የመድሃኒት ማውጫ",
-      subtitle: "የምርት ዋና መረጃን ያስተዳድሩ። ትክክለኛ የክምችት ባቾችን ለመቀበል የዕቃዎች ክምችት ገጽን ይጠቀሙ።",
+      subtitle:
+        "የምርት ዋና መረጃን ያስተዳድሩ። ትክክለኛ የክምችት ባቾችን ለመቀበል የዕቃዎች ክምችት ገጽን ይጠቀሙ።",
       addMedicine: "መድሃኒት አክል",
       searchPlaceholder: "መድሃኒቶችን ይፈልጉ...",
       loading: "መድሃኒቶችን በማስመጣት ላይ....",
@@ -382,7 +445,8 @@ export const translations = {
       addNewMedicine: "አዲስ መድሃኒት አክል",
       confirmAdd: "አረጋግጥ እና መድሃኒት አክል",
       updateProduct: "ምርት አዘምን",
-      confirmDelete: "ይህን የምርት ዋና መረጃ ይሰረዝ? (ማሳሰቢያ፡ ነባር የክምችት ባቾች ይቀራሉ ነገር ግን ግንኙነታቸው ይቋረጣል)",
+      confirmDelete:
+        "ይህን የምርት ዋና መረጃ ይሰረዝ? (ማሳሰቢያ፡ ነባር የክምችት ባቾች ይቀራሉ ነገር ግን ግንኙነታቸው ይቋረጣል)",
       failedToDelete: "መድሃኒቱን መሰረዝ አልተቻለም።",
     },
     sales: {
@@ -571,6 +635,17 @@ export const translations = {
       nameRequired: "ስም ያስፈልጋል",
       passwordsDoNotMatch: "የይለፍ ቃሎች አይዛመዱም",
       passwordTooShort: "የይለፍ ቃል ቢያንስ 6 ቁምፊዎች መሆን አለበት",
+      emailPlaceholder: "name@company.com",
+      resetPasswordTitle: "የይለፍ ቃል ዳግም አስጀምር",
+      resetPasswordSubtitle:
+        "የኢሜል አድራሻዎን ያስገቡ፤ የይለፍ ቃል መቀየሪያ አገናኝ እንልክልዎታለን።",
+      resetEmailRequired: "እባክዎ የኢሜል አድራሻዎን ያስገቡ።",
+      resetEmailSent: "የይለፍ ቃል መቀየሪያ አገናኝ ተልኳል። ኢሜልዎን ያረጋግጡ።",
+      resetInvalidEmail: "እባክዎ ትክክለኛ የኢሜል አድራሻ ያስገቡ።",
+      resetUserNotFound: "በዚህ ኢሜል ምንም መለያ አልተገኘም።",
+      resetFailed: "የመቀየሪያ አገናኝ መላክ አልተቻለም። እንደገና ይሞክሩ።",
+      sendingReset: "በመላክ ላይ...",
+      sendResetLink: "የመቀየሪያ አገናኝ ላክ",
     },
     settings: {
       title: "ቅንብሮች እና መገለጫ",
@@ -594,5 +669,5 @@ export const translations = {
 };
 
 export const getNestedTranslation = (obj, path) => {
-  return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+  return path.split(".").reduce((acc, part) => acc && acc[part], obj);
 };

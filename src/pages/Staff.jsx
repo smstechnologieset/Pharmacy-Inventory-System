@@ -26,13 +26,6 @@ import FormModal from "../components/FormModal";
 import CustomSelect from "../components/CustomSelect";
 import ConfirmModal from "../components/ConfirmModal.jsx";
 
-const ROLE_OPTIONS = [
-  { value: "admin", label: "Admin" },
-  { value: "pharmacist", label: "Pharmacist" },
-  { value: "manager", label: "Manager" },
-  { value: "staff", label: "Staff" },
-];
-
 const getRoleIcon = (role) =>
   role === "admin" ? <Shield size={14} /> : <UserCheck size={14} />;
 
@@ -47,7 +40,16 @@ const Staff = () => {
   const { user } = useAuth();
   const { t } = useSettings();
   const isAdmin = user?.role === "admin";
-  const isManager = user?.role === "manager";
+  const roleLabels = {
+    admin: t("staff.roles.admin"),
+    pharmacist: t("staff.roles.pharmacist"),
+    manager: t("staff.roles.manager"),
+    staff: t("staff.roles.staff"),
+  };
+  const roleOptions = Object.entries(roleLabels).map(([value, label]) => ({
+    value,
+    label,
+  }));
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [staffList, setStaffList] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -96,7 +98,7 @@ const Staff = () => {
       }
     };
     loadStaff();
-  }, []);
+  }, [t]);
 
   // ── Open add/edit modal ──────────────────────────────────────────────────────
   const handleOpenModal = (staff = null) => {
@@ -335,7 +337,7 @@ const Staff = () => {
                         fontSize: "0.8rem",
                       }}>
                       {getRoleIcon(staff.role)}
-                      {(staff.role || "staff").toUpperCase()}
+                      {roleLabels[staff.role] || roleLabels.staff}
                     </div>
                   </td>
 
@@ -354,7 +356,9 @@ const Staff = () => {
                           staff.status === "Active" ? "#059669" : "#DC2626",
                         fontSize: "0.75rem",
                       }}>
-                      {staff.status}
+                      {staff.status === "Active"
+                        ? t("staff.active")
+                        : t("staff.inactive")}
                     </span>
                   </td>
 
@@ -371,7 +375,7 @@ const Staff = () => {
                           className="icon-button"
                           onClick={() => handleOpenModal(staff)}
                           style={{ width: "40px", height: "40px" }}
-                          title="Edit">
+                          title={t("staff.edit")}>
                           <Edit size={16} />
                         </button>
                         <button
@@ -382,7 +386,7 @@ const Staff = () => {
                             height: "40px",
                             color: "#EF4444",
                           }}
-                          title="Delete">
+                          title={t("staff.delete")}>
                           <Trash2 size={16} />
                         </button>
                       </div>
@@ -515,7 +519,7 @@ const Staff = () => {
               <CustomSelect
                 value={formData.role}
                 onChange={(val) => setFormData({ ...formData, role: val })}
-                options={ROLE_OPTIONS}
+                options={roleOptions}
               />
             </div>
             <div>
@@ -646,7 +650,11 @@ const Staff = () => {
                 <button
                   className="icon-button"
                   style={{ width: "36px", height: "36px" }}
-                  title={showPassword ? "Hide" : "Show"}
+                  title={
+                    showPassword
+                      ? t("staff.hidePassword")
+                      : t("staff.showPassword")
+                  }
                   onClick={() => setShowPassword((v) => !v)}>
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -657,7 +665,7 @@ const Staff = () => {
                     height: "36px",
                     color: copied ? "#059669" : undefined,
                   }}
-                  title="Copy password"
+                  title={t("staff.copyPassword")}
                   onClick={handleCopy}>
                   {copied ? <CheckCheck size={16} /> : <Copy size={16} />}
                 </button>
@@ -689,10 +697,10 @@ const Staff = () => {
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
         type="danger"
-        title={t("staff.confirmDeleteTitle") || "Remove Staff Member?"}
-        message={t("staff.confirmDeleteMsg") || `Are you sure you want to remove ${deleteTarget?.name}? Their system access will be immediately revoked.`}
-        confirmText={t("staff.yesDelete") || "Yes, Delete"}
-        cancelText={t("staff.cancel") || "Cancel"}
+        title={t("staff.confirmDeleteTitle")}
+        message={`${t("staff.confirmDeleteMsgPrefix")} ${deleteTarget?.name || ""}? ${t("staff.confirmDeleteMsgSuffix")}`}
+        confirmText={t("staff.yesDelete")}
+        cancelText={t("staff.cancel")}
       />
     </div>
   );

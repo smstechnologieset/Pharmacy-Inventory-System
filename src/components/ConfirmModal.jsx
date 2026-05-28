@@ -1,5 +1,6 @@
 import React from "react";
 import { AlertTriangle, X, CheckCircle } from "lucide-react";
+import { useSettings } from "../context/SettingsContext";
 
 const ConfirmModal = ({
   isOpen,
@@ -8,12 +9,18 @@ const ConfirmModal = ({
   title,
   message,
   type = "warning",
-  confirmText = "Confirm",
-  cancelText = "Cancel",
+  confirmText,
+  cancelText,
 }) => {
+  const { t } = useSettings();
+
   if (!isOpen) return null;
   const isDanger = type === "danger";
   const isSuccess = type === "success";
+  const resolvedTitle = title || t("modal.confirmTitle");
+  const resolvedMessage = message || t("modal.confirmMessage");
+  const resolvedConfirmText = confirmText || t("modal.confirm");
+  const resolvedCancelText = cancelText || t("modal.cancel");
 
   return (
     <div className="modal-overlay" onClick={onClose} style={{ zIndex: 9999 }}>
@@ -72,11 +79,11 @@ const ConfirmModal = ({
               marginBottom: "8px",
               color: "#0F172A",
             }}>
-            {title}
+            {resolvedTitle}
           </h2>
           <p
             style={{ color: "#64748B", fontSize: "0.9rem", lineHeight: "1.5" }}>
-            {message}
+            {resolvedMessage}
           </p>
         </div>
 
@@ -90,7 +97,7 @@ const ConfirmModal = ({
               color: "#475569",
               border: "1px solid #E2E8F0",
             }}>
-            {cancelText}
+            {resolvedCancelText}
           </button>
           <button
             className="btn btn-primary"
@@ -102,7 +109,7 @@ const ConfirmModal = ({
               flex: 1,
               background: isDanger ? "#DC2626" : "var(--primary)",
             }}>
-            {confirmText}
+            {resolvedConfirmText}
           </button>
         </div>
       </div>

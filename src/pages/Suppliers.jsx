@@ -51,7 +51,7 @@ const Suppliers = () => {
     };
 
     loadSuppliers();
-  }, []);
+  }, [t]);
 
   const filteredSuppliers = supplierList.filter(
     (s) =>
