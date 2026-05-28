@@ -1,17 +1,41 @@
 import React, { useState, useEffect } from "react";
-import { Search, Plus, Edit, Trash2 } from "lucide-react";
+import { Search, Plus, Edit, Trash2, AlertTriangle } from "lucide-react";
 import FormModal from "../components/FormModal";
 import {
   createMedicine,
   getAllMedicines,
   updateMedicine,
   deleteMedicine,
-  getAllSuppliers, // ✅ Added: load suppliers from Firestore
+  getAllSuppliers,
 } from "../services/firestoreService";
+
+// ✅ Added: Returns "expired", "expiring-soon" (within 30 days), or "ok"
+const getExpiryStatus = (expiryStr) => {
+  if (!expiryStr || expiryStr === "N/A") return "ok";
+  const expiry = new Date(expiryStr);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return "expired";
+  if (diffDays <= 30) return "expiring-soon";
+  return "ok";
+};
+
+// ✅ Added: Returns how many days until expiry (or how many days ago it expired)
+const getDaysLabel = (expiryStr) => {
+  if (!expiryStr || expiryStr === "N/A") return null;
+  const expiry = new Date(expiryStr);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return `Expired ${Math.abs(diffDays)}d ago`;
+  if (diffDays === 0) return "Expires today!";
+  return `${diffDays}d left`;
+};
 
 const Medicine = () => {
   const [productList, setProductList] = useState([]);
-  const [suppliers, setSuppliers] = useState([]); // ✅ Added
+  const [suppliers, setSuppliers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -22,8 +46,8 @@ const Medicine = () => {
     description: "",
     batch: "",
     expiry: "",
-    supplierId: "", // ✅ Added: selected supplier id
-    supplierName: "", // ✅ Added: selected supplier name (denormalized for display)
+    supplierId: "",
+    supplierName: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -33,24 +57,23 @@ const Medicine = () => {
     const loadMedicines = async () => {
       try {
         setLoading(true);
-        // ✅ Added: load suppliers in parallel with medicines
         const [medicines, suppliersList] = await Promise.all([
           getAllMedicines(),
-          getAllSuppliers().catch(() => []), // graceful fallback
+          getAllSuppliers().catch(() => []),
         ]);
         setProductList(medicines);
         setSuppliers(suppliersList);
       } catch (err) {
-        setLoading(false);
         setError(err.message || "Failed to load medicines.");
       } finally {
         setLoading(false);
       }
     };
-
     loadMedicines();
   }, []);
+
   console.log("Loaded medicines:", productList);
+
   if (loading) {
     return (
       <div className="medicine-page" style={{ padding: "32px" }}>
@@ -60,10 +83,34 @@ const Medicine = () => {
       </div>
     );
   }
+  const getExpiryDays = (expiryStr) => {
+    if (!expiryStr || expiryStr === "N/A") return Infinity;
+    const diff = new Date(expiryStr) - new Date().setHours(0, 0, 0, 0);
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  };
 
-  const filteredProducts = productList.filter((p) =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  const filteredProducts = productList
+    .filter((p) => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => {
+      const statusOrder = { "expiring-soon": 0, expired: 2, ok: 1 };
+      const statusA = getExpiryStatus(a.expiry);
+      const statusB = getExpiryStatus(b.expiry);
+      if (statusA !== statusB)
+        return statusOrder[statusA] - statusOrder[statusB];
+      // Within the same status, sort by closest expiry date first
+      return getExpiryDays(a.expiry) - getExpiryDays(b.expiry);
+    });
+  // const filteredProducts = productList.filter((p) =>
+  //   p.name.toLowerCase().includes(searchTerm.toLowerCase()),
+  // );
+
+
+  // const expiredMedicines = productList.filter(
+  //   (p) => getExpiryStatus(p.expiry) === "expired",
+  // );
+  // const expiringSoonMedicines = productList.filter(
+  //   (p) => getExpiryStatus(p.expiry) === "expiring-soon",
+  // );
 
   const handleOpenModal = (product = null) => {
     if (product) {
@@ -87,14 +134,13 @@ const Medicine = () => {
         description: "",
         batch: "",
         expiry: "",
-        supplierId: suppliers[0]?.id || "", // ✅ Auto-select first supplier
+        supplierId: suppliers[0]?.id || "",
         supplierName: suppliers[0]?.name || "",
       });
     }
     setIsModalOpen(true);
   };
 
-  // ✅ Added: handle supplier selection (stores id + name)
   const handleSupplierChange = (supplierId) => {
     const selected = suppliers.find((s) => s.id === supplierId);
     setFormData({
@@ -108,14 +154,12 @@ const Medicine = () => {
     e.preventDefault();
     setError("");
     setSaving(true);
-
     try {
       if (editingProduct) {
         const updatedMedicine = {
           ...formData,
           price: parseFloat(formData.price),
         };
-
         await updateMedicine(editingProduct.id, updatedMedicine);
         setProductList(
           productList.map((p) =>
@@ -133,7 +177,6 @@ const Medicine = () => {
           supplierName: formData.supplierName || "N/A",
           status: "Out of Stock",
         };
-
         const createdMedicine = await createMedicine(newProduct);
         setProductList([createdMedicine, ...productList]);
       }
@@ -148,7 +191,6 @@ const Medicine = () => {
   const handleDelete = async (id) => {
     const confirmed = window.confirm("Delete this product?");
     if (!confirmed) return;
-
     setError("");
     try {
       await deleteMedicine(id);
@@ -165,7 +207,7 @@ const Medicine = () => {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: "32px",
+          marginBottom: "24px",
         }}>
         <div>
           <h1
@@ -220,93 +262,147 @@ const Medicine = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.map((p) => (
-                <tr key={p.id} style={{ borderBottom: "1px solid #F1F5F9" }}>
-                  <td style={{ padding: "20px 32px" }}>
-                    <div
-                      style={{
-                        fontWeight: "700",
-                        fontSize: "0.95rem",
-                        color: "#1E293B",
-                      }}>
-                      {p.name}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "0.7rem",
-                        color: "#94A3B8",
-                        marginTop: "2px",
-                      }}>
-                      Batch: {p.batch || "N/A"}
-                    </div>
-                    {/* ✅ Added: supplier info under medicine name */}
-                    {p.supplierName && (
+              {filteredProducts.map((p) => {
+                // ✅ Added: compute status per row
+                const expiryStatus = getExpiryStatus(p.expiry);
+                const daysLabel = getDaysLabel(p.expiry);
+
+                // ✅ Added: row highlight for expired/expiring-soon
+                const rowBg =
+                  expiryStatus === "expired"
+                    ? "#FFF5F5"
+                    : expiryStatus === "expiring-soon"
+                      ? "#FFFDF0"
+                      : "transparent";
+
+                return (
+                  <tr
+                    key={p.id}
+                    style={{
+                      borderBottom: "1px solid #F1F5F9",
+                      background: rowBg,
+                    }}>
+                    <td style={{ padding: "20px 32px" }}>
+                      <div
+                        style={{
+                          fontWeight: "700",
+                          fontSize: "0.95rem",
+                          color: "#1E293B",
+                        }}>
+                        {p.name}
+                      </div>
                       <div
                         style={{
                           fontSize: "0.7rem",
-                          color: "#0D9488",
+                          color: "#94A3B8",
                           marginTop: "2px",
                         }}>
-                        Supplier: {p.supplierName}
+                        Batch: {p.batch || "N/A"}
                       </div>
-                    )}
-                  </td>
-                  <td>
-                    <span
-                      style={{
-                        padding: "6px 16px",
-                        background: "#F1F5F9",
-                        color: "#64748B",
-                        borderRadius: "12px",
-                        fontSize: "0.8rem",
-                        fontWeight: "600",
-                      }}>
-                      {p.category}
-                    </span>
-                  </td>
-                  <td>
-                    <div
-                      style={{
-                        fontWeight: "700",
-                        color: p.stock < 10 ? "#EF4444" : "#1E293B",
-                      }}>
-                      {p.stock} tablets{" "}
-                      {p.stock < 10 && <span title="Low Stock">⚠️</span>}
-                    </div>
-                  </td>
-                  <td style={{ fontWeight: "700" }}>
-                    ETB {p.price.toFixed(2)}
-                  </td>
-                  <td style={{ color: "#64748B", fontWeight: "500" }}>
-                    {p.expiry || "N/A"}
-                  </td>
-                  <td style={{ paddingRight: "32px" }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "12px",
-                        justifyContent: "flex-end",
-                      }}>
-                      <button
-                        className="icon-button"
-                        onClick={() => handleOpenModal(p)}
-                        style={{ width: "40px", height: "40px" }}>
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        className="icon-button"
-                        onClick={() => handleDelete(p.id)}
+                      {p.supplierName && (
+                        <div
+                          style={{
+                            fontSize: "0.7rem",
+                            color: "#0D9488",
+                            marginTop: "2px",
+                          }}>
+                          Supplier: {p.supplierName}
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      <span
                         style={{
-                          width: "40px",
-                          height: "40px",
-                          color: "#EF4444",
+                          padding: "6px 16px",
+                          background: "#F1F5F9",
+                          color: "#64748B",
+                          borderRadius: "12px",
+                          fontSize: "0.8rem",
+                          fontWeight: "600",
                         }}>
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        {p.category}
+                      </span>
+                    </td>
+                    <td>
+                      <div
+                        style={{
+                          fontWeight: "700",
+                          color: p.stock < 10 ? "#EF4444" : "#1E293B",
+                        }}>
+                        {p.stock} tablets{" "}
+                        {p.stock < 10 && <span title="Low Stock">⚠️</span>}
+                      </div>
+                    </td>
+                    <td style={{ fontWeight: "700" }}>
+                      ETB {p.price.toFixed(2)}
+                    </td>
+
+                    {/* ✅ Modified: Expiry cell now shows status badge */}
+                    <td>
+                      <div
+                        style={{
+                          color:
+                            expiryStatus === "expired"
+                              ? "#DC2626"
+                              : expiryStatus === "expiring-soon"
+                                ? "#D97706"
+                                : "#64748B",
+                          fontWeight: expiryStatus !== "ok" ? "700" : "500",
+                        }}>
+                        {p.expiry || "N/A"}
+                      </div>
+                      {/* ✅ Added: days label badge below the date */}
+                      {daysLabel && expiryStatus !== "ok" && (
+                        <div
+                          style={{
+                            marginTop: "4px",
+                            display: "inline-block",
+                            padding: "2px 10px",
+                            borderRadius: "8px",
+                            fontSize: "0.7rem",
+                            fontWeight: "700",
+                            background:
+                              expiryStatus === "expired"
+                                ? "#FEE2E2"
+                                : "#FEF3C7",
+                            color:
+                              expiryStatus === "expired"
+                                ? "#991B1B"
+                                : "#92400E",
+                          }}>
+                          {daysLabel}
+                        </div>
+                      )}
+                    </td>
+
+                    <td style={{ paddingRight: "32px" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "12px",
+                          justifyContent: "flex-end",
+                        }}>
+                        <button
+                          className="icon-button"
+                          onClick={() => handleOpenModal(p)}
+                          style={{ width: "40px", height: "40px" }}>
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          className="icon-button"
+                          onClick={() => handleDelete(p.id)}
+                          style={{
+                            width: "40px",
+                            height: "40px",
+                            color: "#EF4444",
+                          }}>
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -346,7 +442,6 @@ const Medicine = () => {
               }
             />
           </div>
-          {/* ✅ Modified: 3-column row now includes Supplier */}
           <div
             style={{
               display: "grid",
@@ -384,8 +479,6 @@ const Medicine = () => {
                 <option value="Antibiotics">Antibiotics</option>
               </select>
             </div>
-
-            {/* ✅ Added: Supplier dropdown */}
             <div>
               <label
                 style={{
@@ -421,7 +514,6 @@ const Medicine = () => {
                 ))}
               </select>
             </div>
-
             <div>
               <label
                 style={{
@@ -550,7 +642,6 @@ const Medicine = () => {
               {error}
             </div>
           )}
-          {/* ✅ Added: helpful hint if no suppliers exist */}
           {suppliers.length === 0 && (
             <div
               style={{
