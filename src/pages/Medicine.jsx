@@ -117,7 +117,7 @@ const Medicine = () => {
     }
   };
 
-  if (loading) return <div className="medicine-page" style={{ padding: "32px" }}><div style={{ fontSize: "1rem", color: "#64748B" }}>Loading medicines...</div></div>;
+  if (loading) return <div className="medicine-page" style={{ padding: "32px" }}><div style={{ fontSize: "1rem", color: "#64748B" }}>Loading medicines....</div></div>;
 
   return (
     <div className="medicine-page">
