@@ -444,6 +444,26 @@ export const getAllStockBatches = async () => {
 };
 
 /**
+ * Create a new stock batch document in Firestore
+ */
+export const createStockBatch = async (batchData) => {
+  try {
+    const batchRef = await addDoc(collection(db, "stockBatches"), {
+      ...batchData,
+      quantity: Number(batchData.quantity),
+      costPrice: Number(batchData.costPrice),
+      sellingPrice: Number(batchData.sellingPrice),
+      status: batchData.quantity > 0 ? "In Stock" : "Out of Stock",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return { id: batchRef.id, ...batchData };
+  } catch (error) {
+    console.error("Error creating stock batch:", error);
+    throw new Error(`Failed to create stock batch: ${error.message}`);
+  }
+};
+/**
  * Update a specific stock batch (e.g., mark as disposed, reduce quantity)
  */
 export const updateStockBatch = async (batchId, updates) => {
