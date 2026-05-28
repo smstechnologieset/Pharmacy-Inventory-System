@@ -589,3 +589,37 @@ export const processCheckoutTransaction = async (cart, paymentMethod, userId) =>
 
   return result;
 };
+
+/**
+ * Get global system settings (creates default if missing)
+ */
+export const getSystemSettings = async () => {
+  try {
+    const docRef = doc(db, "settings", "global");
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return docSnap.data();
+    }
+    // Create defaults if they don't exist
+    const defaults = { lowStockThreshold: 10, expiryWarningDays: 60, currency: "ETB", language: "en" };
+    await setDoc(docRef, defaults);
+    return defaults;
+  } catch (error) {
+    console.error("Error loading settings:", error);
+    return { lowStockThreshold: 10, expiryWarningDays: 60 }; // Fallback
+  }
+};
+
+/**
+ * Update global system settings
+ */
+export const updateSystemSettings = async (updates) => {
+  try {
+    const docRef = doc(db, "settings", "global");
+    await setDoc(docRef, { ...updates, updatedAt: serverTimestamp() }, { merge: true });
+    return true;
+  } catch (error) {
+    console.error("Error updating settings:", error);
+    throw new Error("Failed to save settings");
+  }
+};

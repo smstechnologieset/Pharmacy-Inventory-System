@@ -13,7 +13,7 @@ import {
   UserCog,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { roles } from "../data/mockData";
+import { roles } from "../constants/roles"; // ← CHANGED IMPORT
 
 const Sidebar = () => {
   const { user } = useAuth();
@@ -47,7 +47,7 @@ const Sidebar = () => {
       name: "Suppliers",
       icon: <Truck />,
       path: "/suppliers",
-      roles: [roles.ADMIN, roles.MANAGER, roles.MANAGER],
+      roles: [roles.ADMIN, roles.MANAGER],
     },
     {
       name: "Expiration",
@@ -87,7 +87,6 @@ const Sidebar = () => {
         </div>
         <span>PharmaCare</span>
       </div>
-
       <nav className="sidebar-nav">
         {filteredNav.map((item) => (
           <NavLink
@@ -101,35 +100,6 @@ const Sidebar = () => {
           </NavLink>
         ))}
       </nav>
-
-      {/* User Info Capsule as seen in screenshot */}
-      {/* <div style={{ padding: '24px', borderTop: '1px solid var(--border)' }}>
-        <div style={{ 
-          background: '#F8FAFC', 
-          padding: '16px', 
-          borderRadius: '20px', 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '12px' 
-        }}>
-          <div style={{ 
-            width: '32px', 
-            height: '32px', 
-            borderRadius: '50%', 
-            background: 'var(--primary-light)', 
-            color: 'var(--primary)', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            fontWeight: '700',
-            fontSize: '12px'
-          }}>AD</div>
-          <div style={{ overflow: 'hidden' }}>
-            <div style={{ fontWeight: '600', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Admin User</div>
-            <div style={{ color: 'var(--primary)', fontSize: '0.75rem', fontWeight: '500' }}>Administrator</div>
-          </div>
-        </div>
-      </div> */}
     </aside>
   );
 };
