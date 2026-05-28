@@ -6,11 +6,12 @@ createUserWithEmailAndPassword as signUp,
   signOut,
   onAuthStateChanged,
 } from "firebase/auth";
-import { auth } from "../services/firebase";
+import { auth, db } from "../services/firebase";
 import {
   createUserProfile,
   getUserProfile,
 } from "../services/firestoreService";
+import { doc, onSnapshot } from "firebase/firestore";
 
 const AuthContext = createContext();
 
@@ -22,47 +23,63 @@ export const AuthProvider = ({ children }) => {
 
   // Listen for auth state changes (persistent login)
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      try {
-        if (firebaseUser) {
-          // User is signed in, fetch their Firestore profile
-          const userProfile = await getUserProfile(firebaseUser.uid);
-          setAuthUser(firebaseUser);
-          setUser({
-            uid: firebaseUser.uid,
-            email: firebaseUser.email,
-            ...userProfile,
-          });
-          setError(null);
-        } else {
-          // User is signed out
-          setAuthUser(null);
-          setUser(null);
-          setError(null);
-        }
-      } catch (err) {
-        console.error("Error fetching user profile:", err);
-        setError(err.message);
-        // Still set the user if we can't fetch profile, fallback to auth data
-        if (firebaseUser) {
-          setAuthUser(firebaseUser);
-          setUser({
-            uid: firebaseUser.uid,
-            email: firebaseUser.email,
-            name: firebaseUser.displayName || "",
-            role: "staff",
-            avatar: `https://i.pravatar.cc/150?u=${firebaseUser.uid}`,
-            status: "Active",
-          });
-        }
-      } finally {
+    let unsubscribeSnapshot = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+      // Clean up previous snapshot listener if auth state changes
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+        unsubscribeSnapshot = null;
+      }
+
+      if (firebaseUser) {
+        setAuthUser(firebaseUser);
+        setLoading(true);
+
+        const userDocRef = doc(db, "users", firebaseUser.uid);
+
+        // 🔥 REAL-TIME LISTENER: Watches the Firestore profile
+        unsubscribeSnapshot = onSnapshot(
+          userDocRef,
+          (docSnap) => {
+            if (docSnap.exists()) {
+              // Profile exists, log them in
+              setUser({
+                uid: firebaseUser.uid,
+                email: firebaseUser.email,
+                ...docSnap.data(),
+              });
+              setError(null);
+            } else {
+              // 🔥 PROFILE WAS DELETED! Force logout immediately.
+              console.warn("User profile missing or deleted. Forcing logout.");
+              signOut(auth).catch(console.error);
+              setUser(null);
+              setError(
+                "Your account has been removed or disabled by an administrator.",
+              );
+            }
+            setLoading(false);
+          },
+          (err) => {
+            console.error("Error listening to user profile:", err);
+            setError("Failed to verify account status.");
+            setLoading(false);
+          },
+        );
+      } else {
+        setAuthUser(null);
+        setUser(null);
+        setError(null);
         setLoading(false);
       }
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeSnapshot) unsubscribeSnapshot();
+    };
   }, []);
-
   /**
    * Sign up with email and password
    * Creates auth user and Firestore profile

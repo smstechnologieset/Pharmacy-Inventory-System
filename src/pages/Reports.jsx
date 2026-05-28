@@ -29,7 +29,7 @@ import {
   getAllMedicines,
   getAllStockBatches,
 } from "../services/firestoreService";
-import { useSettings } from "../context/SettingsContext";
+
 import { exportToPDF } from "../utils/exportToPdf.js";
 
 ChartJS.register(

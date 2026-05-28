@@ -1,8 +1,22 @@
 import React, { useState, useEffect } from "react";
-import { User, Shield, Lock, Smartphone, Save, HelpCircle } from "lucide-react";
+import {
+  User,
+  Shield,
+  Lock,
+  Smartphone,
+  Save,
+  HelpCircle,
+  X,
+} from "lucide-react";
+import {
+  getAuth,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
+} from "firebase/auth";
 import { useAuth } from "../context/AuthContext";
 import {
-  getSystemSettings,
+
   updateSystemSettings,
 } from "../services/firestoreService";
 import { useSettings } from "../context/SettingsContext";
@@ -11,7 +25,7 @@ import CustomSelect from "../components/CustomSelect";
 const Settings = () => {
   const { user } = useAuth();
   const { settings: contextSettings, updateLanguage, t } = useSettings();
-  
+
   const [localState, setLocalState] = useState({
     currency: contextSettings.currency || "ETB",
     language: contextSettings.language || "en",
@@ -20,6 +34,12 @@ const Settings = () => {
   });
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+
+  // ── Password Modal State ─────────────────────────────────────────────────────
+  const [showPwModal, setShowPwModal] = useState(false);
+  const [pwForm, setPwForm] = useState({ current: "", newPw: "" });
+  const [pwError, setPwError] = useState("");
+  const [pwLoading, setPwLoading] = useState(false);
 
   useEffect(() => {
     setLocalState({
@@ -37,12 +57,64 @@ const Settings = () => {
       const { language, ...globalPayload } = localState;
       await updateSystemSettings(globalPayload);
       updateLanguage(language);
-      setSuccessMsg(t("settings.successMsg"));
+      setSuccessMsg(t("settings.successMsg") || "Settings saved successfully!");
       setTimeout(() => setSuccessMsg(""), 3000);
     } catch (err) {
+      console.error(err);
+      // Note: In a full production app, replace this alert with your ConfirmModal/Toast system
       alert("Failed to save settings.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    setPwError("");
+    if (!pwForm.current || !pwForm.newPw) {
+      setPwError("Please fill in both fields.");
+      return;
+    }
+    if (pwForm.newPw.length < 6) {
+      setPwError("New password must be at least 6 characters.");
+      return;
+    }
+
+    setPwLoading(true);
+    try {
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("No user logged in.");
+
+      // 1. Re-authenticate for security (Firebase requires this before sensitive changes)
+      const credential = EmailAuthProvider.credential(
+        currentUser.email,
+        pwForm.current,
+      );
+      await reauthenticateWithCredential(currentUser, credential);
+
+      // 2. Update Password
+      await updatePassword(currentUser, pwForm.newPw);
+
+      setShowPwModal(false);
+      setPwForm({ current: "", newPw: "" });
+      setSuccessMsg(
+        t("settings.passwordUpdated") || "Password updated successfully!",
+      );
+      setTimeout(() => setSuccessMsg(""), 3000);
+    } catch (err) {
+      console.error("Password update error:", err);
+      if (
+        err.code === "auth/wrong-password" ||
+        err.code === "auth/invalid-credential"
+      ) {
+        setPwError("Current password is incorrect.");
+      } else if (err.code === "auth/weak-password") {
+        setPwError("New password is too weak.");
+      } else {
+        setPwError("Failed to update password. Please try again.");
+      }
+    } finally {
+      setPwLoading(false);
     }
   };
 
@@ -79,7 +151,8 @@ const Settings = () => {
                 alignItems: "center",
                 gap: "12px",
               }}>
-              <User size={20} color="var(--primary)" /> {t("settings.profileInfo")}
+              <User size={20} color="var(--primary)" />{" "}
+              {t("settings.profileInfo")}
             </h2>
             <div
               style={{
@@ -142,18 +215,26 @@ const Settings = () => {
                 alignItems: "center",
                 gap: "12px",
               }}>
-              <Shield size={20} color="var(--primary)" /> {t("settings.accountSecurity")}
+              <Shield size={20} color="var(--primary)" />{" "}
+              {t("settings.accountSecurity")}
             </h2>
             <div
               style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               <button
                 className="btn"
+                onClick={() => setShowPwModal(true)}
                 style={{
                   justifyContent: "flex-start",
                   background: "#F8FAFC",
                   color: "#1E293B",
                   padding: "16px 24px",
                   borderRadius: "16px",
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: "600",
+                  display: "flex",
+                  alignItems: "center",
+                  width: "100%",
                 }}>
                 <Lock size={18} style={{ marginRight: "12px", opacity: 0.6 }} />{" "}
                 {t("settings.changePassword")}
@@ -166,6 +247,12 @@ const Settings = () => {
                   color: "#1E293B",
                   padding: "16px 24px",
                   borderRadius: "16px",
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: "600",
+                  display: "flex",
+                  alignItems: "center",
+                  width: "100%",
                 }}>
                 <Shield
                   size={18}
@@ -280,7 +367,9 @@ const Settings = () => {
                 </label>
                 <CustomSelect
                   value={localState.currency}
-                  onChange={(val) => setLocalState({ ...localState, currency: val })}
+                  onChange={(val) =>
+                    setLocalState({ ...localState, currency: val })
+                  }
                   options={[
                     { value: "ETB", label: "Ethiopian Birr (ETB)" },
                     { value: "USD", label: "US Dollar (USD)" },
@@ -301,7 +390,9 @@ const Settings = () => {
                 </label>
                 <CustomSelect
                   value={localState.language}
-                  onChange={(val) => setLocalState({ ...localState, language: val })}
+                  onChange={(val) =>
+                    setLocalState({ ...localState, language: val })
+                  }
                   options={[
                     { value: "en", label: "English" },
                     { value: "am", label: "Amharic (አማርኛ)" },
@@ -333,14 +424,152 @@ const Settings = () => {
                   height: "56px",
                   fontSize: "1.05rem",
                   opacity: saving ? 0.7 : 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
                 }}>
-                <Save size={20} style={{ marginRight: "8px" }} />{" "}
+                <Save size={20} />{" "}
                 {saving ? t("settings.saving") : t("settings.saveChanges")}
               </button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* ── Change Password Modal ──────────────────────────────────────────────── */}
+      {showPwModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowPwModal(false)}
+          style={{ zIndex: 9999 }}>
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: "450px",
+              padding: "32px",
+              position: "relative",
+              background: "white",
+              borderRadius: "24px",
+              boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)",
+            }}>
+            <button
+              onClick={() => setShowPwModal(false)}
+              style={{
+                position: "absolute",
+                top: "20px",
+                right: "20px",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "#94A3B8",
+              }}>
+              <X size={20} />
+            </button>
+
+            <h2
+              style={{
+                fontSize: "1.2rem",
+                fontWeight: "800",
+                marginBottom: "24px",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+              }}>
+              <Lock size={20} color="var(--primary)" /> Change Password
+            </h2>
+
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "0.85rem",
+                    fontWeight: "700",
+                    marginBottom: "8px",
+                    color: "#475569",
+                  }}>
+                  Current Password
+                </label>
+                <input
+                  type="password"
+                  className="search-bar"
+                  style={{
+                    width: "100%",
+                    background: "#F8FAFC",
+                    padding: "12px 16px",
+                    border: "none",
+                    borderRadius: "12px",
+                    outline: "none",
+                  }}
+                  value={pwForm.current}
+                  onChange={(e) =>
+                    setPwForm({ ...pwForm, current: e.target.value })
+                  }
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "0.85rem",
+                    fontWeight: "700",
+                    marginBottom: "8px",
+                    color: "#475569",
+                  }}>
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  className="search-bar"
+                  style={{
+                    width: "100%",
+                    background: "#F8FAFC",
+                    padding: "12px 16px",
+                    border: "none",
+                    borderRadius: "12px",
+                    outline: "none",
+                  }}
+                  value={pwForm.newPw}
+                  onChange={(e) =>
+                    setPwForm({ ...pwForm, newPw: e.target.value })
+                  }
+                />
+              </div>
+
+              {pwError && (
+                <div
+                  style={{
+                    color: "#DC2626",
+                    background: "#FEF2F2",
+                    padding: "10px",
+                    borderRadius: "8px",
+                    fontSize: "0.85rem",
+                    fontWeight: "600",
+                  }}>
+                  {pwError}
+                </div>
+              )}
+
+              <button
+                className="btn btn-primary"
+                onClick={handleChangePassword}
+                disabled={pwLoading || !pwForm.current || !pwForm.newPw}
+                style={{
+                  height: "48px",
+                  marginTop: "8px",
+                  opacity: pwLoading ? 0.7 : 1,
+                  width: "100%",
+                }}>
+                {pwLoading ? "Updating..." : "Update Password"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

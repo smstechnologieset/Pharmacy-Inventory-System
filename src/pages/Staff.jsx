@@ -22,7 +22,9 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import FormModal from "../components/FormModal";
+
 import CustomSelect from "../components/CustomSelect";
+import ConfirmModal from "../components/ConfirmModal.jsx";
 
 const ROLE_OPTIONS = [
   { value: "admin", label: "Admin" },
@@ -46,7 +48,7 @@ const Staff = () => {
   const { t } = useSettings();
   const isAdmin = user?.role === "admin";
   const isManager = user?.role === "manager";
-
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [staffList, setStaffList] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -86,7 +88,9 @@ const Staff = () => {
         );
       } catch (err) {
         console.error(err);
-        setPageError(t("staff.loadError") || "Unable to load staff from Firebase.");
+        setPageError(
+          t("staff.loadError") || "Unable to load staff from Firebase.",
+        );
       } finally {
         setLoading(false);
       }
@@ -162,9 +166,15 @@ const Staff = () => {
     } catch (err) {
       console.error(err);
       if (err.code === "auth/email-already-in-use") {
-        setFormError(t("staff.emailInUse") || "An account with this email already exists.");
+        setFormError(
+          t("staff.emailInUse") || "An account with this email already exists.",
+        );
       } else {
-        setFormError(err.message || t("staff.failedToSave") || "Failed to save. Please try again.");
+        setFormError(
+          err.message ||
+            t("staff.failedToSave") ||
+            "Failed to save. Please try again.",
+        );
       }
     } finally {
       setSaving(false);
@@ -172,14 +182,21 @@ const Staff = () => {
   };
 
   // ── Delete ───────────────────────────────────────────────────────────────────
-  const handleDelete = async (id) => {
-    if (!window.confirm(t("staff.confirmDelete") || "Remove this staff member?")) return;
+  // ── Delete ───────────────────────────────────────────────────────────────────
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await deleteDoc(doc(db, "users", id));
-      setStaffList((prev) => prev.filter((s) => s.id !== id));
+      // Deleting the Firestore doc will instantly trigger the onSnapshot
+      // listener in AuthContext, forcing the user to be signed out!
+      await deleteDoc(doc(db, "users", deleteTarget.id));
+      setStaffList((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+      setDeleteTarget(null);
     } catch (err) {
       console.error(err);
-      setPageError(t("staff.failedToDelete") || "Failed to delete staff member.");
+      setPageError(
+        t("staff.failedToDelete") || "Failed to delete staff member.",
+      );
+      setDeleteTarget(null);
     }
   };
 
@@ -225,9 +242,7 @@ const Staff = () => {
               fontSize: "0.85rem",
               marginTop: "4px",
             }}>
-            {isAdmin
-              ? t("staff.adminSubtitle")
-              : t("staff.staffSubtitle")}
+            {isAdmin ? t("staff.adminSubtitle") : t("staff.staffSubtitle")}
           </p>
         </div>
 
@@ -248,7 +263,9 @@ const Staff = () => {
             <Search size={22} style={{ color: "#94A3B8" }} />
             <input
               type="text"
-              placeholder={t("staff.searchPlaceholder") || "Search staff members..."}
+              placeholder={
+                t("staff.searchPlaceholder") || "Search staff members..."
+              }
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -359,7 +376,7 @@ const Staff = () => {
                         </button>
                         <button
                           className="icon-button"
-                          onClick={() => handleDelete(staff.id)}
+                          onClick={() => setDeleteTarget(staff)}
                           style={{
                             width: "40px",
                             height: "40px",
@@ -382,7 +399,9 @@ const Staff = () => {
       <FormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingStaff ? t("staff.updateStaff") : t("staff.registerStaff")}>
+        title={
+          editingStaff ? t("staff.updateStaff") : t("staff.registerStaff")
+        }>
         <form
           onSubmit={handleSave}
           style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
@@ -514,7 +533,10 @@ const Staff = () => {
                 onChange={(val) => setFormData({ ...formData, status: val })}
                 options={[
                   { value: "Active", label: t("staff.active") || "Active" },
-                  { value: "Inactive", label: t("staff.inactive") || "Inactive" },
+                  {
+                    value: "Inactive",
+                    label: t("staff.inactive") || "Inactive",
+                  },
                 ]}
               />
             </div>
@@ -661,8 +683,22 @@ const Staff = () => {
           </button>
         </div>
       </FormModal>
+            {/* ── Delete Confirmation Modal ───────────────────────────────────────── */}
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        type="danger"
+        title={t("staff.confirmDeleteTitle") || "Remove Staff Member?"}
+        message={t("staff.confirmDeleteMsg") || `Are you sure you want to remove ${deleteTarget?.name}? Their system access will be immediately revoked.`}
+        confirmText={t("staff.yesDelete") || "Yes, Delete"}
+        cancelText={t("staff.cancel") || "Cancel"}
+      />
     </div>
   );
 };
+
+
+
 
 export default Staff;
