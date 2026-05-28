@@ -5,32 +5,39 @@ import {
   getSystemSettings,
   updateSystemSettings,
 } from "../services/firestoreService";
+import { useSettings } from "../context/SettingsContext";
+import CustomSelect from "../components/CustomSelect";
 
 const Settings = () => {
   const { user } = useAuth();
-  const [settings, setSettings] = useState({
-    currency: "ETB",
-    language: "en",
-    lowStockThreshold: 10,
-    expiryWarningDays: 60,
+  const { settings: contextSettings, updateLanguage, t } = useSettings();
+  
+  const [localState, setLocalState] = useState({
+    currency: contextSettings.currency || "ETB",
+    language: contextSettings.language || "en",
+    lowStockThreshold: contextSettings.lowStockThreshold || 10,
+    expiryWarningDays: contextSettings.expiryWarningDays || 60,
   });
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
 
   useEffect(() => {
-    const loadSettings = async () => {
-      const data = await getSystemSettings();
-      setSettings(data);
-    };
-    loadSettings();
-  }, []);
+    setLocalState({
+      currency: contextSettings.currency || "ETB",
+      language: contextSettings.language || "en",
+      lowStockThreshold: contextSettings.lowStockThreshold || 10,
+      expiryWarningDays: contextSettings.expiryWarningDays || 60,
+    });
+  }, [contextSettings]);
 
   const handleSave = async () => {
     setSaving(true);
     setSuccessMsg("");
     try {
-      await updateSystemSettings(settings);
-      setSuccessMsg("Settings saved successfully!");
+      const { language, ...globalPayload } = localState;
+      await updateSystemSettings(globalPayload);
+      updateLanguage(language);
+      setSuccessMsg(t("settings.successMsg"));
       setTimeout(() => setSuccessMsg(""), 3000);
     } catch (err) {
       alert("Failed to save settings.");
@@ -48,7 +55,7 @@ const Settings = () => {
             fontWeight: "800",
             letterSpacing: "-0.025em",
           }}>
-          Settings & Profile
+          {t("settings.title")}
         </h1>
         <p
           style={{
@@ -56,7 +63,7 @@ const Settings = () => {
             fontSize: "0.85rem",
             marginTop: "4px",
           }}>
-          Customize your experience and system thresholds.
+          {t("settings.subtitle")}
         </p>
       </div>
 
@@ -72,7 +79,7 @@ const Settings = () => {
                 alignItems: "center",
                 gap: "12px",
               }}>
-              <User size={20} color="var(--primary)" /> Profile Information
+              <User size={20} color="var(--primary)" /> {t("settings.profileInfo")}
             </h2>
             <div
               style={{
@@ -135,7 +142,7 @@ const Settings = () => {
                 alignItems: "center",
                 gap: "12px",
               }}>
-              <Shield size={20} color="var(--primary)" /> Account Security
+              <Shield size={20} color="var(--primary)" /> {t("settings.accountSecurity")}
             </h2>
             <div
               style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -149,7 +156,7 @@ const Settings = () => {
                   borderRadius: "16px",
                 }}>
                 <Lock size={18} style={{ marginRight: "12px", opacity: 0.6 }} />{" "}
-                Change Password (Requires Admin SDK)
+                {t("settings.changePassword")}
               </button>
               <button
                 className="btn"
@@ -164,7 +171,7 @@ const Settings = () => {
                   size={18}
                   style={{ marginRight: "12px", opacity: 0.6 }}
                 />{" "}
-                Two-Factor Authentication
+                {t("settings.twoFactor")}
               </button>
             </div>
           </div>
@@ -178,7 +185,7 @@ const Settings = () => {
                 fontWeight: "700",
                 marginBottom: "24px",
               }}>
-              System Preferences & Thresholds
+              {t("settings.systemPreferences")}
             </h2>
             <div
               style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
@@ -191,7 +198,7 @@ const Settings = () => {
                     marginBottom: "10px",
                     color: "#475569",
                   }}>
-                  Low Stock Notification Threshold
+                  {t("settings.lowStockThreshold")}
                 </label>
                 <div
                   style={{
@@ -201,10 +208,10 @@ const Settings = () => {
                   }}>
                   <input
                     type="number"
-                    value={settings.lowStockThreshold}
+                    value={localState.lowStockThreshold}
                     onChange={(e) =>
-                      setSettings({
-                        ...settings,
+                      setLocalState({
+                        ...localState,
                         lowStockThreshold: parseInt(e.target.value) || 0,
                       })
                     }
@@ -217,7 +224,7 @@ const Settings = () => {
                     }}
                   />
                   <span style={{ fontWeight: "600", color: "#94A3B8" }}>
-                    units
+                    {t("settings.units")}
                   </span>
                 </div>
               </div>
@@ -230,7 +237,7 @@ const Settings = () => {
                     marginBottom: "10px",
                     color: "#475569",
                   }}>
-                  Expiry Warning Window
+                  {t("settings.expiryWarning")}
                 </label>
                 <div
                   style={{
@@ -240,10 +247,10 @@ const Settings = () => {
                   }}>
                   <input
                     type="number"
-                    value={settings.expiryWarningDays}
+                    value={localState.expiryWarningDays}
                     onChange={(e) =>
-                      setSettings({
-                        ...settings,
+                      setLocalState({
+                        ...localState,
                         expiryWarningDays: parseInt(e.target.value) || 0,
                       })
                     }
@@ -256,7 +263,7 @@ const Settings = () => {
                     }}
                   />
                   <span style={{ fontWeight: "600", color: "#94A3B8" }}>
-                    days before expiry
+                    {t("settings.daysBeforeExpiry")}
                   </span>
                 </div>
               </div>
@@ -269,25 +276,37 @@ const Settings = () => {
                     marginBottom: "10px",
                     color: "#475569",
                   }}>
-                  Preferred Currency
+                  {t("settings.preferredCurrency")}
                 </label>
-                <select
-                  className="search-bar"
-                  value={settings.currency}
-                  onChange={(e) =>
-                    setSettings({ ...settings, currency: e.target.value })
-                  }
+                <CustomSelect
+                  value={localState.currency}
+                  onChange={(val) => setLocalState({ ...localState, currency: val })}
+                  options={[
+                    { value: "ETB", label: "Ethiopian Birr (ETB)" },
+                    { value: "USD", label: "US Dollar (USD)" },
+                    { value: "EUR", label: "Euro (EUR)" },
+                  ]}
+                />
+              </div>
+              <div style={{ marginTop: "24px" }}>
+                <label
                   style={{
-                    width: "100%",
-                    appearance: "auto",
-                    background: "#F8FAFC",
-                    border: "none",
-                    padding: "14px 20px",
+                    display: "block",
+                    fontSize: "0.9rem",
+                    fontWeight: "700",
+                    marginBottom: "10px",
+                    color: "#475569",
                   }}>
-                  <option value="ETB">Ethiopian Birr (ETB)</option>
-                  <option value="USD">US Dollar (USD)</option>
-                  <option value="EUR">Euro (EUR)</option>
-                </select>
+                  {t("settings.preferredLanguage")}
+                </label>
+                <CustomSelect
+                  value={localState.language}
+                  onChange={(val) => setLocalState({ ...localState, language: val })}
+                  options={[
+                    { value: "en", label: "English" },
+                    { value: "am", label: "Amharic (አማርኛ)" },
+                  ]}
+                />
               </div>
             </div>
 
@@ -316,7 +335,7 @@ const Settings = () => {
                   opacity: saving ? 0.7 : 1,
                 }}>
                 <Save size={20} style={{ marginRight: "8px" }} />{" "}
-                {saving ? "Saving..." : "Save All Changes"}
+                {saving ? t("settings.saving") : t("settings.saveChanges")}
               </button>
             </div>
           </div>

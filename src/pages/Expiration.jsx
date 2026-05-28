@@ -8,9 +8,11 @@ import {
   createStockMovement,
 } from "../services/firestoreService.js";
 import { useAuth } from "../context/AuthContext.jsx";
+import { useSettings } from "../context/SettingsContext";
 
 const Expiration = () => {
   const { user } = useAuth();
+  const { t } = useSettings();
   const [items, setItems] = useState([]);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -74,7 +76,7 @@ const Expiration = () => {
       } catch (err) {
         console.error("Failed to load expiration data:", err);
         setError(
-          "Could not load expiration data. Please check your connection.",
+          t("expiration.loadError") || "Could not load expiration data. Please check your connection.",
         );
       } finally {
         setLoading(false);
@@ -90,7 +92,7 @@ const Expiration = () => {
     if (action === "remove") {
       if (
         !window.confirm(
-          `Permanently delete this batch of "${item.name}" from inventory?`,
+          t("expiration.confirmDelete")
         )
       )
         return;
@@ -108,15 +110,15 @@ const Expiration = () => {
         });
 
         setItems(items.filter((i) => i.id !== batchId));
-        alert("Batch removed successfully.");
+        alert(t("expiration.batchRemoved") || "Batch removed successfully.");
       } catch (err) {
         console.error("Failed to remove batch:", err);
-        alert("Failed to remove batch. Please try again.");
+        alert(t("expiration.failedToRemove") || "Failed to remove batch. Please try again.");
       }
     } else if (action === "dispose") {
       if (
         !window.confirm(
-          `Mark this batch of "${item.name}" as disposed? Stock will be set to 0.`,
+          t("expiration.confirmDispose")
         )
       )
         return;
@@ -149,10 +151,10 @@ const Expiration = () => {
               : i,
           ),
         );
-        alert("Batch marked as disposed.");
+        alert(t("expiration.batchDisposed") || "Batch marked as disposed.");
       } catch (err) {
         console.error("Failed to dispose batch:", err);
-        alert("Failed to mark as disposed. Please try again.");
+        alert(t("expiration.failedToDispose") || "Failed to mark as disposed. Please try again.");
       }
     }
   };
@@ -180,7 +182,7 @@ const Expiration = () => {
       <div
         className="expiration-page"
         style={{ padding: "32px", textAlign: "center" }}>
-        <p>Loading expiration data...</p>
+        <p>{t("expiration.loading")}</p>
       </div>
     );
   }
@@ -195,7 +197,7 @@ const Expiration = () => {
           className="btn"
           onClick={() => window.location.reload()}
           style={{ marginTop: "16px" }}>
-          Retry
+          {t("expiration.retry")}
         </button>
       </div>
     );
@@ -217,7 +219,7 @@ const Expiration = () => {
               fontWeight: "800",
               letterSpacing: "-0.025em",
             }}>
-            Stock Expiration
+            {t("expiration.title")}
           </h1>
           <p
             style={{
@@ -225,24 +227,24 @@ const Expiration = () => {
               fontSize: "0.85rem",
               marginTop: "4px",
             }}>
-            Proactively manage items nearing expiry.
+            {t("expiration.subtitle")}
           </p>
         </div>
         <div className="tabs">
           <div
             className={`tab ${filter === "all" ? "active" : ""}`}
             onClick={() => setFilter("all")}>
-            All Alerts
+            {t("expiration.allAlerts")}
           </div>
           <div
             className={`tab ${filter === "expiring" ? "active" : ""}`}
             onClick={() => setFilter("expiring")}>
-            Expiring Soon
+            {t("expiration.expiringSoon")}
           </div>
           <div
             className={`tab ${filter === "expired" ? "active" : ""}`}
             onClick={() => setFilter("expired")}>
-            Expired
+            {t("expiration.expired")}
           </div>
         </div>
       </div>
@@ -255,7 +257,7 @@ const Expiration = () => {
             <AlertCircle size={28} />
           </div>
           <div className="stat-info">
-            <span className="label">Expired Items</span>
+            <span className="label">{t("expiration.expiredItems")}</span>
             <div className="value">{expiredItems.length}</div>
           </div>
         </div>
@@ -266,7 +268,7 @@ const Expiration = () => {
             <Clock size={28} />
           </div>
           <div className="stat-info">
-            <span className="label">Expiring Soon</span>
+            <span className="label">{t("expiration.expiringSoon")}</span>
             <div className="value">{expiringSoon.length}</div>
           </div>
         </div>
@@ -279,13 +281,13 @@ const Expiration = () => {
           <table style={{ borderSpacing: "0" }}>
             <thead>
               <tr style={{ background: "#F8FAFC" }}>
-                <th style={{ padding: "16px 32px" }}>Medicine Name</th>
-                <th>Batch No</th>
-                <th>Expiry Date</th>
-                <th>Remaining</th>
-                <th>Status</th>
+                <th style={{ padding: "16px 32px" }}>{t("expiration.medicineName")}</th>
+                <th>{t("expiration.batchNo")}</th>
+                <th>{t("expiration.expiryDate")}</th>
+                <th>{t("expiration.remaining")}</th>
+                <th>{t("expiration.status")}</th>
                 <th style={{ textAlign: "right", paddingRight: "32px" }}>
-                  Actions
+                  {t("expiration.actions")}
                 </th>
               </tr>
             </thead>
@@ -308,7 +310,7 @@ const Expiration = () => {
                         color: "#10B981",
                       }}
                     />
-                    <p>No expiration alerts found.</p>
+                    <p>{t("expiration.noAlerts")}</p>
                   </td>
                 </tr>
               ) : (
@@ -338,7 +340,7 @@ const Expiration = () => {
                       </td>
                       <td style={{ fontWeight: "600" }}>
                         {item.stock !== undefined
-                          ? `${item.stock} units`
+                          ? `${item.stock} ${t("medicine.units")}`
                           : "N/A"}
                       </td>
                       <td>
@@ -350,10 +352,10 @@ const Expiration = () => {
                             fontSize: "0.75rem",
                           }}>
                           {isItemExpired
-                            ? "Expired"
+                            ? t("expiration.expired")
                             : item.stock < 10
-                              ? "Low Stock"
-                              : "Expiring Soon"}
+                              ? t("expiration.lowStock")
+                              : t("expiration.expiringSoon")}
                         </span>
                       </td>
                       <td style={{ paddingRight: "32px" }}>
@@ -374,8 +376,8 @@ const Expiration = () => {
                             onClick={() => handleAction(item.id, "dispose")}
                             disabled={item.status === "Disposed"}>
                             {item.status === "Disposed"
-                              ? "Disposed"
-                              : "Mark Disposed"}
+                              ? t("expiration.disposed")
+                              : t("expiration.markDisposed")}
                           </button>
                           <button
                             className="icon-button"

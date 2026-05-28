@@ -13,62 +13,64 @@ import {
   UserCog,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { roles } from "../constants/roles"; // ← CHANGED IMPORT
+import { useSettings } from "../context/SettingsContext";
+import { roles } from "../constants/roles";
 
 const Sidebar = () => {
   const { user } = useAuth();
+  const { t } = useSettings();
 
   const navItems = [
     {
-      name: "Dashboard",
+      name: t("sidebar.dashboard"),
       icon: <LayoutDashboard />,
       path: "/",
       roles: [roles.ADMIN, roles.PHARMACIST, roles.MANAGER],
     },
     {
-      name: "Medicines",
+      name: t("sidebar.medicines"),
       icon: <Pill />,
       path: "/medicine",
       roles: [roles.ADMIN, roles.PHARMACIST, roles.MANAGER],
     },
     {
-      name: "Inventory",
+      name: t("sidebar.inventory"),
       icon: <Box />,
       path: "/inventory",
       roles: [roles.ADMIN, roles.PHARMACIST, roles.MANAGER],
     },
     {
-      name: "Point of Sale",
+      name: t("sidebar.sales"),
       icon: <FileText />,
       path: "/sales",
       roles: [roles.ADMIN, roles.PHARMACIST, roles.MANAGER],
     },
     {
-      name: "Suppliers",
+      name: t("sidebar.suppliers"),
       icon: <Truck />,
       path: "/suppliers",
       roles: [roles.ADMIN, roles.MANAGER],
     },
     {
-      name: "Expiration",
+      name: t("sidebar.expiration"),
       icon: <ClockAlert />,
       path: "/expiration",
       roles: [roles.ADMIN, roles.PHARMACIST, roles.MANAGER],
     },
     {
-      name: "Reports",
+      name: t("sidebar.reports"),
       icon: <BarChart3 />,
       path: "/reports",
       roles: [roles.ADMIN, roles.MANAGER],
     },
     {
-      name: "Staff Management",
+      name: t("sidebar.staff"),
       icon: <UserCog />,
       path: "/staff",
       roles: [roles.ADMIN, roles.MANAGER],
     },
     {
-      name: "Settings",
+      name: t("sidebar.settings"),
       icon: <Settings />,
       path: "/settings",
       roles: [roles.ADMIN],
@@ -90,7 +92,7 @@ const Sidebar = () => {
       <nav className="sidebar-nav">
         {filteredNav.map((item) => (
           <NavLink
-            key={item.name}
+            key={item.path}
             to={item.path}
             className={({ isActive }) =>
               `nav-item ${isActive ? "active" : ""}`

@@ -8,6 +8,7 @@ import {
   User,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useSettings } from "../context/SettingsContext";
 import { useNavigate } from "react-router-dom";
 
 const Login = () => {
@@ -26,6 +27,7 @@ const Login = () => {
     error: authError,
     user,
   } = useAuth();
+  const { t } = useSettings();
   const navigate = useNavigate();
 
   // Redirect to dashboard if already logged in
@@ -45,13 +47,13 @@ const Login = () => {
       if (isSignup) {
         // Signup validation
         if (!name.trim()) {
-          throw new Error("Name is required");
+          throw new Error(t("login.nameRequired") || "Name is required");
         }
         if (password !== confirmPassword) {
-          throw new Error("Passwords do not match");
+          throw new Error(t("login.passwordsDoNotMatch") || "Passwords do not match");
         }
         if (password.length < 6) {
-          throw new Error("Password must be at least 6 characters");
+          throw new Error(t("login.passwordTooShort") || "Password must be at least 6 characters");
         }
 
         await signup(email, password, name, "staff");
@@ -64,7 +66,7 @@ const Login = () => {
         navigate("/");
       }
     } catch (error) {
-      setLocalError(error.message || "Authentication failed");
+      setLocalError(error.message || t("login.authFailed") || "Authentication failed");
       setLocalLoading(false);
     }
   };
@@ -232,7 +234,7 @@ const Login = () => {
                 color: "#1E293B",
                 marginBottom: "8px",
               }}>
-              {isSignup ? "Create Account" : "Welcome back!"}
+              {isSignup ? t("login.createAccount") : t("login.welcomeBack")}
             </h1>
             <p
               style={{
@@ -241,8 +243,8 @@ const Login = () => {
                 marginBottom: "32px",
               }}>
               {isSignup
-                ? "Sign up to start managing your pharmacy inventory"
-                : "Please enter your credentials to access your dashboard."}
+                ? t("login.signupPrompt")
+                : t("login.loginPrompt")}
             </p>
           </div>
 
@@ -292,7 +294,7 @@ const Login = () => {
                     color: "#1E293B",
                     marginLeft: "4px",
                   }}>
-                  Full Name
+                  {t("login.fullName")}
                 </label>
                 <div style={{ position: "relative" }}>
                   <User
@@ -348,7 +350,7 @@ const Login = () => {
                   color: "#1E293B",
                   marginLeft: "4px",
                 }}>
-                Email Address
+                {t("login.emailAddress")}
               </label>
               <div style={{ position: "relative" }}>
                 <Mail
@@ -409,7 +411,7 @@ const Login = () => {
                     color: "#1E293B",
                     marginLeft: "4px",
                   }}>
-                  Password
+                  {t("login.password")}
                 </label>
                 {!isSignup && (
                   <a
@@ -420,7 +422,7 @@ const Login = () => {
                       fontWeight: "700",
                       textDecoration: "none",
                     }}>
-                    Forgot?
+                    {t("login.forgotPassword")}
                   </a>
                 )}
               </div>
@@ -482,7 +484,7 @@ const Login = () => {
                     color: "#1E293B",
                     marginLeft: "4px",
                   }}>
-                  Confirm Password
+                  {t("login.confirmPassword")}
                 </label>
                 <div style={{ position: "relative" }}>
                   <Lock
@@ -558,10 +560,10 @@ const Login = () => {
                 e.target.style.backgroundColor = "#0D9488";
               }}>
               {isLoading
-                ? "Loading..."
+                ? t("login.loading")
                 : isSignup
-                  ? "Create Account"
-                  : "Sign into Account"}
+                  ? t("login.createAccount")
+                  : t("login.signIntoAccount")}
               {!isLoading && <ArrowRight size={22} />}
             </button>
           </form>
@@ -576,7 +578,7 @@ const Login = () => {
             }}>
             {isSignup ? (
               <>
-                Already have an account?{" "}
+                {t("login.alreadyHaveAccount")}
                 <button
                   type="button"
                   onClick={toggleAuthMode}
@@ -589,12 +591,12 @@ const Login = () => {
                     cursor: "pointer",
                     fontSize: "inherit",
                   }}>
-                  Sign In
+                  {t("login.signIn")}
                 </button>
               </>
             ) : (
               <>
-                Don't have an account?{" "}
+                {t("login.dontHaveAccount")}
                 <button
                   type="button"
                   onClick={toggleAuthMode}
@@ -607,7 +609,7 @@ const Login = () => {
                     cursor: "pointer",
                     fontSize: "inherit",
                   }}>
-                  Sign Up
+                  {t("login.signUp")}
                 </button>
               </>
             )}

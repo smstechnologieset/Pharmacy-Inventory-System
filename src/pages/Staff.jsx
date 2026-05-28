@@ -20,7 +20,9 @@ import {
   createStaffAccount,
 } from "../services/firestoreService";
 import { useAuth } from "../context/AuthContext";
+import { useSettings } from "../context/SettingsContext";
 import FormModal from "../components/FormModal";
+import CustomSelect from "../components/CustomSelect";
 
 const ROLE_OPTIONS = [
   { value: "admin", label: "Admin" },
@@ -41,6 +43,7 @@ const maskEmail = (email = "") => {
 const Staff = () => {
   // "user" matches exactly what AuthContext exposes — it has uid, email, role, name etc.
   const { user } = useAuth();
+  const { t } = useSettings();
   const isAdmin = user?.role === "admin";
   const isManager = user?.role === "manager";
 
@@ -83,7 +86,7 @@ const Staff = () => {
         );
       } catch (err) {
         console.error(err);
-        setPageError("Unable to load staff from Firebase.");
+        setPageError(t("staff.loadError") || "Unable to load staff from Firebase.");
       } finally {
         setLoading(false);
       }
@@ -159,9 +162,9 @@ const Staff = () => {
     } catch (err) {
       console.error(err);
       if (err.code === "auth/email-already-in-use") {
-        setFormError("An account with this email already exists.");
+        setFormError(t("staff.emailInUse") || "An account with this email already exists.");
       } else {
-        setFormError(err.message || "Failed to save. Please try again.");
+        setFormError(err.message || t("staff.failedToSave") || "Failed to save. Please try again.");
       }
     } finally {
       setSaving(false);
@@ -170,13 +173,13 @@ const Staff = () => {
 
   // ── Delete ───────────────────────────────────────────────────────────────────
   const handleDelete = async (id) => {
-    if (!window.confirm("Remove this staff member?")) return;
+    if (!window.confirm(t("staff.confirmDelete") || "Remove this staff member?")) return;
     try {
       await deleteDoc(doc(db, "users", id));
       setStaffList((prev) => prev.filter((s) => s.id !== id));
     } catch (err) {
       console.error(err);
-      setPageError("Failed to delete staff member.");
+      setPageError(t("staff.failedToDelete") || "Failed to delete staff member.");
     }
   };
 
@@ -196,7 +199,7 @@ const Staff = () => {
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="staff-page">
-      {loading && <p>Loading staff...</p>}
+      {loading && <p>{t("staff.loading")}</p>}
       {pageError && <p style={{ color: "red" }}>{pageError}</p>}
 
       {/* Header */}
@@ -214,7 +217,7 @@ const Staff = () => {
               fontWeight: "800",
               letterSpacing: "-0.025em",
             }}>
-            Staff Management
+            {t("staff.title")}
           </h1>
           <p
             style={{
@@ -223,15 +226,15 @@ const Staff = () => {
               marginTop: "4px",
             }}>
             {isAdmin
-              ? "Manage user access and pharmacy roles."
-              : "View pharmacy staff members."}
+              ? t("staff.adminSubtitle")
+              : t("staff.staffSubtitle")}
           </p>
         </div>
 
         {/* Only admins see this button */}
         {isAdmin && (
           <button className="btn btn-primary" onClick={() => handleOpenModal()}>
-            <Plus size={20} /> Add New Staff
+            <Plus size={20} /> {t("staff.addNewStaff")}
           </button>
         )}
       </div>
@@ -245,7 +248,7 @@ const Staff = () => {
             <Search size={22} style={{ color: "#94A3B8" }} />
             <input
               type="text"
-              placeholder="Search staff members..."
+              placeholder={t("staff.searchPlaceholder") || "Search staff members..."}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -256,13 +259,13 @@ const Staff = () => {
           <table style={{ borderSpacing: "0" }}>
             <thead>
               <tr style={{ background: "#F8FAFC" }}>
-                <th style={{ padding: "16px 32px" }}>Staff Name</th>
-                <th>Role</th>
-                <th>Email Address</th>
-                <th>Status</th>
+                <th style={{ padding: "16px 32px" }}>{t("staff.staffName")}</th>
+                <th>{t("staff.role")}</th>
+                <th>{t("staff.emailAddress")}</th>
+                <th>{t("staff.status")}</th>
                 {isAdmin && (
                   <th style={{ textAlign: "right", paddingRight: "32px" }}>
-                    Actions
+                    {t("staff.actions")}
                   </th>
                 )}
               </tr>
@@ -379,7 +382,7 @@ const Staff = () => {
       <FormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingStaff ? "Update Staff Member" : "Register New Staff"}>
+        title={editingStaff ? t("staff.updateStaff") : t("staff.registerStaff")}>
         <form
           onSubmit={handleSave}
           style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
@@ -418,7 +421,7 @@ const Staff = () => {
                 fontWeight: "700",
                 marginBottom: "8px",
               }}>
-              Full Name
+              {t("staff.fullName")}
             </label>
             <input
               type="text"
@@ -444,7 +447,7 @@ const Staff = () => {
                 fontWeight: "700",
                 marginBottom: "8px",
               }}>
-              Email Address
+              {t("staff.emailAddress")}
             </label>
             <input
               type="email"
@@ -469,7 +472,7 @@ const Staff = () => {
                   color: "#64748B",
                   marginTop: "6px",
                 }}>
-                A login password will be auto-generated from the email address.
+                {t("staff.autoPasswordInfo")}
               </p>
             )}
           </div>
@@ -488,26 +491,13 @@ const Staff = () => {
                   fontWeight: "700",
                   marginBottom: "8px",
                 }}>
-                System Role
+                {t("staff.systemRole")}
               </label>
-              <select
-                className="search-bar"
-                style={{
-                  width: "100%",
-                  background: "#F8FAFC",
-                  padding: "14px 20px",
-                  appearance: "auto",
-                }}
+              <CustomSelect
                 value={formData.role}
-                onChange={(e) =>
-                  setFormData({ ...formData, role: e.target.value })
-                }>
-                {ROLE_OPTIONS.map(({ value, label }) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setFormData({ ...formData, role: val })}
+                options={ROLE_OPTIONS}
+              />
             </div>
             <div>
               <label
@@ -517,23 +507,16 @@ const Staff = () => {
                   fontWeight: "700",
                   marginBottom: "8px",
                 }}>
-                Login Status
+                {t("staff.loginStatus")}
               </label>
-              <select
-                className="search-bar"
-                style={{
-                  width: "100%",
-                  background: "#F8FAFC",
-                  padding: "14px 20px",
-                  appearance: "auto",
-                }}
+              <CustomSelect
                 value={formData.status}
-                onChange={(e) =>
-                  setFormData({ ...formData, status: e.target.value })
-                }>
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-              </select>
+                onChange={(val) => setFormData({ ...formData, status: val })}
+                options={[
+                  { value: "Active", label: t("staff.active") || "Active" },
+                  { value: "Inactive", label: t("staff.inactive") || "Inactive" },
+                ]}
+              />
             </div>
           </div>
 
@@ -543,10 +526,10 @@ const Staff = () => {
             disabled={saving}
             style={{ height: "52px", fontSize: "0.95rem", marginTop: "10px" }}>
             {saving
-              ? "Saving..."
+              ? t("staff.saving")
               : editingStaff
-                ? "Update Staff Member"
-                : "Create Staff Account"}
+                ? t("staff.updateStaff")
+                : t("staff.createAccount")}
           </button>
         </form>
       </FormModal>
@@ -555,7 +538,7 @@ const Staff = () => {
       <FormModal
         isOpen={!!successInfo}
         onClose={() => setSuccessInfo(null)}
-        title="Staff Account Created">
+        title={t("staff.accountCreated") || "Staff Account Created"}>
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
           <div style={{ display: "flex", justifyContent: "center" }}>
             <div
@@ -575,9 +558,9 @@ const Staff = () => {
           </div>
 
           <p style={{ textAlign: "center", color: "#475569", margin: 0 }}>
-            Account created for{" "}
-            <strong style={{ color: "#1E293B" }}>{successInfo?.name}</strong>.
-            Share these login credentials with them.
+            {t("staff.accountCreatedFor")}{" "}
+            <strong style={{ color: "#1E293B" }}>{successInfo?.name}</strong>
+            {t("staff.shareCredentials")}
           </p>
 
           <div
@@ -595,7 +578,7 @@ const Staff = () => {
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
               }}>
-              Email
+              {t("staff.email")}
             </p>
             <p style={{ fontWeight: "600", color: "#1E293B", margin: 0 }}>
               {successInfo?.email}
@@ -617,7 +600,7 @@ const Staff = () => {
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
               }}>
-              Password
+              {t("staff.password")}
             </p>
             <div
               style={{
@@ -667,14 +650,14 @@ const Staff = () => {
               textAlign: "center",
               margin: 0,
             }}>
-            This password won't be shown again. Copy it before closing.
+            {t("staff.copyInfo")}
           </p>
 
           <button
             className="btn btn-primary"
             style={{ height: "48px" }}
             onClick={() => setSuccessInfo(null)}>
-            Done
+            {t("staff.done")}
           </button>
         </div>
       </FormModal>
