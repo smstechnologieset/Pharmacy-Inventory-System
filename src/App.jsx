@@ -20,50 +20,120 @@ import StaffWaitingMessage from "./components/StaffWaitingMessage";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import LoadingScreen from "./components/LoadingScreen.jsx";
 
-// Basic Protected Route Component
+// Basic Protected Route Component (Checks if logged in & handles "staff" waiting state)
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
     return <LoadingScreen />;
   }
-  if ( !user ) return <Navigate to="/login" />;
+  if (!user) return <Navigate to="/login" />;
 
-  if(user.role=== "staff") return <StaffWaitingMessage user={user} />;
+  if (user.role === "staff") return <StaffWaitingMessage user={user} />;
   return children;
 };
 
-function App () {
-//  const { user } = useAuth();
-//   console.log( user)
-  // const isStaff = user.role === "staff";
-  // console.log(isStaff)
+// Role Guard Component (Restricts access based on specific user roles)
+const RoleGuard = ({ allowedRoles, children }) => {
+  const { user } = useAuth();
+
+  // If allowedRoles is provided, and the user's role is NOT in the list, redirect to dashboard
+  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+};
+
+function App() {
   return (
-    
-      <Router>
-        <Routes>
-          <Route path="/login" element={<Login />} />
+    <Router>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }>
+          {/* Dashboard is accessible to all authenticated, non-staff roles */}
+          <Route index element={<Dashboard />} />
+
+          {/* Core Operations - Accessible by Admin, Manager, Pharmacist */}
           <Route
-            path="/"
+            path="medicine"
             element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }>
-            <Route index element={ <Dashboard />} />
-            <Route path="medicine" element={<Medicine />} />
-            <Route path="inventory" element={<Inventory />} />
-            <Route path="sales" element={<Sales />} />
-            <Route path="suppliers" element={<Suppliers />} />
-            <Route path="expiration" element={<Expiration />} />
-            <Route path="reports" element={<Reports />} />
-            <Route path="staff" element={<Staff />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="invoices" element={<Navigate to="/sales" />} />
-          </Route>
-        </Routes>
-      </Router>
-    
+              <RoleGuard allowedRoles={["admin", "manager", "pharmacist"]}>
+                <Medicine />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="inventory"
+            element={
+              <RoleGuard allowedRoles={["admin", "manager", "pharmacist"]}>
+                <Inventory />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="sales"
+            element={
+              <RoleGuard allowedRoles={["admin", "manager", "pharmacist"]}>
+                <Sales />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="expiration"
+            element={
+              <RoleGuard allowedRoles={["admin", "manager", "pharmacist"]}>
+                <Expiration />
+              </RoleGuard>
+            }
+          />
+
+          {/* Management & Reports - Accessible by Admin, Manager */}
+          <Route
+            path="suppliers"
+            element={
+              <RoleGuard allowedRoles={["admin", "manager"]}>
+                <Suppliers />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="reports"
+            element={
+              <RoleGuard allowedRoles={["admin", "manager"]}>
+                <Reports />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="staff"
+            element={
+              <RoleGuard allowedRoles={["admin", "manager"]}>
+                <Staff />
+              </RoleGuard>
+            }
+          />
+
+          {/* System Settings - Admin Only */}
+          <Route
+            path="settings"
+            element={
+              <RoleGuard allowedRoles={["admin"]}>
+                <Settings />
+              </RoleGuard>
+            }
+          />
+
+          <Route path="invoices" element={<Navigate to="/sales" />} />
+        </Route>
+      </Routes>
+    </Router>
   );
 }
 
