@@ -188,8 +188,7 @@ const Staff = () => {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      // Deleting the Firestore doc will instantly trigger the onSnapshot
-      // listener in AuthContext, forcing the user to be signed out!
+
       await deleteDoc(doc(db, "users", deleteTarget.id));
       setStaffList((prev) => prev.filter((s) => s.id !== deleteTarget.id));
       setDeleteTarget(null);
