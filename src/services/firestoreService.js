@@ -25,6 +25,7 @@ const USERS_COLLECTION = "users";
 const MEDICINES_COLLECTION = "medicines";
 const SUPPLIERS_COLLECTION = "suppliers";
 const SALES_COLLECTION = "sales";
+const STOCK_BATCHES_COLLECTION = "stockBatches";
 
 /**
  * Create a new medicine document in Firestore
@@ -53,7 +54,10 @@ export const getAllMedicines = async () => {
   try {
     const medicineQuery = query(collection(db, MEDICINES_COLLECTION));
     const snapshot = await getDocs(medicineQuery);
-    return snapshot.docs.map((docRef) => ({ id: docRef.id, ...docRef.data() }));
+    return snapshot.docs.map((docRef) => ({
+      id: docRef.id,
+      ...docRef.data(),
+    }));
   } catch (error) {
     console.error("Error loading medicines:", error);
     throw new Error(`Failed to load medicines: ${error.message}`);
@@ -113,7 +117,11 @@ export const updateMedicine = async (medicineId, updates) => {
     if (updates.batch !== undefined) updatePayload.batch = updates.batch;
     if (updates.expiry !== undefined) updatePayload.expiry = updates.expiry;
     if (updates.status !== undefined) updatePayload.status = updates.status;
-
+    if (updates.supplierId !== undefined)
+      updatePayload.supplierId = updates.supplierId;
+    //supplier name persistence.
+    if (updates.supplierName !== undefined)
+      updatePayload.supplierName = updates.supplierName;
     await updateDoc(medicineDocRef, updatePayload);
     return { id: medicineId, ...updates };
   } catch (error) {
@@ -121,6 +129,7 @@ export const updateMedicine = async (medicineId, updates) => {
     throw new Error(`Failed to update medicine: ${error.message}`);
   }
 };
+// Requested fix
 
 /**
  * Delete a medicine document from Firestore
@@ -160,7 +169,10 @@ export const getAllSuppliers = async () => {
   try {
     const supplierQuery = query(collection(db, SUPPLIERS_COLLECTION));
     const snapshot = await getDocs(supplierQuery);
-    return snapshot.docs.map((docRef) => ({ id: docRef.id, ...docRef.data() }));
+    return snapshot.docs.map((docRef) => ({
+      id: docRef.id,
+      ...docRef.data(),
+    }));
   } catch (error) {
     console.error("Error loading suppliers:", error);
     throw new Error(`Failed to load suppliers: ${error.message}`);
@@ -228,7 +240,10 @@ export const getAllSales = async () => {
       orderBy("createdAt", "desc"),
     );
     const snapshot = await getDocs(salesQuery);
-    return snapshot.docs.map((docRef) => ({ id: docRef.id, ...docRef.data() }));
+    return snapshot.docs.map((docRef) => ({
+      id: docRef.id,
+      ...docRef.data(),
+    }));
   } catch (error) {
     console.error("Error loading sales:", error);
     throw new Error(`Failed to load sales: ${error.message}`);
@@ -394,5 +409,63 @@ export const createStaffAccount = async (userData) => {
     // Always clean up the secondary session on failure
     await firebaseSignOut(secondaryAuth).catch(() => {});
     throw error;
+  }
+};
+/**
+ * Log a stock movement event (audit trail)
+ * movementType: 'expired_disposal' | 'sale' | 'purchase' | 'adjustment' | 'return'
+ */
+export const createStockMovement = async (movement) => {
+  try {
+    await addDoc(collection(db, "stockMovements"), {
+      ...movement,
+      timestamp: serverTimestamp(),
+    });
+    return true;
+  } catch (error) {
+    console.error("Error logging stock movement:", error);
+    // Don't throw - movement logging is best-effort for now
+    return false;
+  }
+};
+
+/**
+ * Get all stock batches from Firestore
+ */
+export const getAllStockBatches = async () => {
+  try {
+    const q = query(collection(db, STOCK_BATCHES_COLLECTION));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    console.error("Error loading stock batches:", error);
+    throw new Error(`Failed to load stock batches: ${error.message}`);
+  }
+};
+
+/**
+ * Update a specific stock batch (e.g., mark as disposed, reduce quantity)
+ */
+export const updateStockBatch = async (batchId, updates) => {
+  try {
+    const batchRef = doc(db, STOCK_BATCHES_COLLECTION, batchId);
+    const updatePayload = { ...updates, updatedAt: serverTimestamp() };
+    await updateDoc(batchRef, updatePayload);
+    return { id: batchId, ...updates };
+  } catch (error) {
+    console.error("Error updating stock batch:", error);
+    throw new Error(`Failed to update stock batch: ${error.message}`);
+  }
+};
+/**
+ * Delete a specific stock batch
+ */
+export const deleteStockBatch = async (batchId) => {
+  try {
+    await deleteDoc(doc(db, STOCK_BATCHES_COLLECTION, batchId));
+    return batchId;
+  } catch (error) {
+    console.error("Error deleting stock batch:", error);
+    throw new Error(`Failed to delete stock batch: ${error.message}`);
   }
 };

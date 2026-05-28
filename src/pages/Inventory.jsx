@@ -433,6 +433,42 @@ const Inventory = () => {
         <form
           onSubmit={handleSave}
           style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: "0.9rem",
+                fontWeight: "700",
+                marginBottom: "8px",
+              }}>
+              Select Medicine
+            </label>
+            <select
+              className="search-bar"
+              required
+              style={{
+                width: "100%",
+                background: "#F8FAFC",
+                padding: "14px 20px",
+              }}
+              value={formData.medicineId || ""}
+              onChange={(e) => {
+                const selected = stockList.find((m) => m.id === e.target.value);
+                setFormData({
+                  ...formData,
+                  medicineId: e.target.value,
+                  name: selected?.name || "", // auto-fill name for display
+                });
+              }}>
+              <option value="">-- Choose existing medicine --</option>
+              {stockList.map((med) => (
+                <option key={med.id} value={med.id}>
+                  {med.name} ({med.batch})
+                </option>
+              ))}
+            </select>
+          </div>
           <div>
             <label
               style={{
