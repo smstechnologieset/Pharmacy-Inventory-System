@@ -805,7 +805,7 @@ const Sales = () => {
                 }}>
                 <span>TOTAL PAID</span>
                 <span style={{ color: "var(--primary)" }}>
-                  ETB {total.toLocaleString()}
+                  ETB{ Number(currentReceipt?.total || 0).toLocaleString()}
                 </span>
               </div>
             </div>
