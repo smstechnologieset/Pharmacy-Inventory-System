@@ -29,6 +29,8 @@ import {
   getAllMedicines,
   getAllStockBatches,
 } from "../services/firestoreService";
+import { useSettings } from "../context/SettingsContext";
+import { exportToPDF } from "../utils/exportToPdf.js";
 
 ChartJS.register(
   CategoryScale,
@@ -240,7 +242,6 @@ const buildChartData = (
 };
 
 const Reports = () => {
-  const { t } = useSettings();
   const [activeTab, setActiveTab] = useState("Sales");
   const [sales, setSales] = useState([]);
   const [medicines, setMedicines] = useState([]);
@@ -599,7 +600,7 @@ const Reports = () => {
     if (reportPeriod === "Custom")
       return customStart && customEnd
         ? `${new Date(customStart).toLocaleDateString()} – ${new Date(customEnd).toLocaleDateString()}`
-        : t("reports.selectDateRange");
+        : "Select date range";
     const { start, end } = getPeriodRange(reportPeriod);
     return `${start.toLocaleDateString()} – ${end.toLocaleDateString()}`;
   })();
@@ -607,25 +608,25 @@ const Reports = () => {
   const tabStats = {
     Sales: [
       {
-        label: t("reports.revenue"),
+        label: "Revenue",
         value: `ETB ${stats.totalRevenue.toLocaleString()}`,
         bg: "#F0FDFA",
         color: "#0D9488",
       },
       {
-        label: t("reports.transactions"),
+        label: "Transactions",
         value: stats.totalTransactions,
         bg: "#EFF6FF",
         color: "#2563EB",
       },
       {
-        label: t("reports.avgOrder"),
+        label: "Avg Order",
         value: `ETB ${stats.averageOrder.toFixed(0)}`,
         bg: "#F5F3FF",
         color: "#7C3AED",
       },
       {
-        label: t("reports.realProfit"),
+        label: "Real Profit",
         value: `ETB ${totalRealProfit.toLocaleString()}`,
         bg: "#ECFDF5",
         color: "#059669",
@@ -633,25 +634,25 @@ const Reports = () => {
     ],
     Inventory: [
       {
-        label: t("reports.totalStock"),
-        value: `${totalStock.toLocaleString()} ${t("medicine.units")}`,
+        label: "Total Stock",
+        value: `${totalStock.toLocaleString()} units`,
         bg: "#F0FDFA",
         color: "#0D9488",
       },
       {
-        label: t("reports.lowStockBatches"),
+        label: "Low Stock Batches",
         value: lowStockCount,
         bg: "#FFFBEB",
         color: "#B45309",
       },
       {
-        label: t("reports.outOfStock"),
+        label: "Out of Stock",
         value: outOfStockCount,
         bg: "#FEF2F2",
         color: "#DC2626",
       },
       {
-        label: t("reports.categories"),
+        label: "Categories",
         value: categories.length,
         bg: "#EFF6FF",
         color: "#2563EB",
@@ -659,19 +660,19 @@ const Reports = () => {
     ],
     Profit: [
       {
-        label: t("reports.realProfit"),
+        label: "Real Profit",
         value: `ETB ${totalRealProfit.toLocaleString()}`,
         bg: "#F5F3FF",
         color: "#7C3AED",
       },
       {
-        label: t("reports.totalRevenue"),
+        label: "Total Revenue",
         value: `ETB ${stats.totalRevenue.toLocaleString()}`,
         bg: "#F0FDFA",
         color: "#0D9488",
       },
       {
-        label: t("reports.margin"),
+        label: "Margin",
         value:
           stats.totalRevenue > 0
             ? `${((totalRealProfit / stats.totalRevenue) * 100).toFixed(1)}%`
@@ -680,7 +681,7 @@ const Reports = () => {
         color: "#2563EB",
       },
       {
-        label: t("reports.transactions"),
+        label: "Transactions",
         value: stats.totalTransactions,
         bg: "#FFFBEB",
         color: "#B45309",
@@ -688,25 +689,25 @@ const Reports = () => {
     ],
     Expiration: [
       {
-        label: t("reports.expiredBatches"),
+        label: "Expired Batches",
         value: expiredBatches.length,
         bg: "#FEF2F2",
         color: "#DC2626",
       },
       {
-        label: t("reports.expiringIn30"),
+        label: "Expiring in 30 Days",
         value: expiringSoonBatches.length,
         bg: "#FFFBEB",
         color: "#D97706",
       },
       {
-        label: t("reports.freshStock"),
+        label: "Fresh Stock",
         value: freshBatches.length,
         bg: "#ECFDF5",
         color: "#059669",
       },
       {
-        label: t("reports.totalBatches"),
+        label: "Total Batches",
         value: enrichedBatches.length,
         bg: "#EFF6FF",
         color: "#2563EB",
@@ -838,7 +839,7 @@ const Reports = () => {
         }}>
         <div>
           <h1 style={{ fontSize: "1.6rem", fontWeight: "800" }}>
-            {t("reports.title")}
+            Analytics & Reports
           </h1>
           <p
             style={{
@@ -846,7 +847,7 @@ const Reports = () => {
               fontSize: "0.85rem",
               marginTop: "4px",
             }}>
-            {t("reports.subtitle")}
+            Deep insights into your pharmacy's performance.
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -867,7 +868,7 @@ const Reports = () => {
                 cursor: "pointer",
               }}>
               <FileText size={16} style={{ color: "#0D9488" }} /> {reportPeriod}{" "}
-              {t("reports.report")} <ChevronDown size={14} />
+              Report <ChevronDown size={14} />
             </button>
             {showPeriodMenu && (
               <div
@@ -947,7 +948,7 @@ const Reports = () => {
               alignItems: "center",
               gap: "8px",
             }}>
-            <Download size={18} /> {exporting ? t("reports.generating") : t("reports.exportPdf")}
+            <Download size={18} /> {exporting ? "Generating..." : `Export PDF`}
           </button>
         </div>
       </div>
@@ -989,15 +990,15 @@ const Reports = () => {
         ))}
       </div>
 
-        <div className="card" style={{ marginBottom: "28px", padding: "14px" }}>
+      <div className="card" style={{ marginBottom: "28px", padding: "14px" }}>
         <div className="tabs" style={{ background: "#F8FAFC" }}>
-          {[{key: "Sales", label: t("reports.salesTab")}, {key: "Inventory", label: t("reports.inventoryTab")}, {key: "Profit", label: t("reports.profitTab")}, {key: "Expiration", label: t("reports.expirationTab")}].map((tab) => (
+          {["Sales", "Inventory", "Profit", "Expiration"].map((tab) => (
             <div
-              key={tab.key}
-              className={`tab ${activeTab === tab.key ? "active" : ""}`}
-              onClick={() => setActiveTab(tab.key)}
+              key={tab}
+              className={`tab ${activeTab === tab ? "active" : ""}`}
+              onClick={() => setActiveTab(tab)}
               style={{ minWidth: "140px", textAlign: "center" }}>
-              {tab.label}
+              {tab}
             </div>
           ))}
         </div>
@@ -1017,7 +1018,7 @@ const Reports = () => {
                 }}>
                 <div>
                   <h2 style={{ fontSize: "1.1rem", fontWeight: "700" }}>
-                    {t("reports.revenueOverview")}
+                    Revenue Overview
                   </h2>
                   <p
                     style={{
@@ -1039,7 +1040,7 @@ const Reports = () => {
                       height: "100%",
                       color: "#94A3B8",
                     }}>
-                    {t("reports.loading")}
+                    Loading...
                   </div>
                 ) : (
                   <Bar data={salesChartData} options={chartOptions} />
@@ -1065,7 +1066,7 @@ const Reports = () => {
                   fontWeight: "700",
                   marginBottom: "16px",
                 }}>
-                {t("reports.revenueByPayment")}
+                Revenue by Payment Method
               </h2>
               <div style={{ height: "180px" }}>
                 <Pie data={paymentPieData} options={pieOptions} />
@@ -1081,7 +1082,7 @@ const Reports = () => {
                 fontWeight: "700",
                 marginBottom: "20px",
               }}>
-              {t("reports.paymentMethods")} · {reportPeriod}
+              Payment Methods · {reportPeriod}
             </h2>
             <div
               style={{
@@ -1156,23 +1157,23 @@ const Reports = () => {
                 borderBottom: "1px solid #F1F5F9",
               }}>
               <h2 style={{ fontSize: "1.1rem", fontWeight: "700" }}>
-                {t("reports.transactions")} · {reportPeriod}
+                Transactions · {reportPeriod}
               </h2>
               <span style={{ color: "#64748B", fontSize: "0.85rem" }}>
-                {filteredSales.length} {t("reports.records")}
+                {filteredSales.length} records
               </span>
             </div>
             <div className="table-container">
               <table style={{ margin: "0" }}>
                 <thead style={{ background: "#F8FAFC" }}>
                   <tr>
-                    <th>{t("reports.invoice")}</th>
-                    <th>{t("reports.product")}</th>
-                    <th>{t("reports.qty")}</th>
-                    <th>{t("reports.date")}</th>
-                    <th>{t("reports.amount")}</th>
-                    <th>{t("reports.payment")}</th>
-                    <th>{t("reports.status")}</th>
+                    <th>Invoice</th>
+                    <th>Product</th>
+                    <th>Qty</th>
+                    <th>Date</th>
+                    <th>Amount</th>
+                    <th>Payment</th>
+                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1185,7 +1186,7 @@ const Reports = () => {
                           color: "#94A3B8",
                           padding: "40px",
                         }}>
-                        {t("reports.noTransactions")}
+                        No transactions found for this period.
                       </td>
                     </tr>
                   ) : (
@@ -1311,70 +1312,107 @@ const Reports = () => {
       )}
 
       {activeTab === "Inventory" && (
-        <div className="card" style={{ padding: "0" }}>
-          <div
-            style={{ padding: "20px 28px", borderBottom: "1px solid #F1F5F9" }}>
-            <h2 style={{ fontSize: "1.1rem", fontWeight: "700" }}>
-              Stock Batches Inventory
-            </h2>
+        <>
+          <div className="dashboard-grid" style={{ marginBottom: "28px" }}>
+            <div className="card">
+              <h2
+                style={{
+                  fontSize: "1.1rem",
+                  fontWeight: "700",
+                  marginBottom: "20px",
+                }}>
+                Stock Status Distribution
+              </h2>
+              <div style={{ height: "300px" }}>
+                <Pie data={inventoryStatusPieData} options={pieOptions} />
+              </div>
+            </div>
+            <div className="card">
+              <h2
+                style={{
+                  fontSize: "1.1rem",
+                  fontWeight: "700",
+                  marginBottom: "20px",
+                }}>
+                Top Categories by Stock
+              </h2>
+              <div style={{ height: "300px" }}>
+                <Bar
+                  data={inventoryCategoryBarData}
+                  options={countBarOptions}
+                />
+              </div>
+            </div>
           </div>
-          <div className="table-container">
-            <table style={{ margin: "0" }}>
-              <thead style={{ background: "#F8FAFC" }}>
-                <tr>
-                  <th>Medicine</th>
-                  <th>Batch</th>
-                  <th>Category</th>
-                  <th>Stock</th>
-                  <th>Supplier</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {enrichedBatches.map((b) => {
-                  const stock = Number(b.stock || 0);
-                  const isOut = stock === 0;
-                  const isLow = stock > 0 && stock <= 10;
-                  return (
-                    <tr key={b.id}>
-                      <td style={{ padding: "16px 28px" }}>
-                        <div style={{ fontWeight: "600" }}>{b.name}</div>
-                      </td>
-                      <td style={{ padding: "16px 28px" }}>{b.batch}</td>
-                      <td style={{ padding: "16px 28px" }}>{b.category}</td>
-                      <td style={{ padding: "16px 28px", fontWeight: "700" }}>
-                        {stock}
-                      </td>
-                      <td style={{ padding: "16px 28px" }}>{b.supplier}</td>
-                      <td style={{ padding: "16px 28px" }}>
-                        <span
-                          className="status-badge"
-                          style={{
-                            background: isOut
-                              ? "#FEF2F2"
+
+          <div className="card" style={{ padding: "0" }}>
+            <div
+              style={{
+                padding: "20px 28px",
+                borderBottom: "1px solid #F1F5F9",
+              }}>
+              <h2 style={{ fontSize: "1.1rem", fontWeight: "700" }}>
+                Stock Batches Inventory
+              </h2>
+            </div>
+            <div className="table-container">
+              <table style={{ margin: "0" }}>
+                <thead style={{ background: "#F8FAFC" }}>
+                  <tr>
+                    <th>Medicine</th>
+                    <th>Batch</th>
+                    <th>Category</th>
+                    <th>Stock</th>
+                    <th>Supplier</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {enrichedBatches.map((b) => {
+                    const stock = Number(b.stock || 0);
+                    const isOut = stock === 0;
+                    const isLow = stock > 0 && stock <= 10;
+                    return (
+                      <tr key={b.id}>
+                        <td style={{ padding: "16px 28px" }}>
+                          <div style={{ fontWeight: "600" }}>{b.name}</div>
+                        </td>
+                        <td style={{ padding: "16px 28px" }}>{b.batch}</td>
+                        <td style={{ padding: "16px 28px" }}>{b.category}</td>
+                        <td style={{ padding: "16px 28px", fontWeight: "700" }}>
+                          {stock}
+                        </td>
+                        <td style={{ padding: "16px 28px" }}>{b.supplier}</td>
+                        <td style={{ padding: "16px 28px" }}>
+                          <span
+                            className="status-badge"
+                            style={{
+                              background: isOut
+                                ? "#FEF2F2"
+                                : isLow
+                                  ? "#FFFBEB"
+                                  : "#ECFDF5",
+                              color: isOut
+                                ? "#DC2626"
+                                : isLow
+                                  ? "#D97706"
+                                  : "#059669",
+                            }}>
+                            {isOut
+                              ? "Out of Stock"
                               : isLow
-                                ? "#FFFBEB"
-                                : "#ECFDF5",
-                            color: isOut
-                              ? "#DC2626"
-                              : isLow
-                                ? "#D97706"
-                                : "#059669",
-                          }}>
-                          {isOut
-                            ? "Out of Stock"
-                            : isLow
-                              ? "Low Stock"
-                              : "In Stock"}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                                ? "Low Stock"
+                                : "In Stock"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {activeTab === "Profit" && (
@@ -1399,7 +1437,7 @@ const Reports = () => {
                 fontWeight: "700",
                 marginBottom: "20px",
               }}>
-              {t("reports.profitByProduct")}
+              Profit by Product
             </h2>
             <div style={{ height: "340px" }}>
               <Pie data={profitByProductData} options={pieOptions} />
@@ -1408,70 +1446,107 @@ const Reports = () => {
         </div>
       )}
       {activeTab === "Expiration" && (
-        <div className="card" style={{ padding: "0" }}>
-          <div
-            style={{ padding: "20px 28px", borderBottom: "1px solid #F1F5F9" }}>
-            <h2 style={{ fontSize: "1.1rem", fontWeight: "700" }}>
-              Batch Expiry Details
-            </h2>
+        <>
+          <div className="dashboard-grid" style={{ marginBottom: "28px" }}>
+            <div className="card">
+              <h2
+                style={{
+                  fontSize: "1.1rem",
+                  fontWeight: "700",
+                  marginBottom: "20px",
+                }}>
+                Expiration Status Breakdown
+              </h2>
+              <div style={{ height: "300px" }}>
+                <Pie data={expirationStatusPieData} options={pieOptions} />
+              </div>
+            </div>
+            <div className="card">
+              <h2
+                style={{
+                  fontSize: "1.1rem",
+                  fontWeight: "700",
+                  marginBottom: "20px",
+                }}>
+                Batches by Expiration Category
+              </h2>
+              <div style={{ height: "300px" }}>
+                <Bar
+                  data={expirationBarData}
+                  options={countBarOptionsBatches}
+                />
+              </div>
+            </div>
           </div>
-          <div className="table-container">
-            <table style={{ margin: "0" }}>
-              <thead style={{ background: "#F8FAFC" }}>
-                <tr>
-                  <th>Medicine</th>
-                  <th>Batch</th>
-                  <th>Stock</th>
-                  <th>Expiry Date</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {batchesSortedByExpiry.map((b) => {
-                  const exp = getBatchExpiryDate(b);
-                  const isExpired = exp < now;
-                  const isSoon = exp >= now && exp <= in30Days;
-                  return (
-                    <tr key={b.id}>
-                      <td style={{ padding: "16px 28px", fontWeight: "600" }}>
-                        {b.name}
-                      </td>
-                      <td style={{ padding: "16px 28px" }}>{b.batch}</td>
-                      <td style={{ padding: "16px 28px", fontWeight: "700" }}>
-                        {b.stock}
-                      </td>
-                      <td style={{ padding: "16px 28px" }}>
-                        {exp ? exp.toLocaleDateString() : "—"}
-                      </td>
-                      <td style={{ padding: "16px 28px" }}>
-                        <span
-                          className="status-badge"
-                          style={{
-                            background: isExpired
-                              ? "#FEF2F2"
+
+          <div className="card" style={{ padding: "0" }}>
+            <div
+              style={{
+                padding: "20px 28px",
+                borderBottom: "1px solid #F1F5F9",
+              }}>
+              <h2 style={{ fontSize: "1.1rem", fontWeight: "700" }}>
+                Batch Expiry Details
+              </h2>
+            </div>
+            <div className="table-container">
+              <table style={{ margin: "0" }}>
+                <thead style={{ background: "#F8FAFC" }}>
+                  <tr>
+                    <th>Medicine</th>
+                    <th>Batch</th>
+                    <th>Stock</th>
+                    <th>Expiry Date</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {batchesSortedByExpiry.map((b) => {
+                    const exp = getBatchExpiryDate(b);
+                    const isExpired = exp < now;
+                    const isSoon = exp >= now && exp <= in30Days;
+                    return (
+                      <tr key={b.id}>
+                        <td style={{ padding: "16px 28px", fontWeight: "600" }}>
+                          {b.name}
+                        </td>
+                        <td style={{ padding: "16px 28px" }}>{b.batch}</td>
+                        <td style={{ padding: "16px 28px", fontWeight: "700" }}>
+                          {b.stock}
+                        </td>
+                        <td style={{ padding: "16px 28px" }}>
+                          {exp ? exp.toLocaleDateString() : "—"}
+                        </td>
+                        <td style={{ padding: "16px 28px" }}>
+                          <span
+                            className="status-badge"
+                            style={{
+                              background: isExpired
+                                ? "#FEF2F2"
+                                : isSoon
+                                  ? "#FFFBEB"
+                                  : "#ECFDF5",
+                              color: isExpired
+                                ? "#DC2626"
+                                : isSoon
+                                  ? "#D97706"
+                                  : "#059669",
+                            }}>
+                            {isExpired
+                              ? "Expired"
                               : isSoon
-                                ? "#FFFBEB"
-                                : "#ECFDF5",
-                            color: isExpired
-                              ? "#DC2626"
-                              : isSoon
-                                ? "#D97706"
-                                : "#059669",
-                          }}>
-                          {isExpired
-                            ? "Expired"
-                            : isSoon
-                              ? "Expiring Soon"
-                              : "Fresh"}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                                ? "Expiring Soon"
+                                : "Fresh"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
