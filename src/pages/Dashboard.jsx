@@ -15,7 +15,7 @@ import {
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import {
-
+getSystemSettings,
   getAllSales,
   getAllStockBatches,
 } from "../services/firestoreService";
@@ -34,11 +34,17 @@ ChartJS.register(
 );
 
 const Dashboard = () => {
+  const [settings, setSettings] = useState({
+    lowStockThreshold: 10,
+    expiryWarningDays: 60,
+  });
   const [timeFilter, setTimeFilter] = useState("Week");
   const [sales, setSales] = useState([]);
   const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
-
+  useEffect(() => {
+    getSystemSettings().then(setSettings);
+  }, []);
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -58,6 +64,7 @@ const Dashboard = () => {
   }, []);
 
   // ── Derived Stats (Calculated during render, no cascading effects!) ──
+  // ── Derived Stats (Calculated during render, no cascading effects!) ──
   const stockStats = useMemo(() => {
     const totalRevenue = sales.reduce(
       (sum, s) => sum + Number(s.total || s.amount || 0),
@@ -69,9 +76,10 @@ const Dashboard = () => {
     );
 
     const outOfStock = batches.filter((b) => Number(b.quantity) === 0).length;
-    // ✅ ADD THIS LINE:
     const lowStock = batches.filter(
-      (b) => Number(b.quantity) > 0 && Number(b.quantity) <= 10,
+      (b) =>
+        Number(b.quantity) > 0 &&
+        Number(b.quantity) <= settings.lowStockThreshold,
     ).length;
 
     const now = new Date();
@@ -82,9 +90,8 @@ const Dashboard = () => {
       return !isNaN(d) && d < now;
     }).length;
 
-    // ✅ ADD lowStock to the return object:
     return { totalRevenue, inventoryStock, outOfStock, lowStock, expired };
-  }, [sales, batches]);
+  }, [sales, batches, settings]); // ✅ ADDED settings here
 
   const inventoryBreakdown = useMemo(() => {
     const total = batches.length;
@@ -96,10 +103,13 @@ const Dashboard = () => {
       ];
 
     const out = batches.filter((b) => Number(b.quantity) === 0).length;
+    // ✅ USE settings.lowStockThreshold instead of hardcoded 10
     const low = batches.filter(
-      (b) => Number(b.quantity) > 0 && Number(b.quantity) <= 10,
+      (b) =>
+        Number(b.quantity) > 0 &&
+        Number(b.quantity) <= settings.lowStockThreshold,
     ).length;
-    const inStock = total - out - low;
+    // const inStock = total - out - low;
 
     const outPct = Math.round((out / total) * 100);
     const lowPct = Math.round((low / total) * 100);
@@ -110,7 +120,9 @@ const Dashboard = () => {
       { label: "Low Stock", percent: lowPct, color: "#F59E0B" },
       { label: "Out of Stock", percent: outPct, color: "#EF4444" },
     ];
-  }, [batches]);
+  }, [batches, settings]); // ✅ ADDED settings here
+
+
 
   // ── Chart Logic ──
   const getSaleDate = (sale) => {
