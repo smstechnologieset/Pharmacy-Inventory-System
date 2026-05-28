@@ -24,6 +24,7 @@ import { Bar, Pie } from "react-chartjs-2";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
+  getSystemSettings,
   getAllSales,
   getAllMedicines,
   getAllStockBatches,
@@ -485,13 +486,25 @@ const Reports = () => {
       ],
     };
   }, [topSelling]);
-  
-  
-  const exportToPDF = (activeTab, period, filteredSales, stats, medicines, customStart, customEnd, extraData) => {
-    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+  const exportToPDF = (
+    activeTab,
+    period,
+    filteredSales,
+    stats,
+    medicines,
+    customStart,
+    customEnd,
+    extraData,
+  ) => {
+    const doc = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
     const pageW = doc.internal.pageSize.getWidth();
     const now = new Date();
-  
+
     // header color per tab
     const headerColors = {
       Sales: [13, 148, 136],
@@ -500,7 +513,7 @@ const Reports = () => {
       Expiration: [220, 38, 38],
     };
     const hc = headerColors[activeTab] || [13, 148, 136];
-  
+
     // Cover header
     doc.setFillColor(...hc);
     doc.rect(0, 0, pageW, 38, "F");
@@ -513,8 +526,10 @@ const Reports = () => {
     doc.text("Pharmacy Inventory & Stock Management", 14, 24);
     doc.setFontSize(10);
     doc.text(`${activeTab} Report · ${period}`, 14, 32);
-    doc.text(`Generated: ${now.toLocaleString()}`, pageW - 14, 32, { align: "right" });
-  
+    doc.text(`Generated: ${now.toLocaleString()}`, pageW - 14, 32, {
+      align: "right",
+    });
+
     // Period line
     doc.setTextColor(100, 116, 139);
     doc.setFontSize(9);
@@ -526,16 +541,22 @@ const Reports = () => {
       periodLabel = `${period}: ${start.toLocaleDateString()} – ${end.toLocaleDateString()}`;
     }
     doc.text(periodLabel, 14, 45);
-  
+
     let startY = 52;
-  
+
     // ── SALES TAB ──
     if (activeTab === "Sales") {
       // Summary stat boxes
       const statBoxes = [
-        { label: "Total Revenue", value: `ETB ${stats.totalRevenue.toLocaleString()}` },
+        {
+          label: "Total Revenue",
+          value: `ETB ${stats.totalRevenue.toLocaleString()}`,
+        },
         { label: "Transactions", value: String(stats.totalTransactions) },
-        { label: "Avg Order Value", value: `ETB ${stats.averageOrder.toFixed(0)}` },
+        {
+          label: "Avg Order Value",
+          value: `ETB ${stats.averageOrder.toFixed(0)}`,
+        },
         { label: "Delivered Rate", value: `${stats.deliveredRate}%` },
       ];
       const boxW = (pageW - 28 - 9) / 4;
@@ -552,7 +573,7 @@ const Reports = () => {
         doc.text(box.value, x + boxW / 2, startY + 16, { align: "center" });
       });
       startY += 28;
-  
+
       // Payment method breakdown
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
@@ -561,19 +582,36 @@ const Reports = () => {
       startY += 4;
       autoTable(doc, {
         startY,
-        head: [["Payment Method", "Transactions", "Total Revenue (ETB)", "Share (%)"]],
+        head: [
+          [
+            "Payment Method",
+            "Transactions",
+            "Total Revenue (ETB)",
+            "Share (%)",
+          ],
+        ],
         body: extraData.paymentBreakdown.map((p) => {
-          const share = stats.totalRevenue > 0
-            ? ((p.total / stats.totalRevenue) * 100).toFixed(1)
-            : "0.0";
-          return [p.method, String(p.count), `ETB ${p.total.toLocaleString()}`, `${share}%`];
+          const share =
+            stats.totalRevenue > 0
+              ? ((p.total / stats.totalRevenue) * 100).toFixed(1)
+              : "0.0";
+          return [
+            p.method,
+            String(p.count),
+            `ETB ${p.total.toLocaleString()}`,
+            `${share}%`,
+          ];
         }),
         styles: { fontSize: 9, cellPadding: 4 },
-        headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: "bold" },
+        headStyles: {
+          fillColor: [37, 99, 235],
+          textColor: 255,
+          fontStyle: "bold",
+        },
         alternateRowStyles: { fillColor: [239, 246, 255] },
       });
       startY = doc.lastAutoTable.finalY + 8;
-  
+
       // Sales table
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
@@ -582,34 +620,100 @@ const Reports = () => {
       startY += 4;
       autoTable(doc, {
         startY,
-        head: [["Invoice", "Product", "Batch", "Qty", "Date", "Amount (ETB)", "Payment", "Status"]],
+        head: [
+          [
+            "Invoice",
+            "Product",
+            "Batch",
+            "Qty",
+            "Date",
+            "Amount (ETB)",
+            "Payment",
+            "Status",
+          ],
+        ],
         body: filteredSales.map((sale) => {
           const d = getSaleDate(sale);
+          const items =
+            sale.items && Array.isArray(sale.items) ? sale.items : [];
+          const totalQty =
+            items.length > 0
+              ? items.reduce((sum, i) => sum + Number(i.quantity || 0), 0)
+              : Number(sale.quantity || 0);
+
+          const primaryItem = items.length > 0 ? items[0] : sale;
+          const productName =
+            primaryItem.name ||
+            primaryItem.item ||
+            primaryItem.product ||
+            "Unknown";
+          const productDisplay =
+            items.length > 1
+              ? `${productName} +${items.length - 1} more`
+              : productName;
+
+          const batchDisplay =
+            primaryItem.batch || primaryItem.batchNo || sale.batch || "—";
+          const amount = Number(sale.total || sale.amount || 0);
+          const paymentMethod = sale.paymentMethod || sale.payment || "Cash";
+
           return [
             `#${sale.invoiceId || sale.id?.slice(0, 8) || "—"}`,
-            sale.item || sale.product || "Unknown",
-            sale.batch || "—",
-            String(sale.quantity || 0),
+            productDisplay,
+            batchDisplay,
+            String(totalQty),
             d ? d.toLocaleDateString() : "—",
-            `ETB ${Number(sale.amount || 0).toLocaleString()}`,
-            sale.payment || "Cash",
+            `ETB ${amount.toLocaleString()}`,
+            paymentMethod,
             sale.status || "—",
           ];
         }),
         styles: { fontSize: 8, cellPadding: 3 },
-        headStyles: { fillColor: [13, 148, 136], textColor: 255, fontStyle: "bold", fontSize: 8 },
+        headStyles: {
+          fillColor: [13, 148, 136],
+          textColor: 255,
+          fontStyle: "bold",
+          fontSize: 8,
+        },
         alternateRowStyles: { fillColor: [248, 250, 252] },
       });
     }
-  
+
     // ── INVENTORY TAB ──
     if (activeTab === "Inventory") {
-      const { totalStock, lowStockCount, outOfStockCount, inStockCount, categories, medicines: meds } = extraData;
+      const {
+        totalStock,
+        lowStockCount,
+        outOfStockCount,
+        inStockCount,
+        categories,
+        medicines: meds,
+      } = extraData;
       const statBoxes = [
-        { label: "Total Stock", value: `${totalStock.toLocaleString()} units`, color: [13, 148, 136], bg: [240, 253, 250] },
-        { label: "In Stock", value: String(inStockCount), color: [5, 150, 105], bg: [236, 253, 245] },
-        { label: "Low Stock", value: String(lowStockCount), color: [180, 83, 9], bg: [255, 251, 235] },
-        { label: "Out of Stock", value: String(outOfStockCount), color: [220, 38, 38], bg: [254, 242, 242] },
+        {
+          label: "Total Stock",
+          value: `${totalStock.toLocaleString()} units`,
+          color: [13, 148, 136],
+          bg: [240, 253, 250],
+        },
+        {
+          label: "In Stock",
+          value: String(inStockCount),
+          color: [5, 150, 105],
+          bg: [236, 253, 245],
+        },
+        {
+          label: "Low Stock",
+          value: String(lowStockCount),
+          color: [180, 83, 9],
+          bg: [255, 251, 235],
+        },
+        {
+          label: "Out of Stock",
+          value: String(outOfStockCount),
+          color: [220, 38, 38],
+          bg: [254, 242, 242],
+        },
       ];
       const boxW = (pageW - 28 - 9) / 4;
       statBoxes.forEach((box, i) => {
@@ -625,7 +729,7 @@ const Reports = () => {
         doc.text(box.value, x + boxW / 2, startY + 16, { align: "center" });
       });
       startY += 28;
-  
+
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(15, 23, 42);
@@ -633,10 +737,24 @@ const Reports = () => {
       startY += 4;
       autoTable(doc, {
         startY,
-        head: [["Medicine", "Category", "Stock", "Price (ETB)", "Supplier", "Status"]],
+        head: [
+          [
+            "Medicine",
+            "Category",
+            "Stock",
+            "Price (ETB)",
+            "Supplier",
+            "Status",
+          ],
+        ],
         body: meds.map((med) => {
           const stock = Number(med.stock || 0);
-          const status = stock === 0 ? "Out of Stock" : stock <= 10 ? "Low Stock" : "In Stock";
+          const status =
+            stock === 0
+              ? "Out of Stock"
+              : stock <= 10
+                ? "Low Stock"
+                : "In Stock";
           return [
             med.name,
             med.category || "—",
@@ -647,19 +765,47 @@ const Reports = () => {
           ];
         }),
         styles: { fontSize: 8, cellPadding: 3 },
-        headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: "bold", fontSize: 8 },
+        headStyles: {
+          fillColor: [37, 99, 235],
+          textColor: 255,
+          fontStyle: "bold",
+          fontSize: 8,
+        },
         alternateRowStyles: { fillColor: [248, 250, 252] },
       });
     }
-  
+
     // ── PROFIT TAB ──
     if (activeTab === "Profit") {
       const totalProfit = Math.round(calculateRealProfit(filteredSales));
       const statBoxes = [
-        { label: "Est. Profit", value: `ETB ${totalProfit.toLocaleString()}`, color: [124, 58, 237], bg: [245, 243, 255] },
-        { label: "Total Revenue", value: `ETB ${stats.totalRevenue.toLocaleString()}`, color: [13, 148, 136], bg: [240, 253, 250] },
-        { label: "Profit Margin", value: stats.totalRevenue > 0 ? `${((totalProfit / stats.totalRevenue) * 100).toFixed(1)}%` : "0%", color: [37, 99, 235], bg: [239, 246, 255] },
-        { label: "Avg Monthly", value: `ETB ${Math.round(totalProfit / 6).toLocaleString()}`, color: [180, 83, 9], bg: [255, 251, 235] },
+        {
+          label: "Est. Profit",
+          value: `ETB ${totalProfit.toLocaleString()}`,
+          color: [124, 58, 237],
+          bg: [245, 243, 255],
+        },
+        {
+          label: "Total Revenue",
+          value: `ETB ${stats.totalRevenue.toLocaleString()}`,
+          color: [13, 148, 136],
+          bg: [240, 253, 250],
+        },
+        {
+          label: "Profit Margin",
+          value:
+            stats.totalRevenue > 0
+              ? `${((totalProfit / stats.totalRevenue) * 100).toFixed(1)}%`
+              : "0%",
+          color: [37, 99, 235],
+          bg: [239, 246, 255],
+        },
+        {
+          label: "Avg Monthly",
+          value: `ETB ${Math.round(totalProfit / 6).toLocaleString()}`,
+          color: [180, 83, 9],
+          bg: [255, 251, 235],
+        },
       ];
       const boxW = (pageW - 28 - 9) / 4;
       statBoxes.forEach((box, i) => {
@@ -675,7 +821,7 @@ const Reports = () => {
         doc.text(box.value, x + boxW / 2, startY + 16, { align: "center" });
       });
       startY += 28;
-  
+
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(15, 23, 42);
@@ -683,7 +829,16 @@ const Reports = () => {
       startY += 4;
       autoTable(doc, {
         startY,
-        head: [["#", "Product", "Units Sold", "Unit Price (ETB)", "Est. Revenue (ETB)", "Est. Profit (ETB)"]],
+        head: [
+          [
+            "#",
+            "Product",
+            "Units Sold",
+            "Unit Price (ETB)",
+            "Est. Revenue (ETB)",
+            "Est. Profit (ETB)",
+          ],
+        ],
         body: extraData.topSelling.map(([name, data], i) => {
           const price = Number(data.price || 0);
           const revenue = Number(data.revenue || 0);
@@ -698,19 +853,50 @@ const Reports = () => {
           ];
         }),
         styles: { fontSize: 8, cellPadding: 3 },
-        headStyles: { fillColor: [124, 58, 237], textColor: 255, fontStyle: "bold", fontSize: 8 },
+        headStyles: {
+          fillColor: [124, 58, 237],
+          textColor: 255,
+          fontStyle: "bold",
+          fontSize: 8,
+        },
         alternateRowStyles: { fillColor: [245, 243, 255] },
       });
     }
-  
+
     // ── EXPIRATION TAB ──
     if (activeTab === "Expiration") {
-      const { expiredBatches, expiringSoonBatches, freshBatches, batchesSortedByExpiry, totalBatches } = extraData;
+      const {
+        expiredBatches,
+        expiringSoonBatches,
+        freshBatches,
+        batchesSortedByExpiry,
+        totalBatches,
+      } = extraData;
       const statBoxes = [
-        { label: "Expired", value: String(expiredBatches.length), color: [220, 38, 38], bg: [254, 242, 242] },
-        { label: "Expiring in 30 Days", value: String(expiringSoonBatches.length), color: [217, 119, 6], bg: [255, 251, 235] },
-        { label: "Fresh Stock", value: String(freshBatches.length), color: [5, 150, 105], bg: [236, 253, 245] },
-        { label: "Total Tracked", value: String(totalBatches), color: [37, 99, 235], bg: [239, 246, 255] },
+        {
+          label: "Expired",
+          value: String(expiredBatches.length),
+          color: [220, 38, 38],
+          bg: [254, 242, 242],
+        },
+        {
+          label: "Expiring in 30 Days",
+          value: String(expiringSoonBatches.length),
+          color: [217, 119, 6],
+          bg: [255, 251, 235],
+        },
+        {
+          label: "Fresh Stock",
+          value: String(freshBatches.length),
+          color: [5, 150, 105],
+          bg: [236, 253, 245],
+        },
+        {
+          label: "Total Tracked",
+          value: String(totalBatches),
+          color: [37, 99, 235],
+          bg: [239, 246, 255],
+        },
       ];
       const boxW = (pageW - 28 - 9) / 4;
       statBoxes.forEach((box, i) => {
@@ -726,16 +912,20 @@ const Reports = () => {
         doc.text(box.value, x + boxW / 2, startY + 16, { align: "center" });
       });
       startY += 28;
-  
+
       // Expiring soon alert table first
       if (expiredBatches.length > 0 || expiringSoonBatches.length > 0) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(11);
         doc.setTextColor(220, 38, 38);
-        doc.text(`⚠ Action Required: ${expiredBatches.length} Expired, ${expiringSoonBatches.length} Expiring Soon`, 14, startY);
+        doc.text(
+          `⚠ Action Required: ${expiredBatches.length} Expired, ${expiringSoonBatches.length} Expiring Soon`,
+          14,
+          startY,
+        );
         startY += 4;
       }
-  
+
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(15, 23, 42);
@@ -743,12 +933,21 @@ const Reports = () => {
       startY += 4;
       autoTable(doc, {
         startY,
-        head: [["Medicine", "Category", "Batch", "Stock", "Expiry Date", "Status"]],
+        head: [
+          ["Medicine", "Category", "Batch", "Stock", "Expiry Date", "Status"],
+        ],
         body: batchesSortedByExpiry.map((med) => {
           const exp = getBatchExpiryDate(med);
           const now2 = new Date();
-          const in30 = new Date(); in30.setDate(in30.getDate() + 30);
-          const status = !exp ? "No Date" : exp < now2 ? "Expired" : exp <= in30 ? "Expiring Soon" : "Fresh";
+          const in30 = new Date();
+          in30.setDate(in30.getDate() + 30);
+          const status = !exp
+            ? "No Date"
+            : exp < now2
+              ? "Expired"
+              : exp <= in30
+                ? "Expiring Soon"
+                : "Fresh";
           return [
             med.name,
             med.category || "—",
@@ -759,7 +958,12 @@ const Reports = () => {
           ];
         }),
         styles: { fontSize: 8, cellPadding: 3 },
-        headStyles: { fillColor: [220, 38, 38], textColor: 255, fontStyle: "bold", fontSize: 8 },
+        headStyles: {
+          fillColor: [220, 38, 38],
+          textColor: 255,
+          fontStyle: "bold",
+          fontSize: 8,
+        },
         alternateRowStyles: { fillColor: [248, 250, 252] },
         didDrawCell: (data) => {
           if (data.column.index === 5 && data.section === "body") {
@@ -771,7 +975,7 @@ const Reports = () => {
         },
       });
     }
-  
+
     // Footer on every page
     const pageCount = doc.internal.getNumberOfPages();
     for (let p = 1; p <= pageCount; p++) {
@@ -785,12 +989,10 @@ const Reports = () => {
         { align: "center" },
       );
     }
-  
+
     const fileName = `pharmastock-${activeTab.toLowerCase()}-${period.toLowerCase()}-${now.toISOString().slice(0, 10)}.pdf`;
     doc.save(fileName);
   };
-  
-  
 
   const handleExport = async () => {
     if (reportPeriod === "Custom" && (!customStart || !customEnd)) {
@@ -834,22 +1036,54 @@ const Reports = () => {
     plugins: {
       legend: {
         position: "bottom",
+        labels: { usePointStyle: true, padding: 16, font: { size: 12 } },
       },
       tooltip: {
+        cornerRadius: 12,
+        padding: 12,
         callbacks: {
-          label: (ctx) => ` ETB ${Number(ctx.parsed.y || 0).toLocaleString()}`,
+          label: (ctx) => {
+            const value = ctx.parsed?.y !== undefined ? ctx.parsed.y : ctx.raw;
+            return ` ${ctx.label || ctx.dataset.label}: ETB ${Number(value).toLocaleString()}`;
+          },
         },
       },
     },
     scales: {
       y: {
+        grid: { borderDash: [5, 5], drawBorder: false },
         beginAtZero: true,
         ticks: { callback: (v) => `ETB ${Number(v).toLocaleString()}` },
       },
       x: { grid: { display: false } },
     },
   };
-  const pieOptions = { ...chartOptions, scales: {} };
+
+  const pieOptions = {
+    ...chartOptions,
+    scales: {},
+    plugins: {
+      ...chartOptions.plugins,
+      tooltip: {
+        cornerRadius: 12,
+        padding: 12,
+        callbacks: {
+          label: (ctx) => {
+            const value = ctx.raw;
+            const label = ctx.label;
+            // Detect if this pie chart represents money or counts
+            const isMonetary =
+              ["Cash", "CBE Birr", "Telebirr", "Bank Transfer"].includes(
+                label,
+              ) || ctx.dataset.label?.includes("Profit");
+            if (isMonetary)
+              return ` ${label}: ETB ${Number(value).toLocaleString()}`;
+            return ` ${label}: ${Number(value).toLocaleString()} items`;
+          },
+        },
+      },
+    },
+  };
 
   const periodDisplayLabel = (() => {
     if (reportPeriod === "All Time") return "All Time";
@@ -970,6 +1204,117 @@ const Reports = () => {
       },
     ],
   };
+
+  const countBarOptions = {
+    ...chartOptions,
+    plugins: {
+      ...chartOptions.plugins,
+      tooltip: {
+        ...chartOptions.plugins.tooltip,
+        callbacks: {
+          label: (ctx) => {
+            const value = ctx.parsed?.y !== undefined ? ctx.parsed.y : ctx.raw;
+            return ` ${ctx.label}: ${Number(value).toLocaleString()} units`;
+          },
+        },
+      },
+    },
+    scales: {
+      ...chartOptions.scales,
+      y: {
+        ...chartOptions.scales.y,
+        ticks: { callback: (v) => `${Number(v).toLocaleString()}` },
+      },
+    },
+  };
+
+  const countBarOptionsBatches = {
+    ...countBarOptions,
+    plugins: {
+      ...countBarOptions.plugins,
+      tooltip: {
+        ...countBarOptions.plugins.tooltip,
+        callbacks: {
+          label: (ctx) => {
+            const value = ctx.parsed?.y !== undefined ? ctx.parsed.y : ctx.raw;
+            return ` ${ctx.label}: ${Number(value).toLocaleString()} batches`;
+          },
+        },
+      },
+    },
+  };
+
+  const inventoryStatusPieData = useMemo(() => {
+    return {
+      labels: ["In Stock", "Low Stock", "Out of Stock"],
+      datasets: [
+        {
+          data: [inStockCount, lowStockCount, outOfStockCount],
+          backgroundColor: ["#059669", "#D97706", "#DC2626"],
+          borderWidth: 0,
+        },
+      ],
+    };
+  }, [inStockCount, lowStockCount, outOfStockCount]);
+
+  const inventoryCategoryBarData = useMemo(() => {
+    const catCounts = {};
+    enrichedBatches.forEach((b) => {
+      const cat = b.category || "Uncategorized";
+      catCounts[cat] = (catCounts[cat] || 0) + Number(b.stock || 0);
+    });
+    const sortedCats = Object.entries(catCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6);
+    return {
+      labels: sortedCats.map(([cat]) => cat),
+      datasets: [
+        {
+          label: "Total Stock Units",
+          data: sortedCats.map(([, count]) => count),
+          backgroundColor: "#2563EB",
+          borderRadius: 10,
+          barThickness: 28,
+        },
+      ],
+    };
+  }, [enrichedBatches]);
+
+  const expirationStatusPieData = useMemo(() => {
+    return {
+      labels: ["Expired", "Expiring Soon (30 Days)", "Fresh Stock"],
+      datasets: [
+        {
+          data: [
+            expiredBatches.length,
+            expiringSoonBatches.length,
+            freshBatches.length,
+          ],
+          backgroundColor: ["#DC2626", "#D97706", "#059669"],
+          borderWidth: 0,
+        },
+      ],
+    };
+  }, [expiredBatches, expiringSoonBatches, freshBatches]);
+
+  const expirationBarData = useMemo(() => {
+    return {
+      labels: ["Expired", "Expiring Soon", "Fresh Stock"],
+      datasets: [
+        {
+          label: "Number of Batches",
+          data: [
+            expiredBatches.length,
+            expiringSoonBatches.length,
+            freshBatches.length,
+          ],
+          backgroundColor: ["#DC2626", "#D97706", "#059669"],
+          borderRadius: 10,
+          barThickness: 40,
+        },
+      ],
+    };
+  }, [expiredBatches, expiringSoonBatches, freshBatches]);
 
   return (
     <div
@@ -1337,16 +1682,52 @@ const Reports = () => {
                   ) : (
                     filteredSales.map((sale) => {
                       const d = getSaleDate(sale);
-                      const method = sale.payment || "Cash";
+                      const method =
+                        sale.paymentMethod || sale.payment || "Cash";
+
+                      // Parse items array if it exists
+                      const items =
+                        sale.items && Array.isArray(sale.items)
+                          ? sale.items
+                          : [];
+                      const totalQty =
+                        items.length > 0
+                          ? items.reduce(
+                              (sum, i) => sum + Number(i.quantity || 0),
+                              0,
+                            )
+                          : Number(sale.quantity || 0);
+
+                      const primaryItem = items.length > 0 ? items[0] : sale;
+                      const productName =
+                        primaryItem.name ||
+                        primaryItem.item ||
+                        primaryItem.product ||
+                        "Unknown";
+                      const productDisplay =
+                        items.length > 1
+                          ? `${productName} +${items.length - 1} more`
+                          : productName;
+
+                      const batchDisplay =
+                        primaryItem.batch ||
+                        primaryItem.batchNo ||
+                        sale.batch ||
+                        "—";
+                      const amount = Number(sale.total || sale.amount || 0);
+
                       const methodColors = {
                         Cash: { bg: "#F0FDFA", color: "#0D9488" },
+                        "CBE Birr": { bg: "#EFF6FF", color: "#2563EB" },
                         CBE: { bg: "#EFF6FF", color: "#2563EB" },
                         Telebirr: { bg: "#F5F3FF", color: "#7C3AED" },
+                        "Bank Transfer": { bg: "#FFFBEB", color: "#D97706" },
                       };
                       const mc = methodColors[method] || {
                         bg: "#F8FAFC",
                         color: "#64748B",
                       };
+
                       return (
                         <tr key={sale.id}>
                           <td
@@ -1355,26 +1736,24 @@ const Reports = () => {
                               color: "var(--primary)",
                               padding: "16px 28px",
                             }}>
-                            #{sale.invoiceId || sale.id?.slice(0, 8)}
+                            #{sale.invoiceId || sale.id?.slice(0, 8) || "—"}
                           </td>
                           <td style={{ padding: "16px 28px" }}>
                             <div style={{ fontWeight: "600" }}>
-                              {sale.item || sale.product || "Unknown"}
+                              {productDisplay}
                             </div>
                             <div
                               style={{ fontSize: "0.72rem", color: "#94A3B8" }}>
-                              {sale.batch || "—"}
+                              {batchDisplay}
                             </div>
                           </td>
-                          <td style={{ padding: "16px 28px" }}>
-                            {sale.quantity}
-                          </td>
+                          <td style={{ padding: "16px 28px" }}>{totalQty}</td>
                           <td style={{ padding: "16px 28px" }}>
                             {d ? d.toLocaleDateString() : "—"}
                           </td>
                           <td
                             style={{ fontWeight: "800", padding: "16px 28px" }}>
-                            ETB {Number(sale.amount || 0).toLocaleString()}
+                            ETB {amount.toLocaleString()}
                           </td>
                           <td style={{ padding: "16px 28px" }}>
                             <span
@@ -1394,13 +1773,15 @@ const Reports = () => {
                               className="status-badge"
                               style={{
                                 background:
-                                  sale.status === "Delivered"
+                                  sale.status === "Delivered" ||
+                                  sale.status === "Completed"
                                     ? "#ECFDF5"
                                     : sale.status === "Cancelled"
                                       ? "#FEF2F2"
                                       : "#FFFBEB",
                                 color:
-                                  sale.status === "Delivered"
+                                  sale.status === "Delivered" ||
+                                  sale.status === "Completed"
                                     ? "#059669"
                                     : sale.status === "Cancelled"
                                       ? "#DC2626"
@@ -1421,70 +1802,107 @@ const Reports = () => {
       )}
 
       {activeTab === "Inventory" && (
-        <div className="card" style={{ padding: "0" }}>
-          <div
-            style={{ padding: "20px 28px", borderBottom: "1px solid #F1F5F9" }}>
-            <h2 style={{ fontSize: "1.1rem", fontWeight: "700" }}>
-              Stock Batches Inventory
-            </h2>
+        <>
+          <div className="dashboard-grid" style={{ marginBottom: "28px" }}>
+            <div className="card">
+              <h2
+                style={{
+                  fontSize: "1.1rem",
+                  fontWeight: "700",
+                  marginBottom: "20px",
+                }}>
+                Stock Status Distribution
+              </h2>
+              <div style={{ height: "300px" }}>
+                <Pie data={inventoryStatusPieData} options={pieOptions} />
+              </div>
+            </div>
+            <div className="card">
+              <h2
+                style={{
+                  fontSize: "1.1rem",
+                  fontWeight: "700",
+                  marginBottom: "20px",
+                }}>
+                Top Categories by Stock
+              </h2>
+              <div style={{ height: "300px" }}>
+                <Bar
+                  data={inventoryCategoryBarData}
+                  options={countBarOptions}
+                />
+              </div>
+            </div>
           </div>
-          <div className="table-container">
-            <table style={{ margin: "0" }}>
-              <thead style={{ background: "#F8FAFC" }}>
-                <tr>
-                  <th>Medicine</th>
-                  <th>Batch</th>
-                  <th>Category</th>
-                  <th>Stock</th>
-                  <th>Supplier</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {enrichedBatches.map((b) => {
-                  const stock = Number(b.stock || 0);
-                  const isOut = stock === 0;
-                  const isLow = stock > 0 && stock <= 10;
-                  return (
-                    <tr key={b.id}>
-                      <td style={{ padding: "16px 28px" }}>
-                        <div style={{ fontWeight: "600" }}>{b.name}</div>
-                      </td>
-                      <td style={{ padding: "16px 28px" }}>{b.batch}</td>
-                      <td style={{ padding: "16px 28px" }}>{b.category}</td>
-                      <td style={{ padding: "16px 28px", fontWeight: "700" }}>
-                        {stock}
-                      </td>
-                      <td style={{ padding: "16px 28px" }}>{b.supplier}</td>
-                      <td style={{ padding: "16px 28px" }}>
-                        <span
-                          className="status-badge"
-                          style={{
-                            background: isOut
-                              ? "#FEF2F2"
+
+          <div className="card" style={{ padding: "0" }}>
+            <div
+              style={{
+                padding: "20px 28px",
+                borderBottom: "1px solid #F1F5F9",
+              }}>
+              <h2 style={{ fontSize: "1.1rem", fontWeight: "700" }}>
+                Stock Batches Inventory
+              </h2>
+            </div>
+            <div className="table-container">
+              <table style={{ margin: "0" }}>
+                <thead style={{ background: "#F8FAFC" }}>
+                  <tr>
+                    <th>Medicine</th>
+                    <th>Batch</th>
+                    <th>Category</th>
+                    <th>Stock</th>
+                    <th>Supplier</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {enrichedBatches.map((b) => {
+                    const stock = Number(b.stock || 0);
+                    const isOut = stock === 0;
+                    const isLow = stock > 0 && stock <= 10;
+                    return (
+                      <tr key={b.id}>
+                        <td style={{ padding: "16px 28px" }}>
+                          <div style={{ fontWeight: "600" }}>{b.name}</div>
+                        </td>
+                        <td style={{ padding: "16px 28px" }}>{b.batch}</td>
+                        <td style={{ padding: "16px 28px" }}>{b.category}</td>
+                        <td style={{ padding: "16px 28px", fontWeight: "700" }}>
+                          {stock}
+                        </td>
+                        <td style={{ padding: "16px 28px" }}>{b.supplier}</td>
+                        <td style={{ padding: "16px 28px" }}>
+                          <span
+                            className="status-badge"
+                            style={{
+                              background: isOut
+                                ? "#FEF2F2"
+                                : isLow
+                                  ? "#FFFBEB"
+                                  : "#ECFDF5",
+                              color: isOut
+                                ? "#DC2626"
+                                : isLow
+                                  ? "#D97706"
+                                  : "#059669",
+                            }}>
+                            {isOut
+                              ? "Out of Stock"
                               : isLow
-                                ? "#FFFBEB"
-                                : "#ECFDF5",
-                            color: isOut
-                              ? "#DC2626"
-                              : isLow
-                                ? "#D97706"
-                                : "#059669",
-                          }}>
-                          {isOut
-                            ? "Out of Stock"
-                            : isLow
-                              ? "Low Stock"
-                              : "In Stock"}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                                ? "Low Stock"
+                                : "In Stock"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {activeTab === "Profit" && (
@@ -1517,72 +1935,108 @@ const Reports = () => {
           </div>
         </div>
       )}
-
       {activeTab === "Expiration" && (
-        <div className="card" style={{ padding: "0" }}>
-          <div
-            style={{ padding: "20px 28px", borderBottom: "1px solid #F1F5F9" }}>
-            <h2 style={{ fontSize: "1.1rem", fontWeight: "700" }}>
-              Batch Expiry Details
-            </h2>
+        <>
+          <div className="dashboard-grid" style={{ marginBottom: "28px" }}>
+            <div className="card">
+              <h2
+                style={{
+                  fontSize: "1.1rem",
+                  fontWeight: "700",
+                  marginBottom: "20px",
+                }}>
+                Expiration Status Breakdown
+              </h2>
+              <div style={{ height: "300px" }}>
+                <Pie data={expirationStatusPieData} options={pieOptions} />
+              </div>
+            </div>
+            <div className="card">
+              <h2
+                style={{
+                  fontSize: "1.1rem",
+                  fontWeight: "700",
+                  marginBottom: "20px",
+                }}>
+                Batches by Expiration Category
+              </h2>
+              <div style={{ height: "300px" }}>
+                <Bar
+                  data={expirationBarData}
+                  options={countBarOptionsBatches}
+                />
+              </div>
+            </div>
           </div>
-          <div className="table-container">
-            <table style={{ margin: "0" }}>
-              <thead style={{ background: "#F8FAFC" }}>
-                <tr>
-                  <th>Medicine</th>
-                  <th>Batch</th>
-                  <th>Stock</th>
-                  <th>Expiry Date</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {batchesSortedByExpiry.map((b) => {
-                  const exp = getBatchExpiryDate(b);
-                  const isExpired = exp < now;
-                  const isSoon = exp >= now && exp <= in30Days;
-                  return (
-                    <tr key={b.id}>
-                      <td style={{ padding: "16px 28px", fontWeight: "600" }}>
-                        {b.name}
-                      </td>
-                      <td style={{ padding: "16px 28px" }}>{b.batch}</td>
-                      <td style={{ padding: "16px 28px", fontWeight: "700" }}>
-                        {b.stock}
-                      </td>
-                      <td style={{ padding: "16px 28px" }}>
-                        {exp ? exp.toLocaleDateString() : "—"}
-                      </td>
-                      <td style={{ padding: "16px 28px" }}>
-                        <span
-                          className="status-badge"
-                          style={{
-                            background: isExpired
-                              ? "#FEF2F2"
+
+          <div className="card" style={{ padding: "0" }}>
+            <div
+              style={{
+                padding: "20px 28px",
+                borderBottom: "1px solid #F1F5F9",
+              }}>
+              <h2 style={{ fontSize: "1.1rem", fontWeight: "700" }}>
+                Batch Expiry Details
+              </h2>
+            </div>
+            <div className="table-container">
+              <table style={{ margin: "0" }}>
+                <thead style={{ background: "#F8FAFC" }}>
+                  <tr>
+                    <th>Medicine</th>
+                    <th>Batch</th>
+                    <th>Stock</th>
+                    <th>Expiry Date</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {batchesSortedByExpiry.map((b) => {
+                    const exp = getBatchExpiryDate(b);
+                    const isExpired = exp < now;
+                    const isSoon = exp >= now && exp <= in30Days;
+                    return (
+                      <tr key={b.id}>
+                        <td style={{ padding: "16px 28px", fontWeight: "600" }}>
+                          {b.name}
+                        </td>
+                        <td style={{ padding: "16px 28px" }}>{b.batch}</td>
+                        <td style={{ padding: "16px 28px", fontWeight: "700" }}>
+                          {b.stock}
+                        </td>
+                        <td style={{ padding: "16px 28px" }}>
+                          {exp ? exp.toLocaleDateString() : "—"}
+                        </td>
+                        <td style={{ padding: "16px 28px" }}>
+                          <span
+                            className="status-badge"
+                            style={{
+                              background: isExpired
+                                ? "#FEF2F2"
+                                : isSoon
+                                  ? "#FFFBEB"
+                                  : "#ECFDF5",
+                              color: isExpired
+                                ? "#DC2626"
+                                : isSoon
+                                  ? "#D97706"
+                                  : "#059669",
+                            }}>
+                            {isExpired
+                              ? "Expired"
                               : isSoon
-                                ? "#FFFBEB"
-                                : "#ECFDF5",
-                            color: isExpired
-                              ? "#DC2626"
-                              : isSoon
-                                ? "#D97706"
-                                : "#059669",
-                          }}>
-                          {isExpired
-                            ? "Expired"
-                            : isSoon
-                              ? "Expiring Soon"
-                              : "Fresh"}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                                ? "Expiring Soon"
+                                : "Fresh"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
