@@ -44,6 +44,7 @@ ChartJS.register(
   Filler,
 );
 
+
 const PAYMENT_METHODS = ["Cash", "CBE Birr", "Telebirr", "Bank Transfer"];
 
 const getSaleDate = (sale) => {
@@ -240,6 +241,8 @@ const buildChartData = (
     ],
   };
 };
+// Real Profit Calculator
+
 
 const Reports = () => {
   const { user } = useAuth();
