@@ -313,17 +313,22 @@ export const getAllSales = async (pharmacyId) => {
       ? query(
           collection(db, SALES_COLLECTION),
           where("pharmacyId", "==", pharmacyId),
-          orderBy("createdAt", "desc"),
         )
       : query(
           collection(db, SALES_COLLECTION),
-          orderBy("createdAt", "desc"),
         );
     const snapshot = await getDocs(salesQuery);
-    return snapshot.docs.map((docRef) => ({
+    const data = snapshot.docs.map((docRef) => ({
       id: docRef.id,
       ...docRef.data(),
     }));
+    
+    // Sort descending locally to avoid requiring composite indexes in Firestore
+    return data.sort((a, b) => {
+      const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt || 0).getTime();
+      const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt || 0).getTime();
+      return timeB - timeA;
+    });
   } catch (error) {
     console.error("Error loading sales:", error);
     throw new Error(`Failed to load sales: ${error.message}`);
@@ -654,6 +659,7 @@ export const processCheckoutTransaction = async (
     // Write Invoice Counter
     transaction.set(counterDocRef, {
       sequence: nextInvoice,
+      pharmacyId,
       updatedAt: serverTimestamp(),
     });
 
@@ -726,6 +732,7 @@ export const getSystemSettings = async (pharmacyId) => {
       expiryWarningDays: 60,
       currency: "ETB",
       language: "en",
+      pharmacyId,
     };
     await setDoc(docRef, defaults);
     return defaults;

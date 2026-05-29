@@ -89,13 +89,13 @@ service cloud.firestore {
     }
     
     match /settings/{docId} {
-      allow read: if isSuperAdmin() || isPharmacyMember(resource.data.pharmacyId);
-      allow write: if isSuperAdmin() || isPharmacyMember(request.resource.data.pharmacyId);
+      allow read: if isSuperAdmin() || isPharmacyMember(docId) || (resource != null && isPharmacyMember(resource.data.pharmacyId));
+      allow write: if isSuperAdmin() || isPharmacyMember(docId) || isPharmacyMember(request.resource.data.pharmacyId);
     }
     
     match /counters/{docId} {
-      allow read: if isSuperAdmin() || isPharmacyMember(resource.data.pharmacyId);
-      allow write: if isSuperAdmin() || isPharmacyMember(request.resource.data.pharmacyId);
+      allow read: if isSuperAdmin() || isPharmacyMember(docId.split('_')[0]) || (resource != null && isPharmacyMember(resource.data.pharmacyId));
+      allow write: if isSuperAdmin() || isPharmacyMember(docId.split('_')[0]) || isPharmacyMember(request.resource.data.pharmacyId);
     }
   }
 }

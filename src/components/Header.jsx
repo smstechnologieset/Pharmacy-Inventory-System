@@ -59,11 +59,12 @@ const Header = () => {
 
   // Load inventory for search
   useEffect(() => {
+    if (!user?.pharmacyId) return;
     const load = async () => {
       try {
         const [meds, batches] = await Promise.all([
-          getAllMedicines(),
-          getAllStockBatches(),
+          getAllMedicines(user.pharmacyId),
+          getAllStockBatches(user.pharmacyId),
         ]);
         const combined = batches.map((b) => {
           const med = meds.find((m) => m.id === b.medicineId);
@@ -84,16 +85,17 @@ const Header = () => {
       }
     };
     load();
-  }, [t]);
+  }, [t, user?.pharmacyId]);
 
   // Generate Real Notifications based on Settings
   useEffect(() => {
+    if (!user?.pharmacyId) return;
     const generateNotifs = async () => {
       try {
         const [batches, meds, settings] = await Promise.all([
-          getAllStockBatches(),
-          getAllMedicines(),
-          getSystemSettings(),
+          getAllStockBatches(user.pharmacyId),
+          getAllMedicines(user.pharmacyId),
+          getSystemSettings(user.pharmacyId),
         ]);
         const medMap = meds.reduce((acc, m) => {
           acc[m.id] = m;
@@ -156,7 +158,7 @@ const Header = () => {
       }
     };
     generateNotifs();
-  }, [t]);
+  }, [t, user?.pharmacyId]);
 
   // Filter Search
   // useEffect(() => {
