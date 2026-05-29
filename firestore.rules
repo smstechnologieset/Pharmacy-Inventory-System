@@ -97,5 +97,15 @@ service cloud.firestore {
       allow read: if isSuperAdmin() || isPharmacyMember(docId.split('_')[0]) || (resource != null && isPharmacyMember(resource.data.pharmacyId));
       allow write: if isSuperAdmin() || isPharmacyMember(docId.split('_')[0]) || isPharmacyMember(request.resource.data.pharmacyId);
     }
+
+    match /pharmacyStats/{docId} {
+      allow read: if isSuperAdmin() || isPharmacyMember(docId);
+      allow write: if isSuperAdmin() || isPharmacyMember(docId);
+    }
+    
+    match /dailySalesStats/{docId} {
+      allow read: if isSuperAdmin() || isPharmacyMember(resource.data.pharmacyId);
+      allow write: if isSuperAdmin() || isPharmacyMember(request.resource.data.pharmacyId);
+    }
   }
 }

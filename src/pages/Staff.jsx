@@ -38,7 +38,7 @@ const Staff = () => {
   // "user" matches exactly what AuthContext exposes — it has uid, email, role, name etc.
   const { user } = useAuth();
   const { t } = useSettings();
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === "admin" || user?.role === "manager";
   const roleLabels = {
     pharmacist: t("staff.roles.pharmacist") || "Pharmacist",
     manager: t("staff.roles.manager") || "Manager",

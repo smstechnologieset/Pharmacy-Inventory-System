@@ -24,6 +24,16 @@ import {
 import { useSettings } from "../context/SettingsContext";
 import { useAuth } from "../context/AuthContext";
 
+const getSaleDate = (sale) => {
+  if (sale.createdAt?.toDate) return sale.createdAt.toDate();
+  if (sale.createdAt instanceof Date) return sale.createdAt;
+  if (sale.date) {
+    const parsed = new Date(sale.date);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  return new Date();
+};
+
 ChartJS.register(
   CategoryScale,
   LinearScale,
