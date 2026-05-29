@@ -24,8 +24,8 @@ import { Bar, Pie } from "react-chartjs-2";
 import { useAuth } from "../context/AuthContext";
 
 import {
-  getSystemSettings,
   getAllSales,
+  getSalesByDateRange,
   getAllMedicines,
   getAllStockBatches,
 } from "../services/firestoreService";
@@ -279,11 +279,21 @@ const Reports = () => {
     const load = async () => {
       try {
         setLoading(true);
+        const { start, end } = getPeriodRange(reportPeriod, customStart, customEnd);
+        
+        let salesPromise;
+        if (reportPeriod === "All Time") {
+          salesPromise = getAllSales(user.pharmacyId);
+        } else {
+          salesPromise = getSalesByDateRange(user.pharmacyId, start, end);
+        }
+
         const [salesList, medicinesList, batchesList] = await Promise.all([
-          getAllSales(user.pharmacyId),
+          salesPromise,
           getAllMedicines(user.pharmacyId),
           getAllStockBatches(user.pharmacyId),
         ]);
+        
         setSales(salesList);
         setMedicines(medicinesList);
         setBatches(batchesList);
@@ -295,7 +305,7 @@ const Reports = () => {
       }
     };
     load();
-  }, []);
+  }, [user?.pharmacyId, reportPeriod, customStart, customEnd]);
 
   const filteredSales = useMemo(
     () => filterSalesByPeriod(sales, reportPeriod, customStart, customEnd),

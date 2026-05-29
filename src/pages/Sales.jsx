@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import {
   getAllMedicines,
-  getAllSales,
+  getRecentSales,
   getAllStockBatches,
   processCheckoutTransaction,
   createStockMovement,
@@ -63,7 +63,7 @@ const Sales = () => {
         setLoading(true);
         const [meds, salesList, stockBatches] = await Promise.all([
           getAllMedicines(user.pharmacyId),
-          getAllSales(user.pharmacyId),
+          getRecentSales(user.pharmacyId, 50),
           getAllStockBatches(user.pharmacyId),
         ]);
         setMedicines(meds);

@@ -16,8 +16,10 @@ import {
 import { Line } from "react-chartjs-2";
 import {
   getSystemSettings,
-  getAllSales,
-  getAllStockBatches,
+  subscribeToPharmacyStats,
+  subscribeToDailySalesStats,
+  getDashboardStockStats,
+  subscribeToRecentSales,
 } from "../services/firestoreService";
 import { useSettings } from "../context/SettingsContext";
 import { useAuth } from "../context/AuthContext";
@@ -43,8 +45,11 @@ const Dashboard = () => {
     expiryWarningDays: 60,
   });
   const [timeFilter, setTimeFilter] = useState("Week");
-  const [sales, setSales] = useState([]);
-  const [batches, setBatches] = useState([]);
+  
+  const [pharmacyStats, setPharmacyStats] = useState({ totalRevenue: 0, totalSalesCount: 0 });
+  const [dailyStats, setDailyStats] = useState([]);
+  const [stockStats, setStockStats] = useState({ inventoryStock: 0, totalBatches: 0, outOfStock: 0, lowStock: 0, expired: 0 });
+  const [recentSales, setRecentSales] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -53,54 +58,40 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (!user?.pharmacyId) return;
+
+    let unsubscribeStats = () => {};
+    let unsubscribeDaily = () => {};
+    let unsubscribeRecent = () => {};
+
     const loadData = async () => {
       try {
-        const [salesList, batchesList] = await Promise.all([
-          getAllSales(user.pharmacyId),
-          getAllStockBatches(user.pharmacyId),
-        ]);
-        setSales(salesList);
-        setBatches(batchesList);
+        setLoading(true);
+
+        unsubscribeStats = subscribeToPharmacyStats(user.pharmacyId, setPharmacyStats);
+        unsubscribeDaily = subscribeToDailySalesStats(user.pharmacyId, setDailyStats);
+        unsubscribeRecent = subscribeToRecentSales(user.pharmacyId, 5, setRecentSales);
+
+        const stockAgg = await getDashboardStockStats(user.pharmacyId, settings);
+        setStockStats(stockAgg);
+        
       } catch (error) {
         console.error("Unable to load dashboard data:", error);
       } finally {
         setLoading(false);
       }
     };
+
     loadData();
-  }, [user?.pharmacyId]);
 
-  // ── Derived Stats (Calculated during render, no cascading effects!) ──
-  const stockStats = useMemo(() => {
-    const totalRevenue = sales.reduce(
-      (sum, s) => sum + Number(s.total || s.amount || 0),
-      0,
-    );
-    const inventoryStock = batches.reduce(
-      (sum, b) => sum + Number(b.quantity || 0),
-      0,
-    );
-
-    const outOfStock = batches.filter((b) => Number(b.quantity) === 0).length;
-    const lowStock = batches.filter(
-      (b) =>
-        Number(b.quantity) > 0 &&
-        Number(b.quantity) <= settings.lowStockThreshold,
-    ).length;
-
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const expired = batches.filter((b) => {
-      if (!b.expiry) return false;
-      const d = b.expiry?.toDate ? b.expiry.toDate() : new Date(b.expiry);
-      return !isNaN(d) && d < now;
-    }).length;
-
-    return { totalRevenue, inventoryStock, outOfStock, lowStock, expired };
-  }, [sales, batches, settings]);
+    return () => {
+      unsubscribeStats();
+      unsubscribeDaily();
+      unsubscribeRecent();
+    };
+  }, [user?.pharmacyId, settings]);
 
   const inventoryBreakdown = useMemo(() => {
-    const total = batches.length;
+    const total = stockStats.totalBatches;
     if (total === 0)
       return [
         { label: t("dashboard.inStock"), percent: 0, color: "#10B981" },
@@ -108,12 +99,8 @@ const Dashboard = () => {
         { label: t("dashboard.outOfStock"), percent: 0, color: "#EF4444" },
       ];
 
-    const out = batches.filter((b) => Number(b.quantity) === 0).length;
-    const low = batches.filter(
-      (b) =>
-        Number(b.quantity) > 0 &&
-        Number(b.quantity) <= settings.lowStockThreshold,
-    ).length;
+    const out = stockStats.outOfStock;
+    const low = stockStats.lowStock;
 
     const outPct = Math.round((out / total) * 100);
     const lowPct = Math.round((low / total) * 100);
@@ -124,15 +111,9 @@ const Dashboard = () => {
       { label: t("dashboard.lowStock"), percent: lowPct, color: "#F59E0B" },
       { label: t("dashboard.outOfStock"), percent: outPct, color: "#EF4444" },
     ];
-  }, [batches, settings, t]);
+  }, [stockStats, t]);
 
   // ── Chart Logic ──
-  const getSaleDate = (sale) => {
-    if (sale.createdAt?.toDate) return sale.createdAt.toDate();
-    if (sale.createdAt instanceof Date) return sale.createdAt;
-    return null;
-  };
-
   const buildLabels = (filter) => {
     const now = new Date();
     if (filter === "Day")
@@ -177,11 +158,11 @@ const Dashboard = () => {
     const labels = buildLabels(timeFilter);
     const buckets = Object.fromEntries(labels.map((l) => [l.key, 0]));
 
-    sales.forEach((sale) => {
-      const date = getSaleDate(sale);
-      if (!date) return;
+    dailyStats.forEach((stat) => {
+      if (!stat.date) return;
+      const date = new Date(stat.date);
       let key = "";
-      if (timeFilter === "Day") key = date.toISOString().slice(0, 10);
+      if (timeFilter === "Day") key = stat.date;
       else if (timeFilter === "Week") {
         const sunday = new Date(date);
         sunday.setDate(date.getDate() - date.getDay());
@@ -192,7 +173,7 @@ const Dashboard = () => {
       else key = String(date.getFullYear());
 
       if (key in buckets)
-        buckets[key] += Number(sale.total || sale.amount || 0);
+        buckets[key] += Number(stat.revenue || 0);
     });
 
     return {
@@ -213,9 +194,9 @@ const Dashboard = () => {
         },
       ],
     };
-  }, [sales, timeFilter]);
+  }, [dailyStats, timeFilter]);
 
-  const recentSales = useMemo(() => sales.slice(0, 5), [sales]);
+
 
   const chartOptions = {
     responsive: true,
@@ -273,7 +254,7 @@ const Dashboard = () => {
         {[
           {
             label: t("dashboard.totalRevenue"),
-            value: `ETB ${stockStats.totalRevenue.toLocaleString()}`,
+            value: `${pharmacyStats.totalRevenue?.toLocaleString()} ETB`,
             icon: <DollarSign size={20} />,
             bg: "#F0FDFA",
             color: "#0D9488",

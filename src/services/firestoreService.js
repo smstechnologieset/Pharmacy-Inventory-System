@@ -12,6 +12,13 @@ import {
   getDocs,
   serverTimestamp,
   runTransaction,
+  increment,
+  limit,
+  startAfter,
+  onSnapshot,
+  getCountFromServer,
+  getAggregateFromServer,
+  sum,
 } from "firebase/firestore";
 
 import {
@@ -678,6 +685,8 @@ export const processCheckoutTransaction = async (
 
     // Write the Sale Record
     const now = new Date();
+    const totalSale = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
+
     const salePayload = {
       invoiceNumber: `INV-${nextInvoice}`,
       date: now.toLocaleDateString(),
@@ -685,7 +694,7 @@ export const processCheckoutTransaction = async (
       status: "Completed",
       paymentMethod: paymentMethod,
       pharmacyId,
-      total: cart.reduce((sum, i) => sum + i.price * i.quantity, 0),
+      total: totalSale,
       items: cart.map((i) => ({
         batchId: i.batchId,
         medicineId: i.medicineId,
@@ -700,6 +709,26 @@ export const processCheckoutTransaction = async (
     };
 
     transaction.set(saleDocRef, salePayload);
+
+    // Update pharmacyStats
+    const pharmacyStatsRef = doc(db, "pharmacyStats", pharmacyId);
+    transaction.set(pharmacyStatsRef, {
+      totalRevenue: increment(totalSale),
+      totalSalesCount: increment(1),
+      updatedAt: serverTimestamp(),
+      pharmacyId
+    }, { merge: true });
+
+    // Update dailySalesStats
+    const dateStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
+    const dailySalesStatsRef = doc(db, "dailySalesStats", `${pharmacyId}_${dateStr}`);
+    transaction.set(dailySalesStatsRef, {
+      revenue: increment(totalSale),
+      salesCount: increment(1),
+      date: dateStr,
+      pharmacyId,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
 
     return {
       saleId: saleDocRef.id,
@@ -809,7 +838,127 @@ export const processRefundTransaction = async (saleId, saleItems, userId) => {
       refundedAt: serverTimestamp(),
       refundedBy: userId || "Unknown",
     });
+
+    const pharmacyId = saleSnap.data().pharmacyId;
+    const totalSale = saleSnap.data().total || 0;
+    let dateStr;
+    const saleDate = saleSnap.data().createdAt?.toDate ? saleSnap.data().createdAt.toDate() : new Date();
+    if (!isNaN(saleDate)) {
+      dateStr = saleDate.toISOString().slice(0, 10);
+    } else {
+      dateStr = new Date().toISOString().slice(0, 10);
+    }
+
+    // Decrement stats
+    if (pharmacyId) {
+      const pharmacyStatsRef = doc(db, "pharmacyStats", pharmacyId);
+      transaction.set(pharmacyStatsRef, {
+        totalRevenue: increment(-totalSale),
+        totalSalesCount: increment(-1),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      const dailySalesStatsRef = doc(db, "dailySalesStats", `${pharmacyId}_${dateStr}`);
+      transaction.set(dailySalesStatsRef, {
+        revenue: increment(-totalSale),
+        salesCount: increment(-1),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    }
   });
 
   return true;
+};
+
+// ═══════════════════════════════════════════════════════════════
+// DASHBOARD STATS & REAL-TIME
+// ═══════════════════════════════════════════════════════════════
+
+export const subscribeToPharmacyStats = (pharmacyId, callback) => {
+  const q = doc(db, "pharmacyStats", pharmacyId);
+  return onSnapshot(q, (doc) => {
+    callback(doc.exists() ? doc.data() : { totalRevenue: 0, totalSalesCount: 0 });
+  });
+};
+
+export const subscribeToDailySalesStats = (pharmacyId, callback) => {
+  const q = query(
+    collection(db, "dailySalesStats"),
+    where("pharmacyId", "==", pharmacyId),
+    orderBy("date", "asc")
+  );
+  return onSnapshot(q, (snapshot) => {
+    const stats = snapshot.docs.map(doc => doc.data());
+    callback(stats);
+  });
+};
+
+export const getDashboardStockStats = async (pharmacyId, settings) => {
+  const batchesRef = collection(db, STOCK_BATCHES_COLLECTION);
+  const qBase = query(batchesRef, where("pharmacyId", "==", pharmacyId));
+
+  // 1. Total Inventory Stock (using getAggregateFromServer)
+  const totalStockAgg = await getAggregateFromServer(qBase, {
+    total: sum("quantity")
+  });
+  
+  // Total batches
+  const totalBatchesSnap = await getCountFromServer(qBase);
+
+  // 2. Out of stock
+  const outOfStockSnap = await getCountFromServer(query(qBase, where("quantity", "==", 0)));
+  
+  // 3. Low stock
+  const lowStockSnap = await getCountFromServer(
+    query(qBase, where("quantity", ">", 0), where("quantity", "<=", Number(settings?.lowStockThreshold || 10)))
+  );
+
+  // 4. Expired
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const expiredSnap = await getCountFromServer(query(qBase, where("expiry", "<", now)));
+
+  return {
+    inventoryStock: totalStockAgg.data().total || 0,
+    totalBatches: totalBatchesSnap.data().count || 0,
+    outOfStock: outOfStockSnap.data().count || 0,
+    lowStock: lowStockSnap.data().count || 0,
+    expired: expiredSnap.data().count || 0,
+  };
+};
+
+export const subscribeToRecentSales = (pharmacyId, limitCount, callback) => {
+  const q = query(
+    collection(db, SALES_COLLECTION),
+    where("pharmacyId", "==", pharmacyId),
+    orderBy("createdAt", "desc"),
+    limit(limitCount)
+  );
+  return onSnapshot(q, (snapshot) => {
+    const sales = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(sales);
+  });
+};
+
+export const getRecentSales = async (pharmacyId, limitCount = 50) => {
+  const q = query(
+    collection(db, SALES_COLLECTION),
+    where("pharmacyId", "==", pharmacyId),
+    orderBy("createdAt", "desc"),
+    limit(limitCount)
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+};
+
+export const getSalesByDateRange = async (pharmacyId, start, end) => {
+  const q = query(
+    collection(db, SALES_COLLECTION),
+    where("pharmacyId", "==", pharmacyId),
+    where("createdAt", ">=", start),
+    where("createdAt", "<=", end),
+    orderBy("createdAt", "desc")
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 };
