@@ -12,12 +12,11 @@ import {
   Copy,
   CheckCheck,
 } from "lucide-react";
-import { deleteDoc, doc } from "firebase/firestore";
-import { db } from "../services/firebase";
 import {
   getAllUsers,
   updateUserProfile,
   createStaffAccount,
+  softDeleteUser,
 } from "../services/firestoreService";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
@@ -191,7 +190,7 @@ const Staff = () => {
     if (!deleteTarget) return;
     try {
 
-      await deleteDoc(doc(db, "users", deleteTarget.id));
+      await softDeleteUser(deleteTarget.id);
       setStaffList((prev) => prev.filter((s) => s.id !== deleteTarget.id));
       setDeleteTarget(null);
     } catch (err) {

@@ -118,6 +118,8 @@ export const createMedicine = async (medicine, pharmacyId) => {
       stock: Number(medicine.stock),
       price: Number(medicine.price),
       pharmacyId,
+      isDeleted: false,
+      totalStock: 0,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -135,8 +137,15 @@ export const createMedicine = async (medicine, pharmacyId) => {
 export const getAllMedicines = async (pharmacyId) => {
   try {
     const medicineQuery = pharmacyId
-      ? query(collection(db, MEDICINES_COLLECTION), where("pharmacyId", "==", pharmacyId))
-      : query(collection(db, MEDICINES_COLLECTION));
+      ? query(
+          collection(db, MEDICINES_COLLECTION),
+          where("pharmacyId", "==", pharmacyId),
+          where("isDeleted", "==", false)
+        )
+      : query(
+          collection(db, MEDICINES_COLLECTION),
+          where("isDeleted", "==", false)
+        );
     const snapshot = await getDocs(medicineQuery);
     return snapshot.docs.map((docRef) => ({
       id: docRef.id,
@@ -161,6 +170,45 @@ export const getMedicineById = async (medicineId) => {
   } catch (error) {
     console.error("Error fetching medicine:", error);
     throw new Error(`Failed to fetch medicine: ${error.message}`);
+  }
+};
+
+/**
+ * Search medicines by name prefix (native Firestore server-side search)
+ */
+export const searchMedicinesByPrefix = async (pharmacyId, prefix) => {
+  if (!prefix || prefix.length === 0) return [];
+  try {
+    const endPrefix = prefix + "\uf8ff";
+    let baseQuery;
+    
+    if (pharmacyId) {
+      baseQuery = query(
+        collection(db, MEDICINES_COLLECTION),
+        where("pharmacyId", "==", pharmacyId),
+        where("isDeleted", "==", false),
+        where("name", ">=", prefix),
+        where("name", "<=", endPrefix),
+        limit(20)
+      );
+    } else {
+      baseQuery = query(
+        collection(db, MEDICINES_COLLECTION),
+        where("isDeleted", "==", false),
+        where("name", ">=", prefix),
+        where("name", "<=", endPrefix),
+        limit(20)
+      );
+    }
+    
+    const snapshot = await getDocs(baseQuery);
+    return snapshot.docs.map((docRef) => ({
+      id: docRef.id,
+      ...docRef.data(),
+    }));
+  } catch (error) {
+    console.error("Error searching medicines:", error);
+    throw new Error(`Failed to search medicines: ${error.message}`);
   }
 };
 
@@ -205,7 +253,11 @@ export const updateMedicine = async (medicineId, updates) => {
  */
 export const deleteMedicine = async (medicineId) => {
   try {
-    await deleteDoc(doc(db, MEDICINES_COLLECTION, medicineId));
+    const medicineRef = doc(db, MEDICINES_COLLECTION, medicineId);
+    await updateDoc(medicineRef, {
+      isDeleted: true,
+      deletedAt: serverTimestamp()
+    });
     return medicineId;
   } catch (error) {
     console.error("Error deleting medicine:", error);
@@ -226,6 +278,7 @@ export const createSupplier = async (supplier, pharmacyId) => {
       ...supplier,
       medicines: supplier.medicines || [],
       pharmacyId,
+      isDeleted: false,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -242,8 +295,15 @@ export const createSupplier = async (supplier, pharmacyId) => {
 export const getAllSuppliers = async (pharmacyId) => {
   try {
     const supplierQuery = pharmacyId
-      ? query(collection(db, SUPPLIERS_COLLECTION), where("pharmacyId", "==", pharmacyId))
-      : query(collection(db, SUPPLIERS_COLLECTION));
+      ? query(
+          collection(db, SUPPLIERS_COLLECTION),
+          where("pharmacyId", "==", pharmacyId),
+          where("isDeleted", "==", false)
+        )
+      : query(
+          collection(db, SUPPLIERS_COLLECTION),
+          where("isDeleted", "==", false)
+        );
     const snapshot = await getDocs(supplierQuery);
     return snapshot.docs.map((docRef) => ({
       id: docRef.id,
@@ -278,7 +338,11 @@ export const updateSupplier = async (supplierId, updates) => {
  */
 export const deleteSupplier = async (supplierId) => {
   try {
-    await deleteDoc(doc(db, SUPPLIERS_COLLECTION, supplierId));
+    const supplierRef = doc(db, SUPPLIERS_COLLECTION, supplierId);
+    await updateDoc(supplierRef, {
+      isDeleted: true,
+      deletedAt: serverTimestamp()
+    });
     return supplierId;
   } catch (error) {
     console.error("Error deleting supplier:", error);
@@ -364,6 +428,7 @@ export const createUserProfile = async (uid, userData) => {
       createdBy: userData.createdBy || null,
       avatar: userData.avatar || `https://i.pravatar.cc/150?u=${uid}`,
       status: "Active",
+      isDeleted: false,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
@@ -442,8 +507,15 @@ export const getUserByEmail = async (email) => {
 export const getAllUsers = async (pharmacyId) => {
   try {
     const q = pharmacyId
-      ? query(collection(db, USERS_COLLECTION), where("pharmacyId", "==", pharmacyId))
-      : query(collection(db, USERS_COLLECTION));
+      ? query(
+          collection(db, USERS_COLLECTION),
+          where("pharmacyId", "==", pharmacyId),
+          where("isDeleted", "==", false)
+        )
+      : query(
+          collection(db, USERS_COLLECTION),
+          where("isDeleted", "==", false)
+        );
     const querySnapshot = await getDocs(q);
 
     return querySnapshot.docs.map((doc) => ({
@@ -453,6 +525,24 @@ export const getAllUsers = async (pharmacyId) => {
   } catch (error) {
     console.error("Error getting all users:", error);
     throw new Error(`Failed to retrieve users: ${error.message}`);
+  }
+};
+
+/**
+ * Soft-delete a user (sets isDeleted flag instead of destroying the document)
+ */
+export const softDeleteUser = async (userId) => {
+  try {
+    const userRef = doc(db, USERS_COLLECTION, userId);
+    await updateDoc(userRef, {
+      isDeleted: true,
+      deletedAt: serverTimestamp(),
+      status: "Deleted",
+    });
+    return userId;
+  } catch (error) {
+    console.error("Error soft-deleting user:", error);
+    throw new Error(`Failed to delete user: ${error.message}`);
   }
 };
 
@@ -547,8 +637,15 @@ export const createStockMovement = async (movement, pharmacyId) => {
 export const getAllStockBatches = async (pharmacyId) => {
   try {
     const q = pharmacyId
-      ? query(collection(db, STOCK_BATCHES_COLLECTION), where("pharmacyId", "==", pharmacyId))
-      : query(collection(db, STOCK_BATCHES_COLLECTION));
+      ? query(
+          collection(db, STOCK_BATCHES_COLLECTION),
+          where("pharmacyId", "==", pharmacyId),
+          where("isDeleted", "==", false)
+        )
+      : query(
+          collection(db, STOCK_BATCHES_COLLECTION),
+          where("isDeleted", "==", false)
+        );
     const snapshot = await getDocs(q);
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
   } catch (error) {
@@ -562,16 +659,31 @@ export const getAllStockBatches = async (pharmacyId) => {
  */
 export const createStockBatch = async (batchData, pharmacyId) => {
   try {
-    const batchRef = await addDoc(collection(db, "stockBatches"), {
-      ...batchData,
-      quantity: Number(batchData.quantity),
-      costPrice: Number(batchData.costPrice),
-      sellingPrice: Number(batchData.sellingPrice),
-      status: batchData.quantity > 0 ? "In Stock" : "Out of Stock",
-      pharmacyId,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+    // We cannot use addDoc with a transaction directly before knowing the ID, 
+    // so we generate a doc ref first.
+    const batchRef = doc(collection(db, STOCK_BATCHES_COLLECTION));
+    const medicineRef = doc(db, MEDICINES_COLLECTION, batchData.medicineId);
+
+    await runTransaction(db, async (transaction) => {
+      const payload = {
+        ...batchData,
+        quantity: Number(batchData.quantity),
+        costPrice: Number(batchData.costPrice),
+        sellingPrice: Number(batchData.sellingPrice),
+        status: batchData.quantity > 0 ? "In Stock" : "Out of Stock",
+        pharmacyId,
+        isDeleted: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+      
+      transaction.set(batchRef, payload);
+      transaction.update(medicineRef, {
+        totalStock: increment(Number(batchData.quantity)),
+        updatedAt: serverTimestamp(),
+      });
     });
+
     return { id: batchRef.id, ...batchData };
   } catch (error) {
     console.error("Error creating stock batch:", error);
@@ -584,8 +696,32 @@ export const createStockBatch = async (batchData, pharmacyId) => {
 export const updateStockBatch = async (batchId, updates) => {
   try {
     const batchRef = doc(db, STOCK_BATCHES_COLLECTION, batchId);
-    const updatePayload = { ...updates, updatedAt: serverTimestamp() };
-    await updateDoc(batchRef, updatePayload);
+    
+    await runTransaction(db, async (transaction) => {
+      const batchSnap = await transaction.get(batchRef);
+      if (!batchSnap.exists()) throw new Error("Batch not found");
+      
+      const oldData = batchSnap.data();
+      const newQuantity = updates.quantity !== undefined ? Number(updates.quantity) : oldData.quantity;
+      const quantityDiff = newQuantity - Number(oldData.quantity);
+
+      const updatePayload = { ...updates, updatedAt: serverTimestamp() };
+      if (updates.quantity !== undefined) {
+        updatePayload.status = newQuantity > 0 ? "In Stock" : "Out of Stock";
+      }
+
+      transaction.update(batchRef, updatePayload);
+
+      // Only update medicine stock if quantity actually changed
+      if (quantityDiff !== 0) {
+        const medicineRef = doc(db, MEDICINES_COLLECTION, oldData.medicineId);
+        transaction.update(medicineRef, {
+          totalStock: increment(quantityDiff),
+          updatedAt: serverTimestamp()
+        });
+      }
+    });
+
     return { id: batchId, ...updates };
   } catch (error) {
     console.error("Error updating stock batch:", error);
@@ -597,7 +733,25 @@ export const updateStockBatch = async (batchId, updates) => {
  */
 export const deleteStockBatch = async (batchId) => {
   try {
-    await deleteDoc(doc(db, STOCK_BATCHES_COLLECTION, batchId));
+    const batchRef = doc(db, STOCK_BATCHES_COLLECTION, batchId);
+    await runTransaction(db, async (transaction) => {
+      const batchSnap = await transaction.get(batchRef);
+      if (!batchSnap.exists()) throw new Error("Batch not found");
+      
+      const data = batchSnap.data();
+      if (data.isDeleted) return;
+
+      transaction.update(batchRef, {
+        isDeleted: true,
+        deletedAt: serverTimestamp()
+      });
+
+      const medicineRef = doc(db, MEDICINES_COLLECTION, data.medicineId);
+      transaction.update(medicineRef, {
+        totalStock: increment(-Number(data.quantity || 0)),
+        updatedAt: serverTimestamp()
+      });
+    });
     return batchId;
   } catch (error) {
     console.error("Error deleting stock batch:", error);
@@ -632,6 +786,8 @@ export const processCheckoutTransaction = async (
     const batchSnaps = await Promise.all(
       batchRefs.map((ref) => transaction.get(ref)),
     );
+
+    const medicineRefs = cart.map((item) => doc(db, MEDICINES_COLLECTION, item.medicineId));
 
     // =========================================================
     // STEP 2: VALIDATION
@@ -674,12 +830,19 @@ export const processCheckoutTransaction = async (
     for (let i = 0; i < cart.length; i++) {
       const item = cart[i];
       const batchRef = batchRefs[i];
+      const medicineRef = medicineRefs[i];
       const currentQty = batchSnaps[i].data().quantity || 0;
 
       transaction.update(batchRef, {
         quantity: currentQty - item.quantity,
         status: currentQty - item.quantity === 0 ? "Out of Stock" : "In Stock",
         updatedAt: serverTimestamp(),
+      });
+
+      // Update Medicine Total Stock
+      transaction.update(medicineRef, {
+        totalStock: increment(-item.quantity),
+        updatedAt: serverTimestamp()
       });
     }
 
@@ -815,6 +978,10 @@ export const processRefundTransaction = async (saleId, saleItems, userId) => {
       batchRefs.map((ref) => transaction.get(ref)),
     );
 
+    const medicineRefs = saleItems.map((item) =>
+      doc(db, MEDICINES_COLLECTION, item.medicineId),
+    );
+
     // 2. WRITE PHASE
     for (let i = 0; i < saleItems.length; i++) {
       const item = saleItems[i];
@@ -829,6 +996,12 @@ export const processRefundTransaction = async (saleId, saleItems, userId) => {
         quantity: currentQty + item.quantity,
         status: "In Stock", // Restoring stock makes it active again
         updatedAt: serverTimestamp(),
+      });
+
+      // Update Medicine Total Stock
+      transaction.update(medicineRefs[i], {
+        totalStock: increment(item.quantity),
+        updatedAt: serverTimestamp()
       });
     }
 
@@ -895,7 +1068,7 @@ export const subscribeToDailySalesStats = (pharmacyId, callback) => {
 
 export const getDashboardStockStats = async (pharmacyId, settings) => {
   const batchesRef = collection(db, STOCK_BATCHES_COLLECTION);
-  const qBase = query(batchesRef, where("pharmacyId", "==", pharmacyId));
+  const qBase = query(batchesRef, where("pharmacyId", "==", pharmacyId), where("isDeleted", "==", false));
 
   // 1. Total Inventory Stock (using getAggregateFromServer)
   const totalStockAgg = await getAggregateFromServer(qBase, {
