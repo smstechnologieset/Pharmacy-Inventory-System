@@ -79,14 +79,16 @@ const Staff = () => {
         setLoading(true);
         const users = await getAllUsers(user.pharmacyId);
         setStaffList(
-          users.map((u) => ({
-            id: u.id || u.uid,
-            name: u.name || "",
-            email: u.email || "",
-            role: u.role || "staff",
-            avatar: u.avatar || `https://i.pravatar.cc/150?u=${u.id}`,
-            status: u.status || "Active",
-          })),
+          users
+            .filter((u) => u.id !== user.uid)
+            .map((u) => ({
+              id: u.id || u.uid,
+              name: u.name || "",
+              email: u.email || "",
+              role: u.role || "staff",
+              avatar: u.avatar || `https://i.pravatar.cc/150?u=${u.id}`,
+              status: u.status || "Active",
+            })),
         );
       } catch (err) {
         console.error(err);
@@ -98,7 +100,7 @@ const Staff = () => {
       }
     };
     loadStaff();
-  }, [t]);
+  }, [t, user?.pharmacyId, user?.uid]);
 
   // ── Open add/edit modal ──────────────────────────────────────────────────────
   const handleOpenModal = (staff = null) => {
@@ -370,24 +372,28 @@ const Staff = () => {
                           gap: "12px",
                           justifyContent: "flex-end",
                         }}>
-                        <button
-                          className="icon-button"
-                          onClick={() => handleOpenModal(staff)}
-                          style={{ width: "40px", height: "40px" }}
-                          title={t("staff.edit")}>
-                          <Edit size={16} />
-                        </button>
-                        <button
-                          className="icon-button"
-                          onClick={() => setDeleteTarget(staff)}
-                          style={{
-                            width: "40px",
-                            height: "40px",
-                            color: "#EF4444",
-                          }}
-                          title={t("staff.delete")}>
-                          <Trash2 size={16} />
-                        </button>
+                        {staff.role !== "admin" && staff.role !== "superadmin" && (
+                          <>
+                            <button
+                              className="icon-button"
+                              onClick={() => handleOpenModal(staff)}
+                              style={{ width: "40px", height: "40px" }}
+                              title={t("staff.edit")}>
+                              <Edit size={16} />
+                            </button>
+                            <button
+                              className="icon-button"
+                              onClick={() => setDeleteTarget(staff)}
+                              style={{
+                                width: "40px",
+                                height: "40px",
+                                color: "#EF4444",
+                              }}
+                              title={t("staff.delete")}>
+                              <Trash2 size={16} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   )}

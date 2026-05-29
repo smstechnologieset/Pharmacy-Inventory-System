@@ -57,13 +57,14 @@ const Sales = () => {
   };
 
   useEffect(() => {
+    if (!user?.pharmacyId) return;
     const loadSalesData = async () => {
       try {
         setLoading(true);
         const [meds, salesList, stockBatches] = await Promise.all([
-          getAllMedicines(),
-          getAllSales(),
-          getAllStockBatches(),
+          getAllMedicines(user.pharmacyId),
+          getAllSales(user.pharmacyId),
+          getAllStockBatches(user.pharmacyId),
         ]);
         setMedicines(meds);
         setTransactions(salesList);
@@ -76,7 +77,7 @@ const Sales = () => {
       }
     };
     loadSalesData();
-  }, []);
+  }, [user?.pharmacyId]);
 
   // Group batches by medicine to show total available stock in the grid
   const validBatches = batches.filter(
