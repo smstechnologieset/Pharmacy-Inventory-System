@@ -11,9 +11,11 @@ import {
 } from "../services/firestoreService";
 import { useSettings } from "../context/SettingsContext";
 import CustomSelect from "../components/CustomSelect";
+import { useAuth } from "../context/AuthContext";
 
 const Medicine = () => {
   const { t } = useSettings();
+  const { user } = useAuth();
   const [productList, setProductList] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [stockCounts, setStockCounts] = useState({}); 
@@ -29,13 +31,14 @@ const Medicine = () => {
   const [sortBy, setSortBy] = useState("name-asc");
 
   useEffect(() => {
+    if (!user?.pharmacyId) return;
     const loadData = async () => {
       try {
         setLoading(true);
         const [medicines, suppliersList, batches] = await Promise.all([
-          getAllMedicines(),
-          getAllSuppliers().catch(() => []),
-          getAllStockBatches().catch(() => []),
+          getAllMedicines(user.pharmacyId),
+          getAllSuppliers(user.pharmacyId).catch(() => []),
+          getAllStockBatches(user.pharmacyId).catch(() => []),
         ]);
         setProductList(medicines);
         setSuppliers(suppliersList);
@@ -55,7 +58,7 @@ const Medicine = () => {
       }
     };
     loadData();
-  }, []);
+  }, [user?.pharmacyId]);
 
   const filteredProducts = productList
     .filter((p) => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -117,8 +120,8 @@ const Medicine = () => {
         await updateMedicine(editingProduct.id, payload);
         setProductList(productList.map((p) => p.id === editingProduct.id ? { ...p, ...payload } : p));
       } else {
-        await createMedicine(payload);
-        const medicines = await getAllMedicines();
+        await createMedicine(payload, user.pharmacyId);
+        const medicines = await getAllMedicines(user.pharmacyId);
         setProductList(medicines);
       }
       setIsModalOpen(false);

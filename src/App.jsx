@@ -16,20 +16,38 @@ import Staff from "./pages/Staff";
 import Suppliers from "./pages/Suppliers";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
+import SuperAdmin from "./pages/SuperAdmin";
 import StaffWaitingMessage from "./components/StaffWaitingMessage";
+import PharmacySuspendedMessage from "./components/PharmacySuspendedMessage";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import LoadingScreen from "./components/LoadingScreen.jsx";
 
-// Basic Protected Route Component (Checks if logged in & handles "staff" waiting state)
+// Basic Protected Route Component (Checks if logged in & handles special states)
 const ProtectedRoute = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, pharmacyStatus } = useAuth();
 
   if (loading) {
     return <LoadingScreen />;
   }
   if (!user) return <Navigate to="/login" />;
 
+  // Super admin gets redirected to the super admin dashboard
+  if (user.role === "superadmin") return <Navigate to="/super-admin" />;
+
+  // Pharmacy suspended
+  if (pharmacyStatus === "suspended") return <PharmacySuspendedMessage />;
+
   if (user.role === "staff") return <StaffWaitingMessage user={user} />;
+  return children;
+};
+
+// Super Admin Route Guard
+const SuperAdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) return <LoadingScreen />;
+  if (!user) return <Navigate to="/login" />;
+  if (user.role !== "superadmin") return <Navigate to="/" />;
   return children;
 };
 
@@ -50,6 +68,17 @@ function App() {
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
+
+        {/* Super Admin Dashboard — completely separate layout */}
+        <Route
+          path="/super-admin"
+          element={
+            <SuperAdminRoute>
+              <SuperAdmin />
+            </SuperAdminRoute>
+          }
+        />
+
         <Route
           path="/"
           element={

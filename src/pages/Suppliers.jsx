@@ -17,9 +17,11 @@ import {
   deleteSupplier,
 } from "../services/firestoreService";
 import FormModal from "../components/FormModal";
+import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 
 const Suppliers = () => {
+  const { user } = useAuth();
   const { t } = useSettings();
   const [supplierList, setSupplierList] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -36,11 +38,12 @@ const Suppliers = () => {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (!user?.pharmacyId) return;
     const loadSuppliers = async () => {
       setLoading(true);
       try {
         setLoading(true);
-        const suppliers = await getAllSuppliers();
+        const suppliers = await getAllSuppliers(user.pharmacyId);
         setSupplierList(suppliers);
       } catch ( err ) {
         setLoading(false);
@@ -51,7 +54,7 @@ const Suppliers = () => {
     };
 
     loadSuppliers();
-  }, [t]);
+  }, [t, user?.pharmacyId]);
 
   const filteredSuppliers = supplierList.filter(
     (s) =>
@@ -95,7 +98,7 @@ const Suppliers = () => {
           ),
         );
       } else {
-        const created = await createSupplier(payload);
+        const created = await createSupplier(payload, user.pharmacyId);
         setSupplierList((current) => [...current, created]);
       }
       setIsModalOpen(false);

@@ -20,6 +20,7 @@ import {
   getAllStockBatches,
 } from "../services/firestoreService";
 import { useSettings } from "../context/SettingsContext";
+import { useAuth } from "../context/AuthContext";
 
 ChartJS.register(
   CategoryScale,
@@ -36,6 +37,7 @@ ChartJS.register(
 
 const Dashboard = () => {
   const { t } = useSettings();
+  const { user } = useAuth();
   const [settings, setSettings] = useState({
     lowStockThreshold: 10,
     expiryWarningDays: 60,
@@ -46,15 +48,16 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getSystemSettings().then(setSettings);
-  }, []);
+    if (user?.pharmacyId) getSystemSettings(user.pharmacyId).then(setSettings);
+  }, [user?.pharmacyId]);
 
   useEffect(() => {
+    if (!user?.pharmacyId) return;
     const loadData = async () => {
       try {
         const [salesList, batchesList] = await Promise.all([
-          getAllSales(),
-          getAllStockBatches(),
+          getAllSales(user.pharmacyId),
+          getAllStockBatches(user.pharmacyId),
         ]);
         setSales(salesList);
         setBatches(batchesList);
@@ -65,7 +68,7 @@ const Dashboard = () => {
       }
     };
     loadData();
-  }, []);
+  }, [user?.pharmacyId]);
 
   // ── Derived Stats (Calculated during render, no cascading effects!) ──
   const stockStats = useMemo(() => {

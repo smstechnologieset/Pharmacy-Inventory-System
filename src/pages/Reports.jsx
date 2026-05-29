@@ -21,7 +21,7 @@ import {
   Filler,
 } from "chart.js";
 import { Bar, Pie } from "react-chartjs-2";
-
+import { useAuth } from "../context/AuthContext";
 
 import {
   getSystemSettings,
@@ -242,6 +242,7 @@ const buildChartData = (
 };
 
 const Reports = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("Sales");
   const [sales, setSales] = useState([]);
   const [medicines, setMedicines] = useState([]);
@@ -267,17 +268,18 @@ const Reports = () => {
     "Custom",
   ];
   useEffect(() => {
-    getSystemSettings().then(setSettings);
-  }, []);
+    if (user?.pharmacyId) getSystemSettings(user.pharmacyId).then(setSettings);
+  }, [user?.pharmacyId]);
   // Fetch all data including batches
   useEffect(() => {
+    if (!user?.pharmacyId) return;
     const load = async () => {
       try {
         setLoading(true);
         const [salesList, medicinesList, batchesList] = await Promise.all([
-          getAllSales(),
-          getAllMedicines(),
-          getAllStockBatches(),
+          getAllSales(user.pharmacyId),
+          getAllMedicines(user.pharmacyId),
+          getAllStockBatches(user.pharmacyId),
         ]);
         setSales(salesList);
         setMedicines(medicinesList);

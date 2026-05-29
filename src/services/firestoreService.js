@@ -27,16 +27,90 @@ const MEDICINES_COLLECTION = "medicines";
 const SUPPLIERS_COLLECTION = "suppliers";
 const SALES_COLLECTION = "sales";
 const STOCK_BATCHES_COLLECTION = "stockBatches";
+const PHARMACIES_COLLECTION = "pharmacies";
+
+// ═══════════════════════════════════════════════════════════════
+// PHARMACY CRUD (Super Admin only)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Create a new pharmacy document
+ */
+export const createPharmacy = async (pharmacyData) => {
+  try {
+    const pharmacyRef = await addDoc(collection(db, PHARMACIES_COLLECTION), {
+      name: pharmacyData.name,
+      address: pharmacyData.address || "",
+      phone: pharmacyData.phone || "",
+      email: pharmacyData.email || "",
+      adminId: pharmacyData.adminId || "",
+      status: "active",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return { id: pharmacyRef.id, ...pharmacyData };
+  } catch (error) {
+    console.error("Error creating pharmacy:", error);
+    throw new Error(`Failed to create pharmacy: ${error.message}`);
+  }
+};
+
+/**
+ * Get all pharmacies (Super Admin)
+ */
+export const getAllPharmacies = async () => {
+  try {
+    const q = query(collection(db, PHARMACIES_COLLECTION));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (error) {
+    console.error("Error loading pharmacies:", error);
+    throw new Error(`Failed to load pharmacies: ${error.message}`);
+  }
+};
+
+/**
+ * Get a single pharmacy by ID
+ */
+export const getPharmacyById = async (pharmacyId) => {
+  try {
+    const pharmacyDoc = await getDoc(doc(db, PHARMACIES_COLLECTION, pharmacyId));
+    if (!pharmacyDoc.exists()) throw new Error("Pharmacy not found");
+    return { id: pharmacyDoc.id, ...pharmacyDoc.data() };
+  } catch (error) {
+    console.error("Error fetching pharmacy:", error);
+    throw new Error(`Failed to fetch pharmacy: ${error.message}`);
+  }
+};
+
+/**
+ * Update a pharmacy (e.g., suspend/enable, edit details)
+ */
+export const updatePharmacy = async (pharmacyId, updates) => {
+  try {
+    const pharmacyDocRef = doc(db, PHARMACIES_COLLECTION, pharmacyId);
+    await updateDoc(pharmacyDocRef, { ...updates, updatedAt: serverTimestamp() });
+    return { id: pharmacyId, ...updates };
+  } catch (error) {
+    console.error("Error updating pharmacy:", error);
+    throw new Error(`Failed to update pharmacy: ${error.message}`);
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// MEDICINE CRUD (Pharmacy-scoped)
+// ═══════════════════════════════════════════════════════════════
 
 /**
  * Create a new medicine document in Firestore
  */
-export const createMedicine = async (medicine) => {
+export const createMedicine = async (medicine, pharmacyId) => {
   try {
     const medicineRef = await addDoc(collection(db, MEDICINES_COLLECTION), {
       ...medicine,
       stock: Number(medicine.stock),
       price: Number(medicine.price),
+      pharmacyId,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -49,11 +123,13 @@ export const createMedicine = async (medicine) => {
 };
 
 /**
- * Get all medicines from Firestore
+ * Get all medicines from Firestore (scoped to pharmacy)
  */
-export const getAllMedicines = async () => {
+export const getAllMedicines = async (pharmacyId) => {
   try {
-    const medicineQuery = query(collection(db, MEDICINES_COLLECTION));
+    const medicineQuery = pharmacyId
+      ? query(collection(db, MEDICINES_COLLECTION), where("pharmacyId", "==", pharmacyId))
+      : query(collection(db, MEDICINES_COLLECTION));
     const snapshot = await getDocs(medicineQuery);
     return snapshot.docs.map((docRef) => ({
       id: docRef.id,
@@ -78,21 +154,6 @@ export const getMedicineById = async (medicineId) => {
   } catch (error) {
     console.error("Error fetching medicine:", error);
     throw new Error(`Failed to fetch medicine: ${error.message}`);
-  }
-};
-
-export const getAllUsers = async () => {
-  try {
-    const q = query(collection(db, USERS_COLLECTION));
-    const querySnapshot = await getDocs(q);
-
-    return querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-  } catch (error) {
-    console.error("Error getting all users:", error);
-    throw new Error(`Failed to retrieve users: ${error.message}`);
   }
 };
 
@@ -145,14 +206,19 @@ export const deleteMedicine = async (medicineId) => {
   }
 };
 
+// ═══════════════════════════════════════════════════════════════
+// SUPPLIER CRUD (Pharmacy-scoped)
+// ═══════════════════════════════════════════════════════════════
+
 /**
  * Create a new supplier document in Firestore
  */
-export const createSupplier = async (supplier) => {
+export const createSupplier = async (supplier, pharmacyId) => {
   try {
     const supplierRef = await addDoc(collection(db, SUPPLIERS_COLLECTION), {
       ...supplier,
       medicines: supplier.medicines || [],
+      pharmacyId,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -164,11 +230,13 @@ export const createSupplier = async (supplier) => {
 };
 
 /**
- * Get all suppliers from Firestore
+ * Get all suppliers from Firestore (scoped to pharmacy)
  */
-export const getAllSuppliers = async () => {
+export const getAllSuppliers = async (pharmacyId) => {
   try {
-    const supplierQuery = query(collection(db, SUPPLIERS_COLLECTION));
+    const supplierQuery = pharmacyId
+      ? query(collection(db, SUPPLIERS_COLLECTION), where("pharmacyId", "==", pharmacyId))
+      : query(collection(db, SUPPLIERS_COLLECTION));
     const snapshot = await getDocs(supplierQuery);
     return snapshot.docs.map((docRef) => ({
       id: docRef.id,
@@ -211,15 +279,20 @@ export const deleteSupplier = async (supplierId) => {
   }
 };
 
+// ═══════════════════════════════════════════════════════════════
+// SALES (Pharmacy-scoped)
+// ═══════════════════════════════════════════════════════════════
+
 /**
  * Create a new sales transaction in Firestore
  */
-export const createSale = async (sale) => {
+export const createSale = async (sale, pharmacyId) => {
   try {
     const saleRef = await addDoc(collection(db, SALES_COLLECTION), {
       ...sale,
       quantity: Number(sale.quantity),
       amount: Number(sale.amount),
+      pharmacyId,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -232,14 +305,20 @@ export const createSale = async (sale) => {
 };
 
 /**
- * Get all sales from Firestore
+ * Get all sales from Firestore (scoped to pharmacy)
  */
-export const getAllSales = async () => {
+export const getAllSales = async (pharmacyId) => {
   try {
-    const salesQuery = query(
-      collection(db, SALES_COLLECTION),
-      orderBy("createdAt", "desc"),
-    );
+    const salesQuery = pharmacyId
+      ? query(
+          collection(db, SALES_COLLECTION),
+          where("pharmacyId", "==", pharmacyId),
+          orderBy("createdAt", "desc"),
+        )
+      : query(
+          collection(db, SALES_COLLECTION),
+          orderBy("createdAt", "desc"),
+        );
     const snapshot = await getDocs(salesQuery);
     return snapshot.docs.map((docRef) => ({
       id: docRef.id,
@@ -251,11 +330,14 @@ export const getAllSales = async () => {
   }
 };
 
+// ═══════════════════════════════════════════════════════════════
+// USER MANAGEMENT (Pharmacy-scoped)
+// ═══════════════════════════════════════════════════════════════
+
 /**
  * Create a new user profile in Firestore
  * Called after successful Firebase Authentication signup
  */
-
 export const createUserProfile = async (uid, userData) => {
   try {
     const userDocRef = doc(db, USERS_COLLECTION, uid);
@@ -264,7 +346,10 @@ export const createUserProfile = async (uid, userData) => {
       uid,
       email: userData.email,
       name: userData.name || "",
-      role: userData.role || "staff", // 'admin', 'pharmacist', 'manager', 'staff'
+      role: userData.role || "staff", // 'superadmin', 'admin', 'pharmacist', 'manager', 'staff'
+      pharmacyId: userData.pharmacyId || null,
+      pharmacyName: userData.pharmacyName || "",
+      createdBy: userData.createdBy || null,
       avatar: userData.avatar || `https://i.pravatar.cc/150?u=${uid}`,
       status: "Active",
       createdAt: serverTimestamp(),
@@ -340,19 +425,24 @@ export const getUserByEmail = async (email) => {
 };
 
 /**
- * Get all users (for staff management)
+ * Get all users (scoped to pharmacy, or all for superadmin)
  */
-// export const getAllUsers = async () => {
-//   try {
-//     const q = query(collection(db, USERS_COLLECTION));
-//     const querySnapshot = await getDocs(q);
+export const getAllUsers = async (pharmacyId) => {
+  try {
+    const q = pharmacyId
+      ? query(collection(db, USERS_COLLECTION), where("pharmacyId", "==", pharmacyId))
+      : query(collection(db, USERS_COLLECTION));
+    const querySnapshot = await getDocs(q);
 
-//     return querySnapshot.docs.map((doc) => doc.data());
-//   } catch (error) {
-//     console.error("Error getting all users:", error);
-//     throw new Error(`Failed to retrieve users: ${error.message}`);
-//   }
-// };
+    return querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  } catch (error) {
+    console.error("Error getting all users:", error);
+    throw new Error(`Failed to retrieve users: ${error.message}`);
+  }
+};
 
 /**
  * Get users by role
@@ -378,7 +468,7 @@ export const generatePasswordFromEmail = (email) => {
   return `${username}@${digits}`;
 };
 
-export const createStaffAccount = async (userData) => {
+export const createStaffAccount = async (userData, pharmacyId, pharmacyName, createdBy) => {
   // A secondary Firebase app instance so the admin session on the
   // primary app is never touched. Reused if it already exists.
   const secondaryApp =
@@ -402,6 +492,9 @@ export const createStaffAccount = async (userData) => {
     // Create the Firestore profile using the existing helper
     await createUserProfile(uid, {
       ...userData,
+      pharmacyId,
+      pharmacyName,
+      createdBy,
       avatar: `https://i.pravatar.cc/150?u=${uid}`,
     });
 
@@ -412,14 +505,20 @@ export const createStaffAccount = async (userData) => {
     throw error;
   }
 };
+
+// ═══════════════════════════════════════════════════════════════
+// STOCK BATCHES (Pharmacy-scoped)
+// ═══════════════════════════════════════════════════════════════
+
 /**
  * Log a stock movement event (audit trail)
  * movementType: 'expired_disposal' | 'sale' | 'purchase' | 'adjustment' | 'return'
  */
-export const createStockMovement = async (movement) => {
+export const createStockMovement = async (movement, pharmacyId) => {
   try {
     await addDoc(collection(db, "stockMovements"), {
       ...movement,
+      pharmacyId: pharmacyId || null,
       timestamp: serverTimestamp(),
     });
     return true;
@@ -431,11 +530,13 @@ export const createStockMovement = async (movement) => {
 };
 
 /**
- * Get all stock batches from Firestore
+ * Get all stock batches from Firestore (scoped to pharmacy)
  */
-export const getAllStockBatches = async () => {
+export const getAllStockBatches = async (pharmacyId) => {
   try {
-    const q = query(collection(db, STOCK_BATCHES_COLLECTION));
+    const q = pharmacyId
+      ? query(collection(db, STOCK_BATCHES_COLLECTION), where("pharmacyId", "==", pharmacyId))
+      : query(collection(db, STOCK_BATCHES_COLLECTION));
     const snapshot = await getDocs(q);
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
   } catch (error) {
@@ -447,7 +548,7 @@ export const getAllStockBatches = async () => {
 /**
  * Create a new stock batch document in Firestore
  */
-export const createStockBatch = async (batchData) => {
+export const createStockBatch = async (batchData, pharmacyId) => {
   try {
     const batchRef = await addDoc(collection(db, "stockBatches"), {
       ...batchData,
@@ -455,6 +556,7 @@ export const createStockBatch = async (batchData) => {
       costPrice: Number(batchData.costPrice),
       sellingPrice: Number(batchData.sellingPrice),
       status: batchData.quantity > 0 ? "In Stock" : "Out of Stock",
+      pharmacyId,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -491,21 +593,24 @@ export const deleteStockBatch = async (batchId) => {
   }
 };
 
+// ═══════════════════════════════════════════════════════════════
+// CHECKOUT TRANSACTION (Pharmacy-scoped)
+// ═══════════════════════════════════════════════════════════════
+
 /**
  * Process a secure, transaction-safe checkout.
  * Prevents overselling and generates sequential invoice numbers.
- */
-/**
- * Process a secure, transaction-safe checkout.
- * Prevents overselling and generates sequential invoice numbers.
+ * Invoice counter is now pharmacy-scoped.
  */
 export const processCheckoutTransaction = async (
   cart,
   paymentMethod,
   userId,
+  pharmacyId,
 ) => {
   const saleDocRef = doc(collection(db, SALES_COLLECTION));
-  const counterDocRef = doc(db, "counters", "invoiceNumber");
+  // Pharmacy-scoped invoice counter
+  const counterDocRef = doc(db, "counters", `${pharmacyId}_invoiceNumber`);
 
   const result = await runTransaction(db, async (transaction) => {
     const counterSnap = await transaction.get(counterDocRef);
@@ -573,6 +678,7 @@ export const processCheckoutTransaction = async (
       createdAt: serverTimestamp(),
       status: "Completed",
       paymentMethod: paymentMethod,
+      pharmacyId,
       total: cart.reduce((sum, i) => sum + i.price * i.quantity, 0),
       items: cart.map((i) => ({
         batchId: i.batchId,
@@ -581,7 +687,7 @@ export const processCheckoutTransaction = async (
         batchNo: i.batchNo,
         quantity: i.quantity,
         price: i.price,
-        costPrice: i.costPrice || 0, // ← ADD THIS LINE
+        costPrice: i.costPrice || 0,
         total: i.price * i.quantity,
       })),
       performedBy: userId || "Unknown",
@@ -599,12 +705,17 @@ export const processCheckoutTransaction = async (
   return result;
 };
 
+// ═══════════════════════════════════════════════════════════════
+// SETTINGS (Pharmacy-scoped)
+// ═══════════════════════════════════════════════════════════════
+
 /**
- * Get global system settings (creates default if missing)
+ * Get system settings scoped to a pharmacy (creates default if missing)
  */
-export const getSystemSettings = async () => {
+export const getSystemSettings = async (pharmacyId) => {
   try {
-    const docRef = doc(db, "settings", "global");
+    const settingsId = pharmacyId || "global";
+    const docRef = doc(db, "settings", settingsId);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       return docSnap.data();
@@ -625,11 +736,12 @@ export const getSystemSettings = async () => {
 };
 
 /**
- * Update global system settings
+ * Update system settings scoped to a pharmacy
  */
-export const updateSystemSettings = async (updates) => {
+export const updateSystemSettings = async (updates, pharmacyId) => {
   try {
-    const docRef = doc(db, "settings", "global");
+    const settingsId = pharmacyId || "global";
+    const docRef = doc(db, "settings", settingsId);
     await setDoc(
       docRef,
       { ...updates, updatedAt: serverTimestamp() },
@@ -641,6 +753,11 @@ export const updateSystemSettings = async (updates) => {
     throw new Error("Failed to save settings");
   }
 };
+
+// ═══════════════════════════════════════════════════════════════
+// REFUND TRANSACTION
+// ═══════════════════════════════════════════════════════════════
+
 /**
  * Process a secure refund transaction.
  * Restores stock to the exact batches and marks the sale as Refunded.

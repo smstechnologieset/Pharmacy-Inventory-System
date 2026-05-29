@@ -1,0 +1,101 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Function to check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Function to get the user's role from their profile
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    // Function to get the user's pharmacyId from their profile
+    function getUserPharmacyId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.pharmacyId;
+    }
+    
+    // Function to check if user is superadmin
+    function isSuperAdmin() {
+      return isAuthenticated() && getUserRole() == 'superadmin';
+    }
+    
+    // Function to check if the user belongs to the requested pharmacyId
+    function isPharmacyMember(pharmacyId) {
+      return isAuthenticated() && getUserPharmacyId() == pharmacyId;
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Super admins can read/write all users
+      // Users can read/write their own profile
+      // Admins/Managers can read users in their pharmacy
+      allow read: if isSuperAdmin() || 
+                  request.auth.uid == userId || 
+                  isPharmacyMember(resource.data.pharmacyId);
+      allow write: if isSuperAdmin() || 
+                   // Users editing their own profile (cannot escalate privileges)
+                   (request.auth.uid == userId && 
+                    (!request.resource.data.keys().hasAll(['role']) || request.resource.data.role == resource.data.role) && 
+                    (!request.resource.data.keys().hasAll(['pharmacyId']) || request.resource.data.pharmacyId == resource.data.pharmacyId)) || 
+                   // Admins/Managers editing others in their pharmacy
+                   (isPharmacyMember(request.resource.data.pharmacyId) && 
+                    getUserRole() in ['admin', 'manager'] &&
+                    // Cannot create or elevate to admin or superadmin
+                    !(request.resource.data.role in ['admin', 'superadmin']) &&
+                    // Cannot modify existing admins or superadmins
+                    (resource == null || !(resource.data.role in ['admin', 'superadmin'])));
+    }
+    
+    // Pharmacies collection
+    match /pharmacies/{pharmacyId} {
+      // Super admins can do anything
+      // Members can read their own pharmacy doc
+      allow read: if isSuperAdmin() || isPharmacyMember(pharmacyId);
+      allow write: if isSuperAdmin();
+    }
+    
+    // Scope all tenant collections by pharmacyId
+    match /medicines/{docId} {
+      allow read: if isSuperAdmin() || isPharmacyMember(resource.data.pharmacyId);
+      allow write: if isSuperAdmin() || isPharmacyMember(request.resource.data.pharmacyId);
+    }
+    
+    match /stockBatches/{docId} {
+      allow read: if isSuperAdmin() || isPharmacyMember(resource.data.pharmacyId);
+      allow write: if isSuperAdmin() || isPharmacyMember(request.resource.data.pharmacyId);
+    }
+    
+    match /sales/{docId} {
+      allow read: if isSuperAdmin() || isPharmacyMember(resource.data.pharmacyId);
+      allow write: if isSuperAdmin() || isPharmacyMember(request.resource.data.pharmacyId);
+    }
+    
+    match /suppliers/{docId} {
+      allow read: if isSuperAdmin() || isPharmacyMember(resource.data.pharmacyId);
+      allow write: if isSuperAdmin() || isPharmacyMember(request.resource.data.pharmacyId);
+    }
+    
+    match /stockMovements/{docId} {
+      allow read: if isSuperAdmin() || isPharmacyMember(resource.data.pharmacyId);
+      allow write: if isSuperAdmin() || isPharmacyMember(request.resource.data.pharmacyId);
+    }
+    
+    match /settings/{docId} {
+      allow read: if isSuperAdmin() || isPharmacyMember(resource.data.pharmacyId);
+      allow write: if isSuperAdmin() || isPharmacyMember(request.resource.data.pharmacyId);
+    }
+    
+    match /counters/{docId} {
+      allow read: if isSuperAdmin() || isPharmacyMember(resource.data.pharmacyId);
+      allow write: if isSuperAdmin() || isPharmacyMember(request.resource.data.pharmacyId);
+    }
+  }
+}

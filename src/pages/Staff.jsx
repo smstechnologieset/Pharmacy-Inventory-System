@@ -41,10 +41,9 @@ const Staff = () => {
   const { t } = useSettings();
   const isAdmin = user?.role === "admin";
   const roleLabels = {
-    admin: t("staff.roles.admin"),
-    pharmacist: t("staff.roles.pharmacist"),
-    manager: t("staff.roles.manager"),
-    staff: t("staff.roles.staff"),
+    pharmacist: t("staff.roles.pharmacist") || "Pharmacist",
+    manager: t("staff.roles.manager") || "Manager",
+    staff: t("staff.roles.staff") || "Staff",
   };
   const roleOptions = Object.entries(roleLabels).map(([value, label]) => ({
     value,
@@ -74,10 +73,11 @@ const Staff = () => {
 
   // ── Load staff ───────────────────────────────────────────────────────────────
   useEffect(() => {
+    if (!user?.pharmacyId) return;
     const loadStaff = async () => {
       try {
         setLoading(true);
-        const users = await getAllUsers();
+        const users = await getAllUsers(user.pharmacyId);
         setStaffList(
           users.map((u) => ({
             id: u.id || u.uid,
@@ -146,7 +146,7 @@ const Staff = () => {
         setIsModalOpen(false);
       } else {
         // Creates Firebase Auth account without disturbing admin session
-        const { uid, password } = await createStaffAccount(formData);
+        const { uid, password } = await createStaffAccount(formData, user?.pharmacyId, user?.pharmacyName, user?.uid);
         setStaffList((prev) => [
           ...prev,
           {
