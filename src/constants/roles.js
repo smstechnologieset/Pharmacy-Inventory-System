@@ -4,4 +4,5 @@ export const roles = {
   PHARMACIST: "pharmacist",
   MANAGER: "manager",
   STAFF: "staff",
+  SUPERADMIN: "superadmin",
 };

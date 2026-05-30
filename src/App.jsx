@@ -64,7 +64,8 @@ function App() {
           <Route
             path="medicine"
             element={
-              <RoleGuard allowedRoles={["admin", "manager", "pharmacist"]}>
+              <RoleGuard
+                allowedRoles={["admin", "manager", "pharmacist", "superadmin"]}>
                 <Medicine />
               </RoleGuard>
             }
@@ -72,7 +73,8 @@ function App() {
           <Route
             path="inventory"
             element={
-              <RoleGuard allowedRoles={["admin", "manager", "pharmacist"]}>
+              <RoleGuard
+                allowedRoles={["admin", "manager", "pharmacist", "superadmin"]}>
                 <Inventory />
               </RoleGuard>
             }
@@ -80,7 +82,8 @@ function App() {
           <Route
             path="sales"
             element={
-              <RoleGuard allowedRoles={["admin", "manager", "pharmacist"]}>
+              <RoleGuard
+                allowedRoles={["admin", "manager", "pharmacist", "superadmin"]}>
                 <Sales />
               </RoleGuard>
             }
@@ -88,7 +91,7 @@ function App() {
           <Route
             path="expiration"
             element={
-              <RoleGuard allowedRoles={["admin", "manager", "pharmacist"]}>
+              <RoleGuard allowedRoles={["admin", "manager", "pharmacist", "superadmin"]}>
                 <Expiration />
               </RoleGuard>
             }
@@ -98,7 +101,7 @@ function App() {
           <Route
             path="suppliers"
             element={
-              <RoleGuard allowedRoles={["admin", "manager"]}>
+              <RoleGuard allowedRoles={["admin", "manager", "superadmin"]}>
                 <Suppliers />
               </RoleGuard>
             }
@@ -106,7 +109,7 @@ function App() {
           <Route
             path="reports"
             element={
-              <RoleGuard allowedRoles={["admin", "manager"]}>
+              <RoleGuard allowedRoles={["admin", "manager","superadmin"]}>
                 <Reports />
               </RoleGuard>
             }
@@ -114,7 +117,7 @@ function App() {
           <Route
             path="staff"
             element={
-              <RoleGuard allowedRoles={["admin", "manager"]}>
+              <RoleGuard allowedRoles={["admin", "manager", "superadmin"]}>
                 <Staff />
               </RoleGuard>
             }
@@ -124,7 +127,7 @@ function App() {
           <Route
             path="settings"
             element={
-              <RoleGuard allowedRoles={["admin"]}>
+              <RoleGuard allowedRoles={["admin", "superadmin"]}>
                 <Settings />
               </RoleGuard>
             }
