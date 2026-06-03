@@ -166,6 +166,10 @@ export const translations = {
       officeAddress: "Office Address",
       updateSupplier: "Update Supplier",
       confirmAdd: "Confirm & Save Supplier",
+      medicinesSupplied: "Medicines Supplied",
+      clickToAddMedicines: "Click to add medicines...",
+      searchMedicines: "Search medicines...",
+      noMedicinesFound: "No medicines found",
     },
     expiration: {
       title: "Stock Expiration",
@@ -539,6 +543,11 @@ export const translations = {
       officeAddress: "የቢሮ አድራሻ",
       updateSupplier: "አቅራቢ አዘምን",
       confirmAdd: "አረጋግጥ እና አቅራቢ አስቀምጥ",
+      // --- NEW KEYS ---
+      medicinesSupplied: "የቀረቡ መድኃኒቶች",
+      clickToAddMedicines: "መድኃኒቶችን ለመጨመር ይጫኑ...",
+      searchMedicines: "መድኃኒቶችን ይፈልጉ...",
+      noMedicinesFound: "ምንም መድኃኒት አልተገኘም",
     },
     expiration: {
       title: "የክምችት ጊዜ ማብቂያ",
