@@ -16,6 +16,7 @@ import {
   processCheckoutTransaction,
   createStockMovement,
   processRefundTransaction,
+  getAllSales,
 } from "../services/firestoreService";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
