@@ -365,6 +365,14 @@ export const translations = {
       newPassword: "New Password",
       updatingPassword: "Updating...",
       updatePassword: "Update Password",
+
+      // ✨ NEWLY ADDED PROFILE KEYS
+      fullName: "Full Name",
+      phone: "Phone Number",
+      avatarUrl: "Avatar URL",
+      updateProfile: "Update Profile",
+      profileUpdated: "Profile updated successfully!",
+      failedToUpdateProfile: "Failed to update profile.",
     },
   },
   am: {
@@ -671,8 +679,7 @@ export const translations = {
       passwordTooShort: "የይለፍ ቃል ቢያንስ 6 ቁምፊዎች መሆን አለበት",
       emailPlaceholder: "name@company.com",
       resetPasswordTitle: "የይለፍ ቃል ዳግም አስጀምር",
-      resetPasswordSubtitle:
-        "የኢሜል አድራሻዎን ያስገቡ፤ የይለፍ ቃል መቀየሪያ አገናኝ እንልክልዎታለን።",
+      resetPasswordSubtitle: "የኢሜል አድራሻዎን ያስገቡ፤ የይለፍ ቃል መቀየሪያ አገናኝ እንልክልዎታለን።",
       resetEmailRequired: "እባክዎ የኢሜል አድራሻዎን ያስገቡ።",
       resetEmailSent: "የይለፍ ቃል መቀየሪያ አገናኝ ተልኳል። ኢሜልዎን ያረጋግጡ።",
       resetInvalidEmail: "እባክዎ ትክክለኛ የኢሜል አድራሻ ያስገቡ።",
@@ -698,6 +705,13 @@ export const translations = {
       saveChanges: "ሁሉንም ለውጦች አስቀምጥ",
       saving: "በማስቀመጥ ላይ...",
       successMsg: "ቅንብሮች በተሳካ ሁኔታ ተቀምጠዋል!",
+      // ✨ NEWLY ADDED PROFILE KEYS
+      fullName: "ሙሉ ስም",
+      phone: "ስልክ ቁጥር",
+      avatarUrl: "የመገለጫ ምስል አድራሻ (URL)",
+      updateProfile: "መገለጫን አዘምን",
+      profileUpdated: "መገለጫ በተሳካ ሁኔታ ተዘምኗል!",
+      failedToUpdateProfile: "መገለጫን ማዘመን አልተሳካም።",
     },
   },
 };

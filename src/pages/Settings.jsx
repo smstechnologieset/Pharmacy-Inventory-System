@@ -16,8 +16,8 @@ import {
 } from "firebase/auth";
 import { useAuth } from "../context/AuthContext";
 import {
-
   updateSystemSettings,
+  updateUserProfile, // ✅ Added import
 } from "../services/firestoreService";
 import { useSettings } from "../context/SettingsContext";
 import CustomSelect from "../components/CustomSelect";
@@ -35,6 +35,15 @@ const Settings = () => {
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
 
+  // ── Profile Edit State ─────────────────────────────────────────────────────
+  const [profileForm, setProfileForm] = useState({
+    name: user?.name || "",
+    phone: user?.phone || "",
+    avatar: user?.avatar || "",
+  });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileSuccessMsg, setProfileSuccessMsg] = useState("");
+
   // ── Password Modal State ─────────────────────────────────────────────────────
   const [showPwModal, setShowPwModal] = useState(false);
   const [pwForm, setPwForm] = useState({ current: "", newPw: "" });
@@ -50,6 +59,17 @@ const Settings = () => {
     });
   }, [contextSettings]);
 
+  // Sync profile form when user data loads/updates
+  useEffect(() => {
+    if (user) {
+      setProfileForm({
+        name: user.name || "",
+        phone: user.phone || "",
+        avatar: user.avatar || "",
+      });
+    }
+  }, [user]);
+
   const handleSave = async () => {
     setSaving(true);
     setSuccessMsg("");
@@ -61,10 +81,32 @@ const Settings = () => {
       setTimeout(() => setSuccessMsg(""), 3000);
     } catch (err) {
       console.error(err);
-      // Note: In a full production app, replace this alert with your ConfirmModal/Toast system
       alert(t("settings.failedToSave"));
     } finally {
       setSaving(false);
+    }
+  };
+
+  // ✅ Profile Save Handler
+  const handleProfileSave = async () => {
+    if (!user?.uid) return;
+    setSavingProfile(true);
+    setProfileSuccessMsg("");
+    try {
+      await updateUserProfile(user.uid, {
+        name: profileForm.name,
+        phone: profileForm.phone,
+        avatar: profileForm.avatar,
+      });
+      setProfileSuccessMsg(
+        t("settings.profileUpdated") || "Profile updated successfully!",
+      );
+      setTimeout(() => setProfileSuccessMsg(""), 3000);
+    } catch (err) {
+      console.error("Profile update error:", err);
+      alert(t("settings.failedToUpdateProfile") || "Failed to update profile.");
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -85,14 +127,12 @@ const Settings = () => {
       const currentUser = auth.currentUser;
       if (!currentUser) throw new Error(t("settings.noUser"));
 
-      // 1. Re-authenticate for security (Firebase requires this before sensitive changes)
       const credential = EmailAuthProvider.credential(
         currentUser.email,
         pwForm.current,
       );
       await reauthenticateWithCredential(currentUser, credential);
 
-      // 2. Update Password
       await updatePassword(currentUser, pwForm.newPw);
 
       setShowPwModal(false);
@@ -154,6 +194,8 @@ const Settings = () => {
               <User size={20} color="var(--primary)" />{" "}
               {t("settings.profileInfo")}
             </h2>
+
+            {/* Profile Header Display */}
             <div
               style={{
                 display: "flex",
@@ -163,15 +205,17 @@ const Settings = () => {
                 background: "var(--primary-light)",
                 borderRadius: "24px",
                 border: "1px solid rgba(13, 148, 136, 0.1)",
+                marginBottom: "24px",
               }}>
               <img
-                src={user?.avatar}
+                src={profileForm.avatar || user?.avatar}
                 style={{
                   width: "80px",
                   height: "80px",
                   borderRadius: "50%",
                   border: "4px solid white",
                   boxShadow: "0 8px 16px rgba(0,0,0,0.05)",
+                  objectFit: "cover",
                 }}
                 alt="Avatar"
               />
@@ -202,6 +246,127 @@ const Settings = () => {
                   {user?.role?.toUpperCase()}
                 </span>
               </div>
+            </div>
+
+            {/* Profile Edit Form */}
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "0.85rem",
+                    fontWeight: "700",
+                    marginBottom: "8px",
+                    color: "#475569",
+                  }}>
+                  {t("settings.fullName") || "Full Name"}
+                </label>
+                <input
+                  type="text"
+                  className="search-bar"
+                  style={{
+                    width: "100%",
+                    background: "#F8FAFC",
+                    padding: "12px 16px",
+                    border: "none",
+                    borderRadius: "12px",
+                    outline: "none",
+                  }}
+                  value={profileForm.name}
+                  onChange={(e) =>
+                    setProfileForm({ ...profileForm, name: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "0.85rem",
+                    fontWeight: "700",
+                    marginBottom: "8px",
+                    color: "#475569",
+                  }}>
+                  {t("settings.phone") || "Phone Number"}
+                </label>
+                <input
+                  type="text"
+                  className="search-bar"
+                  style={{
+                    width: "100%",
+                    background: "#F8FAFC",
+                    padding: "12px 16px",
+                    border: "none",
+                    borderRadius: "12px",
+                    outline: "none",
+                  }}
+                  value={profileForm.phone}
+                  onChange={(e) =>
+                    setProfileForm({ ...profileForm, phone: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "0.85rem",
+                    fontWeight: "700",
+                    marginBottom: "8px",
+                    color: "#475569",
+                  }}>
+                  {t("settings.avatarUrl") || "Avatar URL"}
+                </label>
+                <input
+                  type="text"
+                  className="search-bar"
+                  style={{
+                    width: "100%",
+                    background: "#F8FAFC",
+                    padding: "12px 16px",
+                    border: "none",
+                    borderRadius: "12px",
+                    outline: "none",
+                  }}
+                  value={profileForm.avatar}
+                  onChange={(e) =>
+                    setProfileForm({ ...profileForm, avatar: e.target.value })
+                  }
+                />
+              </div>
+
+              {profileSuccessMsg && (
+                <div
+                  style={{
+                    color: "#059669",
+                    background: "#ECFDF5",
+                    padding: "12px",
+                    borderRadius: "12px",
+                    fontWeight: "600",
+                  }}>
+                  {profileSuccessMsg}
+                </div>
+              )}
+
+              <button
+                className="btn btn-primary"
+                onClick={handleProfileSave}
+                disabled={savingProfile}
+                style={{
+                  height: "48px",
+                  marginTop: "8px",
+                  opacity: savingProfile ? 0.7 : 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                }}>
+                <Save size={18} />{" "}
+                {savingProfile
+                  ? t("settings.saving") || "Saving..."
+                  : t("settings.updateProfile") || "Update Profile"}
+              </button>
             </div>
           </div>
 
