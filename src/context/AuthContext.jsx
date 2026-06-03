@@ -10,6 +10,7 @@ import { auth, db } from "../services/firebase";
 import {
   createUserProfile,
   getUserProfile,
+  getPharmacyById,
 } from "../services/firestoreService";
 import { doc, onSnapshot } from "firebase/firestore";
 
@@ -20,6 +21,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [authUser, setAuthUser] = useState(null); // Firebase user object
+  const [pharmacyStatus, setPharmacyStatus] = useState(null); // 'active', 'suspended', or null
 
   // Listen for auth state changes (persistent login)
   useEffect(() => {
@@ -41,13 +43,27 @@ export const AuthProvider = ({ children }) => {
         // 🔥 REAL-TIME LISTENER: Watches the Firestore profile
         unsubscribeSnapshot = onSnapshot(
           userDocRef,
-          (docSnap) => {
+          async (docSnap) => {
             if (docSnap.exists()) {
+              const profileData = docSnap.data();
+
+              // Check pharmacy suspension for non-superadmin users
+              if (profileData.role !== "superadmin" && profileData.pharmacyId) {
+                try {
+                  const pharmacy = await getPharmacyById(profileData.pharmacyId);
+                  setPharmacyStatus(pharmacy.status || "active");
+                } catch {
+                  setPharmacyStatus("active"); // Fallback if pharmacy doc not found
+                }
+              } else {
+                setPharmacyStatus("active");
+              }
+
               // Profile exists, log them in
               setUser({
                 uid: firebaseUser.uid,
                 email: firebaseUser.email,
-                ...docSnap.data(),
+                ...profileData,
               });
               setError(null);
             } else {
@@ -70,6 +86,7 @@ export const AuthProvider = ({ children }) => {
       } else {
         setAuthUser(null);
         setUser(null);
+        setPharmacyStatus(null);
         setError(null);
         setLoading(false);
       }
@@ -161,6 +178,7 @@ export const AuthProvider = ({ children }) => {
       await signOut(auth);
       setAuthUser(null);
       setUser(null);
+      setPharmacyStatus(null);
     } catch (err) {
       const errorMessage = err.message || "Logout failed";
       setError(errorMessage);
@@ -177,6 +195,8 @@ export const AuthProvider = ({ children }) => {
     setError(null);
   };
 
+  const isSuperAdmin = user?.role === "superadmin";
+
   return (
     <AuthContext.Provider
       value={{
@@ -188,6 +208,8 @@ export const AuthProvider = ({ children }) => {
         signup,
         logout,
         clearError,
+        isSuperAdmin,
+        pharmacyStatus,
       }}>
       {children}
     </AuthContext.Provider>

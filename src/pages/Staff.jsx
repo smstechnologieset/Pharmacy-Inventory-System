@@ -12,12 +12,11 @@ import {
   Copy,
   CheckCheck,
 } from "lucide-react";
-import { deleteDoc, doc } from "firebase/firestore";
-import { db } from "../services/firebase";
 import {
   getAllUsers,
   updateUserProfile,
   createStaffAccount,
+  softDeleteUser,
 } from "../services/firestoreService";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
@@ -39,12 +38,11 @@ const Staff = () => {
   // "user" matches exactly what AuthContext exposes — it has uid, email, role, name etc.
   const { user } = useAuth();
   const { t } = useSettings();
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === "admin" || user?.role === "manager";
   const roleLabels = {
-    admin: t("staff.roles.admin"),
-    pharmacist: t("staff.roles.pharmacist"),
-    manager: t("staff.roles.manager"),
-    staff: t("staff.roles.staff"),
+    pharmacist: t("staff.roles.pharmacist") || "Pharmacist",
+    manager: t("staff.roles.manager") || "Manager",
+    staff: t("staff.roles.staff") || "Staff",
   };
   const roleOptions = Object.entries(roleLabels).map(([value, label]) => ({
     value,
@@ -74,19 +72,22 @@ const Staff = () => {
 
   // ── Load staff ───────────────────────────────────────────────────────────────
   useEffect(() => {
+    if (!user?.pharmacyId) return;
     const loadStaff = async () => {
       try {
         setLoading(true);
-        const users = await getAllUsers();
+        const users = await getAllUsers(user.pharmacyId);
         setStaffList(
-          users.map((u) => ({
-            id: u.id || u.uid,
-            name: u.name || "",
-            email: u.email || "",
-            role: u.role || "staff",
-            avatar: u.avatar || `https://i.pravatar.cc/150?u=${u.id}`,
-            status: u.status || "Active",
-          })),
+          users
+            .filter((u) => u.id !== user.uid)
+            .map((u) => ({
+              id: u.id || u.uid,
+              name: u.name || "",
+              email: u.email || "",
+              role: u.role || "staff",
+              avatar: u.avatar || `https://i.pravatar.cc/150?u=${u.id}`,
+              status: u.status || "Active",
+            })),
         );
       } catch (err) {
         console.error(err);
@@ -98,7 +99,7 @@ const Staff = () => {
       }
     };
     loadStaff();
-  }, [t]);
+  }, [t, user?.pharmacyId, user?.uid]);
 
   // ── Open add/edit modal ──────────────────────────────────────────────────────
   const handleOpenModal = (staff = null) => {
@@ -146,7 +147,7 @@ const Staff = () => {
         setIsModalOpen(false);
       } else {
         // Creates Firebase Auth account without disturbing admin session
-        const { uid, password } = await createStaffAccount(formData);
+        const { uid, password } = await createStaffAccount(formData, user?.pharmacyId, user?.pharmacyName, user?.uid);
         setStaffList((prev) => [
           ...prev,
           {
@@ -189,7 +190,7 @@ const Staff = () => {
     if (!deleteTarget) return;
     try {
 
-      await deleteDoc(doc(db, "users", deleteTarget.id));
+      await softDeleteUser(deleteTarget.id);
       setStaffList((prev) => prev.filter((s) => s.id !== deleteTarget.id));
       setDeleteTarget(null);
     } catch (err) {
@@ -370,24 +371,28 @@ const Staff = () => {
                           gap: "12px",
                           justifyContent: "flex-end",
                         }}>
-                        <button
-                          className="icon-button"
-                          onClick={() => handleOpenModal(staff)}
-                          style={{ width: "40px", height: "40px" }}
-                          title={t("staff.edit")}>
-                          <Edit size={16} />
-                        </button>
-                        <button
-                          className="icon-button"
-                          onClick={() => setDeleteTarget(staff)}
-                          style={{
-                            width: "40px",
-                            height: "40px",
-                            color: "#EF4444",
-                          }}
-                          title={t("staff.delete")}>
-                          <Trash2 size={16} />
-                        </button>
+                        {staff.role !== "admin" && staff.role !== "superadmin" && (
+                          <>
+                            <button
+                              className="icon-button"
+                              onClick={() => handleOpenModal(staff)}
+                              style={{ width: "40px", height: "40px" }}
+                              title={t("staff.edit")}>
+                              <Edit size={16} />
+                            </button>
+                            <button
+                              className="icon-button"
+                              onClick={() => setDeleteTarget(staff)}
+                              style={{
+                                width: "40px",
+                                height: "40px",
+                                color: "#EF4444",
+                              }}
+                              title={t("staff.delete")}>
+                              <Trash2 size={16} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   )}

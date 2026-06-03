@@ -8,12 +8,14 @@ import React, {
 } from "react";
 import { getSystemSettings } from "../services/firestoreService";
 import { translations, getNestedTranslation } from "../data/translations";
+import { useAuth } from "./AuthContext";
 
 const SettingsContext = createContext();
 
 export const useSettings = () => useContext(SettingsContext);
 
 export const SettingsProvider = ({ children }) => {
+  const { user } = useAuth();
   const [globalSettings, setGlobalSettings] = useState({
     currency: "ETB",
     lowStockThreshold: 10,
@@ -24,16 +26,17 @@ export const SettingsProvider = ({ children }) => {
   });
 
   useEffect(() => {
+    if (!user?.pharmacyId) return;
     const fetchGlobalSettings = async () => {
       try {
-        const settings = await getSystemSettings();
+        const settings = await getSystemSettings(user.pharmacyId);
         setGlobalSettings(settings);
       } catch (err) {
         console.error("Failed to fetch global settings:", err);
       }
     };
     fetchGlobalSettings();
-  }, []);
+  }, [user?.pharmacyId]);
 
   const updateLanguage = (lang) => {
     setLanguage(lang);

@@ -7,16 +7,16 @@ import {
   updateMedicine,
   deleteMedicine,
   getAllSuppliers,
-  getAllStockBatches,
 } from "../services/firestoreService";
 import { useSettings } from "../context/SettingsContext";
 import CustomSelect from "../components/CustomSelect";
+import { useAuth } from "../context/AuthContext";
 
 const Medicine = () => {
   const { t } = useSettings();
+  const { user } = useAuth();
   const [productList, setProductList] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
-  const [stockCounts, setStockCounts] = useState({}); 
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -29,25 +29,16 @@ const Medicine = () => {
   const [sortBy, setSortBy] = useState("name-asc");
 
   useEffect(() => {
+    if (!user?.pharmacyId) return;
     const loadData = async () => {
       try {
         setLoading(true);
-        const [medicines, suppliersList, batches] = await Promise.all([
-          getAllMedicines(),
-          getAllSuppliers().catch(() => []),
-          getAllStockBatches().catch(() => []),
+        const [medicines, suppliersList] = await Promise.all([
+          getAllMedicines(user.pharmacyId),
+          getAllSuppliers(user.pharmacyId).catch(() => []),
         ]);
         setProductList(medicines);
         setSuppliers(suppliersList);
-        
-        // Calculate total stock per medicine from batches
-        const counts = {};
-        batches.forEach(b => {
-          if (b.medicineId && b.quantity > 0) {
-            counts[b.medicineId] = (counts[b.medicineId] || 0) + b.quantity;
-          }
-        });
-        setStockCounts(counts);
       } catch (err) {
         setError(err.message || "Failed to load medicines.");
       } finally {
@@ -55,7 +46,7 @@ const Medicine = () => {
       }
     };
     loadData();
-  }, []);
+  }, [user?.pharmacyId]);
 
   const filteredProducts = productList
     .filter((p) => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -66,9 +57,9 @@ const Medicine = () => {
         case "name-desc":
           return b.name.localeCompare(a.name);
         case "stock-high":
-          return (stockCounts[b.id] || 0) - (stockCounts[a.id] || 0);
+          return (b.totalStock || 0) - (a.totalStock || 0);
         case "stock-low":
-          return (stockCounts[a.id] || 0) - (stockCounts[b.id] || 0);
+          return (a.totalStock || 0) - (b.totalStock || 0);
         case "price-high":
           return Number(b.price) - Number(a.price);
         case "price-low":
@@ -117,8 +108,8 @@ const Medicine = () => {
         await updateMedicine(editingProduct.id, payload);
         setProductList(productList.map((p) => p.id === editingProduct.id ? { ...p, ...payload } : p));
       } else {
-        await createMedicine(payload);
-        const medicines = await getAllMedicines();
+        await createMedicine(payload, user.pharmacyId);
+        const medicines = await getAllMedicines(user.pharmacyId);
         setProductList(medicines);
       }
       setIsModalOpen(false);
@@ -199,7 +190,7 @@ const Medicine = () => {
                     <span style={{ padding: "6px 16px", background: "#F1F5F9", color: "#64748B", borderRadius: "12px", fontSize: "0.8rem", fontWeight: "600" }}>{p.category}</span>
                   </td>
                   <td>
-                    <div style={{ fontWeight: "700", color: (stockCounts[p.id] || 0) < 10 ? "#EF4444" : "#1E293B" }}>{stockCounts[p.id] || 0} {t("medicine.units")}</div>
+                    <div style={{ fontWeight: "700", color: (p.totalStock || 0) < 10 ? "#EF4444" : "#1E293B" }}>{p.totalStock || 0} {t("medicine.units")}</div>
                   </td>
                   <td style={{ fontWeight: "700" }}>ETB {p.price ? parseFloat(p.price).toFixed(2) : "0.00"}</td>
                   <td style={{ paddingRight: "32px" }}>

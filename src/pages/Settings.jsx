@@ -55,7 +55,7 @@ const Settings = () => {
     setSuccessMsg("");
     try {
       const { language, ...globalPayload } = localState;
-      await updateSystemSettings(globalPayload);
+      await updateSystemSettings(globalPayload, user?.pharmacyId);
       updateLanguage(language);
       setSuccessMsg(t("settings.successMsg") || "Settings saved successfully!");
       setTimeout(() => setSuccessMsg(""), 3000);

@@ -21,13 +21,14 @@ import {
   Filler,
 } from "chart.js";
 import { Bar, Pie } from "react-chartjs-2";
-
+import { useAuth } from "../context/AuthContext";
 
 import {
-  getSystemSettings,
   getAllSales,
+  getSalesByDateRange,
   getAllMedicines,
   getAllStockBatches,
+  getSystemSettings,
 } from "../services/firestoreService";
 
 import { exportToPDF } from "../utils/exportToPdf.js";
@@ -245,6 +246,7 @@ const buildChartData = (
 
 
 const Reports = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("Sales");
   const [sales, setSales] = useState([]);
   const [medicines, setMedicines] = useState([]);
@@ -270,18 +272,29 @@ const Reports = () => {
     "Custom",
   ];
   useEffect(() => {
-    getSystemSettings().then(setSettings);
-  }, []);
+    if (user?.pharmacyId) getSystemSettings(user.pharmacyId).then(setSettings);
+  }, [user?.pharmacyId]);
   // Fetch all data including batches
   useEffect(() => {
+    if (!user?.pharmacyId) return;
     const load = async () => {
       try {
         setLoading(true);
+        const { start, end } = getPeriodRange(reportPeriod, customStart, customEnd);
+        
+        let salesPromise;
+        if (reportPeriod === "All Time") {
+          salesPromise = getAllSales(user.pharmacyId);
+        } else {
+          salesPromise = getSalesByDateRange(user.pharmacyId, start, end);
+        }
+
         const [salesList, medicinesList, batchesList] = await Promise.all([
-          getAllSales(),
-          getAllMedicines(),
-          getAllStockBatches(),
+          salesPromise,
+          getAllMedicines(user.pharmacyId),
+          getAllStockBatches(user.pharmacyId),
         ]);
+        
         setSales(salesList);
         setMedicines(medicinesList);
         setBatches(batchesList);
@@ -293,7 +306,7 @@ const Reports = () => {
       }
     };
     load();
-  }, []);
+  }, [user?.pharmacyId, reportPeriod, customStart, customEnd]);
 
   const filteredSales = useMemo(
     () => filterSalesByPeriod(sales, reportPeriod, customStart, customEnd),

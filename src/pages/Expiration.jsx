@@ -41,13 +41,14 @@ const Expiration = () => {
   };
 
   useEffect(() => {
+    if (!user?.pharmacyId) return;
     const fetchData = async () => {
       try {
         setLoading(true);
         // Fetch both master medicines and stock batches
         const [batches, medicines] = await Promise.all([
-          getAllStockBatches(),
-          getAllMedicines(),
+          getAllStockBatches(user?.pharmacyId),
+          getAllMedicines(user?.pharmacyId),
         ]);
 
         // Create a lookup map for medicine details
@@ -83,7 +84,7 @@ const Expiration = () => {
       }
     };
     fetchData();
-  }, [t]);
+  }, [t, user?.pharmacyId]);
 
   const handleAction = async (batchId, action) => {
     const item = items.find((i) => i.id === batchId);
@@ -107,7 +108,7 @@ const Expiration = () => {
           quantityChanged: -item.stock,
           reason: "Manual deletion via Expiration page",
           performedBy: user?.uid || "Unknown",
-        });
+        }, user?.pharmacyId);
 
         setItems(items.filter((i) => i.id !== batchId));
         alert(t("expiration.batchRemoved") || "Batch removed successfully.");
@@ -137,7 +138,7 @@ const Expiration = () => {
           quantityChanged: -item.stock,
           reason: "Expired - marked disposed",
           performedBy: user?.uid || "Unknown",
-        });
+        }, user?.pharmacyId);
 
         setItems(
           items.map((i) =>

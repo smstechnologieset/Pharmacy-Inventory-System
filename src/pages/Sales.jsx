@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import {
   getAllMedicines,
-  getAllSales,
+  getRecentSales,
   getAllStockBatches,
   processCheckoutTransaction,
   createStockMovement,
@@ -57,13 +57,14 @@ const Sales = () => {
   };
 
   useEffect(() => {
+    if (!user?.pharmacyId) return;
     const loadSalesData = async () => {
       try {
         setLoading(true);
         const [meds, salesList, stockBatches] = await Promise.all([
-          getAllMedicines(),
-          getAllSales(),
-          getAllStockBatches(),
+          getAllMedicines(user.pharmacyId),
+          getRecentSales(user.pharmacyId, 50),
+          getAllStockBatches(user.pharmacyId),
         ]);
         setMedicines(meds);
         setTransactions(salesList);
@@ -76,7 +77,7 @@ const Sales = () => {
       }
     };
     loadSalesData();
-  }, []);
+  }, [user?.pharmacyId]);
 
   // Group batches by medicine to show total available stock in the grid
   const validBatches = batches.filter(
@@ -210,6 +211,7 @@ const Sales = () => {
         cart,
         paymentMethod,
         user?.uid,
+        user?.pharmacyId,
       );
 
       // Log stock movements for audit trail (Priority 7)
@@ -222,7 +224,7 @@ const Sales = () => {
           quantityChanged: -item.quantity,
           reason: `Sold via POS (Invoice: ${result.invoiceNumber})`,
           performedBy: user?.uid || "Unknown",
-        });
+        }, user?.pharmacyId);
       }
 
       const now = new Date();
@@ -244,8 +246,8 @@ const Sales = () => {
 
       // Refresh data and reset cart
       const [salesList, stockBatches] = await Promise.all([
-        getAllSales(),
-        getAllStockBatches(),
+        getAllSales(user?.pharmacyId),
+        getAllStockBatches(user?.pharmacyId),
       ]);
       setTransactions(salesList);
       setBatches(stockBatches);
@@ -275,7 +277,7 @@ const Sales = () => {
       return;
 
     try {
-      await processRefundTransaction(sale.id, sale.items, user?.uid);
+      await processRefundTransaction(sale.id, sale.items, user?.uid, user?.pharmacyId);
 
       // Log stock movements for audit trail
       for (const item of sale.items) {
@@ -287,11 +289,11 @@ const Sales = () => {
           quantityChanged: item.quantity, // Positive because it's returning to stock
           reason: `Refund for Invoice: ${sale.invoiceNumber}`,
           performedBy: user?.uid || "Unknown",
-        });
+        }, user?.pharmacyId);
       }
 
       // Refresh sales list
-      const salesList = await getAllSales();
+      const salesList = await getAllSales(user?.pharmacyId);
       setTransactions(salesList);
       alert("Refund successful! Stock has been restored.");
     } catch (err) {

@@ -35,12 +35,13 @@ const Inventory = () => {
   const [sortBy, setSortBy] = useState("name-asc");
 
   useEffect(() => {
+    if (!user?.pharmacyId) return;
     const loadData = async () => {
       setLoading(true);
       try {
         const [meds, batches] = await Promise.all([
-          getAllMedicines(),
-          getAllStockBatches(),
+          getAllMedicines(user.pharmacyId),
+          getAllStockBatches(user.pharmacyId),
         ]);
         setMedicines(meds);
 
@@ -181,7 +182,7 @@ const Inventory = () => {
           ),
         );
       } else {
-        const created = await createStockBatch(payload);
+        const created = await createStockBatch(payload, user.pharmacyId);
 
         // Log stock movement for audit trail (Priority 7)
         await createStockMovement({
@@ -193,7 +194,7 @@ const Inventory = () => {
           reason: "Stock received via Inventory page",
           performedBy: user?.uid || "Unknown",
           costPrice: payload.costPrice,
-        });
+        }, user.pharmacyId);
 
         setStockList((current) => [
           {

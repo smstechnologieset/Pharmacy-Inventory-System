@@ -6,6 +6,7 @@ import {
   getAllMedicines,
   getAllStockBatches,
   getSystemSettings,
+  searchMedicinesByPrefix,
 } from "../services/firestoreService";
 
 import { useSettings } from "../context/SettingsContext";
@@ -38,62 +39,70 @@ const Header = () => {
   const [realNotifications, setRealNotifications] = useState([]);
 
   const [query, setQuery] = useState("");
-  const [allInventory, setAllInventory] = useState([]);
-  // ✅ ADD THIS (Calculated during render)
-  const q = query.trim().toLowerCase();
-  const results = q
-    ? allInventory
-        .filter(
-          (m) =>
-            m.name?.toLowerCase().includes(q) ||
-            m.batch?.toLowerCase().includes(q),
-        )
-        .slice(0, 7)
-    : [];
-  // const [results, setResults] = useState([]);
+  const [results, setResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
 
   const searchRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Load inventory for search
+  // Debounced Server-side Search
   useEffect(() => {
-    const load = async () => {
+    const q = query.trim().toLowerCase();
+    if (!q) {
+      setResults([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
       try {
-        const [meds, batches] = await Promise.all([
-          getAllMedicines(),
-          getAllStockBatches(),
-        ]);
-        const combined = batches.map((b) => {
-          const med = meds.find((m) => m.id === b.medicineId);
-          return {
-            id: b.id,
-            medicineId: b.medicineId,
-            name: med?.name || "Unknown",
-            category: med?.category,
-            batch: b.batchNo,
-            stock: b.quantity,
-            expiry: b.expiry,
-            price: b.sellingPrice || med?.price,
-          };
-        });
-        setAllInventory(combined);
+        setIsSearching(true);
+        // We do a prefix search. Firestore query requires exact case or we can just lowercase name, 
+        // but since we don't have lowercase names saved, we just pass the original string (capitalized start usually works).
+        // Let's pass the raw string since Firestore is case-sensitive and we haven't added a lowercase_name field.
+        // The best we can do without a lowercase index is match exact prefix.
+        const capitalizedQ = query.trim().charAt(0).toUpperCase() + query.trim().slice(1);
+        const lowerQ = query.trim().toLowerCase();
+        
+        // We'll search both capitalized and lowercase (two queries) and combine, just to be safe.
+        // Wait, Firestore doesn't support 'OR' queries on different boundaries.
+        // Let's just use the capitalized version as standard.
+        const meds = await searchMedicinesByPrefix(user?.pharmacyId, capitalizedQ);
+        
+        const searchResults = meds.map((m) => ({
+          id: m.id,
+          medicineId: m.id,
+          name: m.name || "Unknown",
+          category: m.category,
+          batch: m.batch || "N/A",
+          stock: m.totalStock || 0,
+          price: m.price,
+        }));
+        
+        setResults(searchResults);
+        setShowDropdown(true);
+        setActiveIndex(-1);
       } catch (err) {
-        console.error(err);
+        console.error("Search failed:", err);
+      } finally {
+        setIsSearching(false);
       }
-    };
-    load();
-  }, [t]);
+    }, 400); // 400ms debounce
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [query, user?.pharmacyId]);
 
   // Generate Real Notifications based on Settings
   useEffect(() => {
+    if (!user?.pharmacyId) return;
     const generateNotifs = async () => {
       try {
         const [batches, meds, settings] = await Promise.all([
-          getAllStockBatches(),
-          getAllMedicines(),
-          getSystemSettings(),
+          getAllStockBatches(user.pharmacyId),
+          getAllMedicines(user.pharmacyId),
+          getSystemSettings(user.pharmacyId),
         ]);
         const medMap = meds.reduce((acc, m) => {
           acc[m.id] = m;
@@ -156,28 +165,7 @@ const Header = () => {
       }
     };
     generateNotifs();
-  }, [t]);
-
-  // Filter Search
-  // useEffect(() => {
-  //   const q = query.trim().toLowerCase();
-  //   if (!q) {
-  //     setResults([]);
-  //     setShowDropdown(false);
-  //     setActiveIndex(-1);
-  //     return;
-  //   }
-  //   const filtered = allInventory
-  //     .filter(
-  //       (m) =>
-  //         m.name?.toLowerCase().includes(q) ||
-  //         m.batch?.toLowerCase().includes(q),
-  //     )
-  //     .slice(0, 7);
-  //   setResults(filtered);
-  //   setShowDropdown(true);
-  //   setActiveIndex(-1);
-  // }, [query, allInventory]);
+  }, [t, user?.pharmacyId]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
