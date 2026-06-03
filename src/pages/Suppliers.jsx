@@ -449,21 +449,44 @@ const Suppliers = () => {
             </div>
 
             {/* Dropdown to add medicines */}
+            {/* Dropdown to add medicines */}
             <div style={{ position: "relative" }}>
               <div
-                className="search-bar"
                 style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
                   width: "100%",
                   background: "#F8FAFC",
-                  padding: "14px 20px",
+                  border: "1px dashed #94A3B8",
+                  borderRadius: "8px",
+                  padding: "12px 20px",
                   cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  color: "#475569",
+                  fontWeight: "600",
+                  fontSize: "0.9rem",
                 }}
-                onClick={() => setIsMedDropdownOpen(!isMedDropdownOpen)}>
-                <span style={{ color: "#94A3B8" }}>
+                onClick={() => setIsMedDropdownOpen(!isMedDropdownOpen)}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#E2E8F0";
+                  e.currentTarget.style.borderColor = "#64748B";
+                  e.currentTarget.style.color = "#1E293B";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "#F8FAFC";
+                  e.currentTarget.style.borderColor = "#94A3B8";
+                  e.currentTarget.style.color = "#475569";
+                }}>
+                <Plus size={18} />
+                <span>
                   {isMedDropdownOpen
-                    ? t("suppliers.searchMedicines") || "Search medicines..."
-                    : t("suppliers.clickToAddMedicines") ||
-                      "Click to add medicines..."}
+                    ? t("suppliers.searchMedicines", "Search medicines...")
+                    : t(
+                        "suppliers.clickToAddMedicines",
+                        "Click to add medicines...",
+                      )}
                 </span>
               </div>
 
@@ -477,32 +500,38 @@ const Suppliers = () => {
                     background: "white",
                     border: "1px solid #E2E8F0",
                     borderRadius: "12px",
-                    marginTop: "4px",
+                    marginTop: "8px",
                     maxHeight: "200px",
                     overflowY: "auto",
                     zIndex: 10,
-                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
                   }}>
                   <div
                     style={{
                       padding: "8px",
                       borderBottom: "1px solid #E2E8F0",
+                      position: "sticky",
+                      top: 0,
+                      background: "white",
                     }}>
                     <input
                       type="text"
-                      placeholder={
-                        t("suppliers.searchMedicines") || "Search medicines..."
-                      }
+                      placeholder={t(
+                        "suppliers.searchMedicines",
+                        "Search medicines...",
+                      )}
                       value={medSearchTerm}
                       onChange={(e) => setMedSearchTerm(e.target.value)}
                       onClick={(e) => e.stopPropagation()}
+                      autoFocus
                       style={{
                         width: "100%",
-                        padding: "8px 12px",
+                        padding: "10px 12px",
                         border: "1px solid #E2E8F0",
                         borderRadius: "8px",
                         fontSize: "0.85rem",
                         outline: "none",
+                        boxSizing: "border-box",
                       }}
                     />
                   </div>
@@ -519,6 +548,9 @@ const Suppliers = () => {
                             fontSize: "0.85rem",
                             color: "#334155",
                             transition: "background 0.2s",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
                           }}
                           onMouseEnter={(e) =>
                             (e.currentTarget.style.background = "#F1F5F9")
@@ -526,19 +558,19 @@ const Suppliers = () => {
                           onMouseLeave={(e) =>
                             (e.currentTarget.style.background = "transparent")
                           }>
+                          <Plus size={14} style={{ color: "#0D9488" }} />
                           {med.name}
                         </div>
                       ))
                     ) : (
                       <div
                         style={{
-                          padding: "10px 12px",
+                          padding: "16px 12px",
                           color: "#94A3B8",
                           fontSize: "0.85rem",
                           textAlign: "center",
                         }}>
-                        {t("suppliers.noMedicinesFound") ||
-                          "No medicines found"}
+                        {t("suppliers.noMedicinesFound", "No medicines found")}
                       </div>
                     )}
                   </div>
