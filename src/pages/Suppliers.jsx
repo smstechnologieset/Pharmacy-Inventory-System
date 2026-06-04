@@ -7,14 +7,15 @@ import {
   Edit,
   Trash2,
   Building2,
-  X, // Added for removing medicine tags
+  X,
 } from "lucide-react";
 import {
   getAllSuppliers,
   createSupplier,
   updateSupplier,
   deleteSupplier,
-  getAllMedicines, // Added to fetch available medicines for the dropdown
+  getAllMedicines,
+  updateMedicine, // Added to update medicine's supplierId when tags change
 } from "../services/firestoreService";
 import FormModal from "../components/FormModal";
 import { useAuth } from "../context/AuthContext";
@@ -24,14 +25,10 @@ const Suppliers = () => {
   const { user } = useAuth();
   const { t } = useSettings();
   const [supplierList, setSupplierList] = useState([]);
+  const [allMedicines, setAllMedicines] = useState([]); // Store all medicines to manage tags
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState(null);
-
-  // --- NEW STATES FOR MEDICINE SELECTION ---
-  const [availableMedicines, setAvailableMedicines] = useState([]);
-  const [isMedDropdownOpen, setIsMedDropdownOpen] = useState(false);
-  const [medSearchTerm, setMedSearchTerm] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -39,19 +36,39 @@ const Suppliers = () => {
     phone: "",
     email: "",
     address: "",
-    medicines: [], // Added to track selected medicines
+    medicines: [], // Used for UI tags in the modal
   });
+
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // Load Suppliers
+  // Dropdown state
+  const [isMedDropdownOpen, setIsMedDropdownOpen] = useState(false);
+  const [medSearchTerm, setMedSearchTerm] = useState("");
+
   useEffect(() => {
     if (!user?.pharmacyId) return;
-    const loadSuppliers = async () => {
+    const loadData = async () => {
       setLoading(true);
       try {
-        const suppliers = await getAllSuppliers(user.pharmacyId);
-        setSupplierList(suppliers);
+        // Fetch both in parallel for speed
+        const [suppliersData, medicinesData] = await Promise.all([
+          getAllSuppliers(user.pharmacyId),
+          getAllMedicines(user.pharmacyId).catch(() => []),
+        ]);
+
+        setAllMedicines(medicinesData);
+
+        // Automatically group medicines by their supplierId
+        const enrichedSuppliers = suppliersData.map((s) => ({
+          ...s,
+          currentMedicines: medicinesData
+            .filter((m) => m.supplierId === s.id)
+            .map((m) => ({ id: m.id, name: m.name })),
+        }));
+
+        setSupplierList(enrichedSuppliers);
       } catch (err) {
         setError(
           err.message ||
@@ -63,22 +80,8 @@ const Suppliers = () => {
       }
     };
 
-    loadSuppliers();
+    loadData();
   }, [t, user?.pharmacyId]);
-
-  // --- NEW: Load Available Medicines for the dropdown ---
-  useEffect(() => {
-    if (!user?.pharmacyId) return;
-    const loadMedicines = async () => {
-      try {
-        const meds = await getAllMedicines(user.pharmacyId);
-        setAvailableMedicines(meds);
-      } catch (err) {
-        console.error("Failed to load medicines for supplier selection", err);
-      }
-    };
-    loadMedicines();
-  }, [user?.pharmacyId]);
 
   const filteredSuppliers = supplierList.filter(
     (s) =>
@@ -86,14 +89,16 @@ const Suppliers = () => {
       s.contact.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
-  // --- NEW: Filter medicines for the dropdown (exclude already selected ones) ---
-  const filteredAvailableMedicines = availableMedicines.filter(
+  // Filter medicines for dropdown: Must match search, NOT already in tags, and must be unassigned (or assigned to this specific supplier)
+  const filteredAvailableMedicines = allMedicines.filter(
     (m) =>
       m.name.toLowerCase().includes(medSearchTerm.toLowerCase()) &&
-      !formData.medicines.find((fm) => fm.id === m.id),
+      !formData.medicines.find((fm) => fm.id === m.id) &&
+      (m.supplierId === "" ||
+        m.supplierId === null ||
+        m.supplierId === editingSupplier?.id),
   );
 
-  // --- NEW: Handlers for adding/removing medicines ---
   const handleAddMedicine = (med) => {
     setFormData({
       ...formData,
@@ -118,7 +123,7 @@ const Suppliers = () => {
         phone: supplier.phone,
         email: supplier.email,
         address: supplier.address,
-        medicines: supplier.medicines || [], // Load existing medicines when editing
+        medicines: supplier.currentMedicines || [], // Load existing tags
       });
     } else {
       setEditingSupplier(null);
@@ -139,30 +144,79 @@ const Suppliers = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     setError("");
-    const payload = {
-      ...formData,
-      medicines: formData.medicines || [], // Ensure medicines array is included in payload
-    };
+    setSaving(true);
 
     try {
+      const payload = {
+        name: formData.name,
+        contact: formData.contact,
+        phone: formData.phone,
+        email: formData.email,
+        address: formData.address,
+      };
+
       if (editingSupplier) {
+        // 1. Update Supplier basic details
         await updateSupplier(editingSupplier.id, payload);
+
+        // 2. Sync Medicines (Single Source of Truth)
+        const originalMedIds = (editingSupplier.currentMedicines || []).map(
+          (m) => m.id,
+        );
+        const newMedIds = formData.medicines.map((m) => m.id);
+
+        // Find medicines that were removed from this supplier
+        const removedIds = originalMedIds.filter(
+          (id) => !newMedIds.includes(id),
+        );
+        // Find medicines that were newly added to this supplier
+        const addedIds = newMedIds.filter((id) => !originalMedIds.includes(id));
+
+        const updatePromises = [];
+
+        // Remove supplier link from removed medicines
+        removedIds.forEach((medId) => {
+          updatePromises.push(
+            updateMedicine(medId, { supplierId: "", supplierName: "" }),
+          );
+        });
+
+        // Add supplier link to added medicines
+        addedIds.forEach((medId) => {
+          updatePromises.push(
+            updateMedicine(medId, {
+              supplierId: editingSupplier.id,
+              supplierName: editingSupplier.name,
+            }),
+          );
+        });
+
+        // Execute all medicine updates in parallel
+        await Promise.all(updatePromises);
+
+        // Update local state
         setSupplierList((current) =>
-          current.map((supplier) =>
-            supplier.id === editingSupplier.id
-              ? { ...supplier, ...payload }
-              : supplier,
+          current.map((s) =>
+            s.id === editingSupplier.id
+              ? { ...s, ...payload, currentMedicines: formData.medicines }
+              : s,
           ),
         );
       } else {
+        // New supplier starts with 0 medicines
         const created = await createSupplier(payload, user.pharmacyId);
-        setSupplierList((current) => [...current, created]);
+        setSupplierList((current) => [
+          ...current,
+          { ...created, currentMedicines: [] },
+        ]);
       }
       setIsModalOpen(false);
     } catch (err) {
       setError(
         err.message || t("suppliers.failedToSave") || "Failed to save supplier",
       );
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -276,8 +330,9 @@ const Suppliers = () => {
                       color: "#0D9488",
                       fontWeight: "700",
                     }}>
-                    {/* FIXED: Now accurately reflects the real count from Firestore */}
-                    {s.medicines?.length || 0} {t("suppliers.itemsSupplied")}
+                    {/* Dynamically reflects the count from the grouped medicines */}
+                    {s.currentMedicines?.length || 0}{" "}
+                    {t("suppliers.itemsSupplied")}
                   </span>
                 </div>
               </div>
@@ -394,7 +449,7 @@ const Suppliers = () => {
             />
           </div>
 
-          {/* --- NEW: MEDICINES MULTI-SELECT UI --- */}
+          {/* --- MEDICINES MULTI-SELECT UI --- */}
           <div>
             <label
               style={{
@@ -403,7 +458,7 @@ const Suppliers = () => {
                 fontWeight: "700",
                 marginBottom: "8px",
               }}>
-              {t("suppliers.medicinesSupplied") || "Medicines Supplied"}
+              {t("suppliers.medicinesSupplied", "Medicines Supplied")}
             </label>
 
             {/* Selected Medicines Tags */}
@@ -448,7 +503,6 @@ const Suppliers = () => {
               ))}
             </div>
 
-            {/* Dropdown to add medicines */}
             {/* Dropdown to add medicines */}
             <div style={{ position: "relative" }}>
               <div
@@ -578,7 +632,7 @@ const Suppliers = () => {
               )}
             </div>
           </div>
-          {/* --- END NEW MEDICINES MULTI-SELECT --- */}
+          {/* --- END MEDICINES MULTI-SELECT --- */}
 
           <div>
             <label
@@ -687,13 +741,35 @@ const Suppliers = () => {
               }
             />
           </div>
+
+          {error && (
+            <div
+              style={{
+                color: "#B91C1C",
+                background: "#FEE2E2",
+                padding: "12px 16px",
+                borderRadius: "16px",
+                marginBottom: "10px",
+              }}>
+              {error}
+            </div>
+          )}
+
           <button
             type="submit"
             className="btn btn-primary"
-            style={{ height: "52px", fontSize: "0.95rem", marginTop: "10px" }}>
-            {editingSupplier
-              ? t("suppliers.updateSupplier")
-              : t("suppliers.confirmAdd")}
+            style={{
+              height: "52px",
+              fontSize: "0.95rem",
+              marginTop: "10px",
+              opacity: saving ? 0.7 : 1,
+            }}
+            disabled={saving}>
+            {saving
+              ? t("settings.saving", "Saving...")
+              : editingSupplier
+                ? t("suppliers.updateSupplier")
+                : t("suppliers.confirmAdd")}
           </button>
         </form>
       </FormModal>
