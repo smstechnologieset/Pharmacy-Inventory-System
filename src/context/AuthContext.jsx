@@ -169,31 +169,38 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const login = async (email, password) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        email,
-        password,
-      );
-      const firebaseUser = userCredential.user;
-      const userProfile = await getUserProfile(firebaseUser.uid);
-      setAuthUser(firebaseUser);
-      setUser({
-        uid: firebaseUser.uid,
-        email: firebaseUser.email,
-        ...userProfile,
-      });
-      return firebaseUser;
-    } catch (err) {
-      setError(err.message || "Login failed");
-      throw err;
-    } finally {
-      setLoading(false);
+const login = async (email, password) => {
+  setLoading(true);
+  setError(null);
+  try {
+    const userCredential = await signInWithEmailAndPassword(
+      auth,
+      email,
+      password,
+    );
+    const firebaseUser = userCredential.user;
+
+    // Block unverified users from logging in
+    if (!firebaseUser.emailVerified) {
+      await signOut(auth);
+      throw new Error("Please verify your email before logging in.");
     }
-  };
+
+    const userProfile = await getUserProfile(firebaseUser.uid);
+    setAuthUser(firebaseUser);
+    setUser({
+      uid: firebaseUser.uid,
+      email: firebaseUser.email,
+      ...userProfile,
+    });
+    return firebaseUser;
+  } catch (err) {
+    setError(err.message || "Login failed");
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+};
 
   const logout = async () => {
     setLoading(true);
