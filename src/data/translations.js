@@ -83,6 +83,11 @@ export const translations = {
       sortCostLow: "Cost (Low to High)",
       sortExpirySoon: "Expiry Date (Soonest)",
       sortStatus: "Status (Severity)",
+      deleteTitle: "Delete Stock Batch?",
+      confirmDeleteBatch:
+        "Are you sure you want to delete this stock batch? This action cannot be undone.",
+      delete: "Delete",
+      sellingPrice: "Selling Price",
     },
     medicine: {
       title: "Medicine Catalog",
@@ -116,6 +121,8 @@ export const translations = {
       sortPriceHigh: "Price (High to Low)",
       sortPriceLow: "Price (Low to High)",
       sortCategory: "Category (A-Z)",
+      deleteTitle: "Delete Medicine?",
+      delete: "Delete",
     },
     sales: {
       title: "Point of Sale",
@@ -170,6 +177,8 @@ export const translations = {
       clickToAddMedicines: "Click to add medicines...",
       searchMedicines: "Search medicines...",
       noMedicinesFound: "No medicines found",
+      deleteTitle: "Delete Supplier?",
+      delete: "Delete",
     },
     expiration: {
       title: "Stock Expiration",
@@ -338,6 +347,7 @@ export const translations = {
       resetFailed: "Failed to send reset link. Please try again.",
       sendingReset: "Sending...",
       sendResetLink: "Send Reset Link",
+      phoneNumber: "Phone Number",
     },
     settings: {
       title: "Settings & Profile",
@@ -461,6 +471,11 @@ export const translations = {
       sortCostLow: "ወጪ (ከዝቅተኛ ወደ ከፍተኛ)",
       sortExpirySoon: "የአገልግሎት ጊዜ (በቅርብ)",
       sortStatus: "ሁኔታ (ክብደት)",
+      deleteTitle: "የክምችት ባች ይሰረዝ?",
+      confirmDeleteBatch:
+        "እርግጠኛ ነዎት ይህን የክምችት ባች መሰረዝ ይፈልጋሉ? ይህ ድርጊት ሊቀለበስ አይችልም።",
+      delete: "ሰርዝ",
+      sellingPrice: "የሽያጭ ዋጋ",
     },
     medicine: {
       title: "የመድሃኒት ማውጫ",
@@ -494,6 +509,9 @@ export const translations = {
       sortPriceHigh: "ዋጋ (ከከፍተኛ ወደ ዝቅተኛ)",
       sortPriceLow: "ዋጋ (ከዝቅተኛ ወደ ከፍተኛ)",
       sortCategory: "ምድብ (ከ ሀ-ፐ)",
+
+      deleteTitle: "መድሃኒት ይሰረዝ?",
+      delete: "ሰርዝ",
     },
     sales: {
       title: "የሽያጭ ነጥብ (POS)",
@@ -548,6 +566,8 @@ export const translations = {
       clickToAddMedicines: "መድኃኒቶችን ለመጨመር ይጫኑ...",
       searchMedicines: "መድኃኒቶችን ይፈልጉ...",
       noMedicinesFound: "ምንም መድኃኒት አልተገኘም",
+      deleteTitle: "አቅራቢ ይሰረዝ?",
+      delete: "ሰርዝ",
     },
     expiration: {
       title: "የክምችት ጊዜ ማብቂያ",
@@ -696,6 +716,7 @@ export const translations = {
       resetFailed: "የመቀየሪያ አገናኝ መላክ አልተቻለም። እንደገና ይሞክሩ።",
       sendingReset: "በመላክ ላይ...",
       sendResetLink: "የመቀየሪያ አገናኝ ላክ",
+      phoneNumber: "ስልክ ቁጥር",
     },
     settings: {
       title: "ቅንብሮች እና መገለጫ",
