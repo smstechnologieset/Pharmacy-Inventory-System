@@ -65,7 +65,7 @@ const Signup = () => {
 
       setLocalLoading(false);
 
-      navigate("/pending");
+      navigate("/verify-email");
     } catch (error) {
       setLocalError(
         error.message || t("login.authFailed") || "Authentication failed",

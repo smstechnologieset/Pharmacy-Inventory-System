@@ -9,6 +9,7 @@ import React, {
 import {
   createUserWithEmailAndPassword as signUp,
   signInWithEmailAndPassword,
+  sendEmailVerification,
   signOut,
   onAuthStateChanged,
 } from "firebase/auth";
@@ -123,7 +124,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const userCredential = await signUp(auth, email, password);
       const firebaseUser = userCredential.user;
-
+ await sendEmailVerification(firebaseUser);
       // 1. Create pharmacy doc first to get the pharmacyId
       const pharmacy = await createPharmacy({
         name: pharmacyName,
@@ -153,6 +154,18 @@ export const AuthProvider = ({ children }) => {
       throw err;
     } finally {
       setLoading(false);
+    }
+  };
+  
+  const resendVerificationEmail = async () => {
+    setError(null);
+    try {
+      if (!authUser) throw new Error("No authenticated user found.");
+      if (authUser.emailVerified) throw new Error("Email is already verified.");
+      await sendEmailVerification(authUser);
+    } catch (err) {
+      setError(err.message || "Failed to resend verification email.");
+      throw err;
     }
   };
 
@@ -215,6 +228,7 @@ export const AuthProvider = ({ children }) => {
         clearError,
         isSuperAdmin,
         pharmacyStatus,
+        resendVerificationEmail,
       }}>
       {children}
     </AuthContext.Provider>

@@ -24,6 +24,7 @@ import Signup from "./pages/Signup.jsx";
 import PendingPage from "./pages/PendingPage.jsx";
 import PharmacySuspendedMessage from "./components/PharmacySuspendedMessage.jsx";
 import PharmacyPendingMessage from "./components/PharmacyPendingMessage.jsx";
+import VerifyEmailPage from "./pages/VerifyEmailPage.jsx";
 
 // Basic Protected Route Component (Checks if logged in & handles special states)
 const ProtectedRoute = ({ children }) => {
@@ -49,11 +50,12 @@ const ProtectedRoute = ({ children }) => {
 
 // Super Admin Route Guard
 const SuperAdminRoute = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, authUser } = useAuth();
 
   if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" />;
-  if (user.role !== "superadmin") return <Navigate to="/" />;
+  if ( user.role !== "superadmin" ) return <Navigate to="/" />;
+  if (!authUser?.emailVerified) return <Navigate to="/verify-email" />;
   return children;
 };
 
@@ -68,6 +70,14 @@ const RoleGuard = ({ allowedRoles, children }) => {
   return children;
 };
 
+const VerifyEmailRoute = ({ children }) => {
+  const { authUser, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
+  if (!authUser) return <Navigate to="/login" />;
+  if (authUser.emailVerified) return <Navigate to="/pending" />;
+  return children;
+};
+
 function App() {
   return (
     <Router>
@@ -75,6 +85,14 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/pending" element={<PharmacyPendingMessage />} />
+        <Route
+          path="/verify-email"
+          element={
+            <VerifyEmailRoute>
+              <VerifyEmailPage />
+            </VerifyEmailRoute>
+          }
+        />
         {/* Super Admin Dashboard — completely separate layout */}
         <Route
           path="/super-admin"
