@@ -1,9 +1,17 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Clock, LogOut } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 const PharmacyPendingMessage = () => {
-  const { logout, user } = useAuth();
+  const { logout, user, pharmacyStatus } = useAuth();
+  const navigate = useNavigate();
+  // Auto-redirect when superadmin approves
+  useEffect(() => {
+    if (user && user.status === "active" && pharmacyStatus === "active") {
+      navigate("/");
+    }
+  }, [user, pharmacyStatus, navigate]);
 
   return (
     <div
@@ -56,9 +64,9 @@ const PharmacyPendingMessage = () => {
             marginBottom: "12px",
           }}>
           Thanks for signing up, <strong>{user?.name || user?.email}</strong>.
-          Your pharmacy registration is under review. Please wait while our
-          team verifies your request; we will contact you using the phone number
-          you provided.
+          Your pharmacy registration is under review. Please wait while our team
+          verifies your request; we will contact you using the phone number you
+          provided.
         </p>
         {user?.pharmacyName && (
           <p

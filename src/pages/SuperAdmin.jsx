@@ -19,6 +19,7 @@ import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import FormModal from "../components/FormModal";
 import ConfirmModal from "../components/ConfirmModal";
+import { updateUserStatusByPharmacyId } from "../../../../../Desktop/src/services/firestoreService.js";
 
 const SuperAdmin = () => {
   const { user, logout } = useAuth();
@@ -117,28 +118,31 @@ const SuperAdmin = () => {
     setIsConfirmModalOpen(true);
   };
 
-  const confirmToggleSuspend = async () => {
-    if (!pharmacyToToggle) return;
-    const pharmacy = pharmacyToToggle;
-    const newStatus =
-      pharmacy.status === "suspended" || pharmacy.status === "pending"
-        ? "active"
-        : "suspended";
-    const action = newStatus === "suspended" ? "suspend" : "activate";
+const confirmToggleSuspend = async () => {
+  if (!pharmacyToToggle) return;
+  const pharmacy = pharmacyToToggle;
+  const newPharmacyStatus =
+    pharmacy.status === "suspended" || pharmacy.status === "pending"
+      ? "active"
+      : "suspended";
 
-    try {
-      await updatePharmacy(pharmacy.id, { status: newStatus });
-      setPharmacies(
-        pharmacies.map((p) =>
-          p.id === pharmacy.id ? { ...p, status: newStatus } : p,
-        ),
-      );
-    } catch (err) {
-      setError(err.message || `Failed to ${action} pharmacy.`);
-    } finally {
-      setPharmacyToToggle(null);
-    }
-  };
+  // Map pharmacy status to user status
+  const newUserStatus = newPharmacyStatus === "active" ? "active" : "suspended";
+
+  try {
+    await updatePharmacy(pharmacy.id, { status: newPharmacyStatus });
+    await updateUserStatusByPharmacyId(pharmacy.id, newUserStatus);
+    setPharmacies(
+      pharmacies.map((p) =>
+        p.id === pharmacy.id ? { ...p, status: newPharmacyStatus } : p,
+      ),
+    );
+  } catch (err) {
+    setError(err.message || "Failed to update pharmacy.");
+  } finally {
+    setPharmacyToToggle(null);
+  }
+};
 
   const getPharmacyUserCount = (pharmacyId) =>
     allUsers.filter((u) => u.pharmacyId === pharmacyId).length;
