@@ -15,9 +15,10 @@ import {
   updateSupplier,
   deleteSupplier,
   getAllMedicines,
-  updateMedicine, // Added to update medicine's supplierId when tags change
+  updateMedicine,
 } from "../services/firestoreService";
 import FormModal from "../components/FormModal";
+import ConfirmModal from "../components/ConfirmModal"; // 1. Import the ConfirmModal
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 
@@ -25,7 +26,7 @@ const Suppliers = () => {
   const { user } = useAuth();
   const { t } = useSettings();
   const [supplierList, setSupplierList] = useState([]);
-  const [allMedicines, setAllMedicines] = useState([]); // Store all medicines to manage tags
+  const [allMedicines, setAllMedicines] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState(null);
@@ -36,12 +37,16 @@ const Suppliers = () => {
     phone: "",
     email: "",
     address: "",
-    medicines: [], // Used for UI tags in the modal
+    medicines: [],
   });
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // 2. Add states for the Confirm Modal
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [supplierToDelete, setSupplierToDelete] = useState(null);
 
   // Dropdown state
   const [isMedDropdownOpen, setIsMedDropdownOpen] = useState(false);
@@ -52,7 +57,6 @@ const Suppliers = () => {
     const loadData = async () => {
       setLoading(true);
       try {
-        // Fetch both in parallel for speed
         const [suppliersData, medicinesData] = await Promise.all([
           getAllSuppliers(user.pharmacyId),
           getAllMedicines(user.pharmacyId).catch(() => []),
@@ -60,7 +64,6 @@ const Suppliers = () => {
 
         setAllMedicines(medicinesData);
 
-        // Automatically group medicines by their supplierId
         const enrichedSuppliers = suppliersData.map((s) => ({
           ...s,
           currentMedicines: medicinesData
@@ -89,7 +92,6 @@ const Suppliers = () => {
       s.contact.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
-  // Filter medicines for dropdown: Must match search, NOT already in tags, and must be unassigned (or assigned to this specific supplier)
   const filteredAvailableMedicines = allMedicines.filter(
     (m) =>
       m.name.toLowerCase().includes(medSearchTerm.toLowerCase()) &&
@@ -123,7 +125,7 @@ const Suppliers = () => {
         phone: supplier.phone,
         email: supplier.email,
         address: supplier.address,
-        medicines: supplier.currentMedicines || [], // Load existing tags
+        medicines: supplier.currentMedicines || [],
       });
     } else {
       setEditingSupplier(null);
@@ -156,32 +158,26 @@ const Suppliers = () => {
       };
 
       if (editingSupplier) {
-        // 1. Update Supplier basic details
         await updateSupplier(editingSupplier.id, payload);
 
-        // 2. Sync Medicines (Single Source of Truth)
         const originalMedIds = (editingSupplier.currentMedicines || []).map(
           (m) => m.id,
         );
         const newMedIds = formData.medicines.map((m) => m.id);
 
-        // Find medicines that were removed from this supplier
         const removedIds = originalMedIds.filter(
           (id) => !newMedIds.includes(id),
         );
-        // Find medicines that were newly added to this supplier
         const addedIds = newMedIds.filter((id) => !originalMedIds.includes(id));
 
         const updatePromises = [];
 
-        // Remove supplier link from removed medicines
         removedIds.forEach((medId) => {
           updatePromises.push(
             updateMedicine(medId, { supplierId: "", supplierName: "" }),
           );
         });
 
-        // Add supplier link to added medicines
         addedIds.forEach((medId) => {
           updatePromises.push(
             updateMedicine(medId, {
@@ -191,10 +187,8 @@ const Suppliers = () => {
           );
         });
 
-        // Execute all medicine updates in parallel
         await Promise.all(updatePromises);
 
-        // Update local state
         setSupplierList((current) =>
           current.map((s) =>
             s.id === editingSupplier.id
@@ -203,7 +197,6 @@ const Suppliers = () => {
           ),
         );
       } else {
-        // New supplier starts with 0 medicines
         const created = await createSupplier(payload, user.pharmacyId);
         setSupplierList((current) => [
           ...current,
@@ -220,19 +213,28 @@ const Suppliers = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm(t("suppliers.confirmDelete"))) {
-      setError("");
-      try {
-        await deleteSupplier(id);
-        setSupplierList((current) => current.filter((s) => s.id !== id));
-      } catch (err) {
-        setError(
-          err.message ||
-            t("suppliers.failedToDelete") ||
-            "Failed to delete supplier",
-        );
-      }
+  // 3. Split the logic: Open the modal first
+  const openDeleteModal = (id) => {
+    setSupplierToDelete(id);
+    setIsConfirmModalOpen(true);
+  };
+
+  // 4. Execute the actual deletion when confirmed
+  const confirmDelete = async () => {
+    if (!supplierToDelete) return;
+    const id = supplierToDelete;
+    setError("");
+    try {
+      await deleteSupplier(id);
+      setSupplierList((current) => current.filter((s) => s.id !== id));
+    } catch (err) {
+      setError(
+        err.message ||
+          t("suppliers.failedToDelete") ||
+          "Failed to delete supplier",
+      );
+    } finally {
+      setSupplierToDelete(null);
     }
   };
 
@@ -330,7 +332,6 @@ const Suppliers = () => {
                       color: "#0D9488",
                       fontWeight: "700",
                     }}>
-                    {/* Dynamically reflects the count from the grouped medicines */}
                     {s.currentMedicines?.length || 0}{" "}
                     {t("suppliers.itemsSupplied")}
                   </span>
@@ -399,9 +400,10 @@ const Suppliers = () => {
                   title="Edit">
                   <Edit size={14} />
                 </button>
+                {/* 5. Update button to open the modal instead of using window.confirm */}
                 <button
                   className="icon-button"
-                  onClick={() => handleDelete(s.id)}
+                  onClick={() => openDeleteModal(s.id)}
                   style={{ width: "36px", height: "36px", color: "#EF4444" }}
                   title="Delete">
                   <Trash2 size={14} />
@@ -420,6 +422,7 @@ const Suppliers = () => {
             ? t("suppliers.editSupplier")
             : t("suppliers.addNewSupplier")
         }>
+        {/* Form content remains exactly the same */}
         <form
           onSubmit={handleSave}
           style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
@@ -449,7 +452,6 @@ const Suppliers = () => {
             />
           </div>
 
-          {/* --- MEDICINES MULTI-SELECT UI --- */}
           <div>
             <label
               style={{
@@ -461,7 +463,6 @@ const Suppliers = () => {
               {t("suppliers.medicinesSupplied", "Medicines Supplied")}
             </label>
 
-            {/* Selected Medicines Tags */}
             <div
               style={{
                 display: "flex",
@@ -503,7 +504,6 @@ const Suppliers = () => {
               ))}
             </div>
 
-            {/* Dropdown to add medicines */}
             <div style={{ position: "relative" }}>
               <div
                 style={{
@@ -632,7 +632,6 @@ const Suppliers = () => {
               )}
             </div>
           </div>
-          {/* --- END MEDICINES MULTI-SELECT --- */}
 
           <div>
             <label
@@ -773,6 +772,24 @@ const Suppliers = () => {
           </button>
         </form>
       </FormModal>
+
+      {/* 6. Add the Confirm Modal at the bottom */}
+      <ConfirmModal
+        isOpen={isConfirmModalOpen}
+        onClose={() => {
+          setIsConfirmModalOpen(false);
+          setSupplierToDelete(null);
+        }}
+        onConfirm={confirmDelete}
+        title={t("suppliers.deleteTitle") || "Delete Supplier?"}
+        message={
+          t("suppliers.confirmDelete") ||
+          "Are you sure you want to delete this supplier? This action cannot be undone."
+        }
+        type="danger"
+        confirmText={t("suppliers.delete") || "Delete"}
+        cancelText={t("modal.cancel") || "Cancel"}
+      />
     </div>
   );
 };

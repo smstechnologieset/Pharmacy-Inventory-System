@@ -9,6 +9,7 @@ import {
   createStockMovement,
 } from "../services/firestoreService";
 import FormModal from "../components/FormModal";
+import ConfirmModal from "../components/ConfirmModal"; // 1. Import the ConfirmModal
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import CustomSelect from "../components/CustomSelect";
@@ -33,6 +34,10 @@ const Inventory = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [sortBy, setSortBy] = useState("name-asc");
+
+  // 2. Add states for the Confirm Modal
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [batchToDelete, setBatchToDelete] = useState(null);
 
   useEffect(() => {
     if (!user?.pharmacyId) return;
@@ -98,13 +103,20 @@ const Inventory = () => {
         case "cost-low":
           return Number(a.costPrice) - Number(b.costPrice);
         case "expiry-soon": {
-          const dateA = a.expiry?.toDate ? a.expiry.toDate() : new Date(a.expiry || "9999-12-31");
-          const dateB = b.expiry?.toDate ? b.expiry.toDate() : new Date(b.expiry || "9999-12-31");
+          const dateA = a.expiry?.toDate
+            ? a.expiry.toDate()
+            : new Date(a.expiry || "9999-12-31");
+          const dateB = b.expiry?.toDate
+            ? b.expiry.toDate()
+            : new Date(b.expiry || "9999-12-31");
           return dateA - dateB;
         }
         case "status": {
           const statusOrder = { expired: 1, "expiring-soon": 2, ok: 3 };
-          return statusOrder[getExpiryStatus(a.expiry)] - statusOrder[getExpiryStatus(b.expiry)];
+          return (
+            statusOrder[getExpiryStatus(a.expiry)] -
+            statusOrder[getExpiryStatus(b.expiry)]
+          );
         }
         default:
           return 0;
@@ -185,16 +197,19 @@ const Inventory = () => {
         const created = await createStockBatch(payload, user.pharmacyId);
 
         // Log stock movement for audit trail (Priority 7)
-        await createStockMovement({
-          medicineId: payload.medicineId,
-          medicineName: selectedMed?.name || "Unknown",
-          batchNo: payload.batchNo,
-          type: "purchase_received",
-          quantityChanged: payload.quantity,
-          reason: "Stock received via Inventory page",
-          performedBy: user?.uid || "Unknown",
-          costPrice: payload.costPrice,
-        }, user.pharmacyId);
+        await createStockMovement(
+          {
+            medicineId: payload.medicineId,
+            medicineName: selectedMed?.name || "Unknown",
+            batchNo: payload.batchNo,
+            type: "purchase_received",
+            quantityChanged: payload.quantity,
+            reason: "Stock received via Inventory page",
+            performedBy: user?.uid || "Unknown",
+            costPrice: payload.costPrice,
+          },
+          user.pharmacyId,
+        );
 
         setStockList((current) => [
           {
@@ -214,19 +229,26 @@ const Inventory = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Delete this stock batch?")) {
-      setError("");
-      try {
-        await deleteStockBatch(id);
-        setStockList((current) => current.filter((s) => s.id !== id));
-      } catch (err) {
-        setError(err.message || "Failed to delete inventory item");
-      }
-    }
+  // 3. Split the logic: Open the modal first
+  const openDeleteModal = (id) => {
+    setBatchToDelete(id);
+    setIsConfirmModalOpen(true);
   };
 
-
+  // 4. Execute the actual deletion when confirmed
+  const confirmDelete = async () => {
+    if (!batchToDelete) return;
+    const id = batchToDelete;
+    setError("");
+    try {
+      await deleteStockBatch(id);
+      setStockList((current) => current.filter((s) => s.id !== id));
+    } catch (err) {
+      setError(err.message || "Failed to delete inventory item");
+    } finally {
+      setBatchToDelete(null);
+    }
+  };
 
   return (
     <div className="inventory-page">
@@ -272,15 +294,26 @@ const Inventory = () => {
             background: "#FEF3C7",
             marginBottom: "24px",
           }}>
-          <span dangerouslySetInnerHTML={{ __html: t("inventory.mustAddMedicines").replace('Medicine Catalog', '<strong>Medicine Catalog</strong>') }} />
+          <span
+            dangerouslySetInnerHTML={{
+              __html: t("inventory.mustAddMedicines").replace(
+                "Medicine Catalog",
+                "<strong>Medicine Catalog</strong>",
+              ),
+            }}
+          />
         </div>
       )}
 
       <div className="card" style={{ padding: "0", overflow: "hidden" }}>
-        <div style={{ padding: "24px 32px", display: "flex", gap: "16px", alignItems: "center" }}>
-          <div
-            className="search-bar"
-            style={{ flex: 1, maxWidth: "500px" }}>
+        <div
+          style={{
+            padding: "24px 32px",
+            display: "flex",
+            gap: "16px",
+            alignItems: "center",
+          }}>
+          <div className="search-bar" style={{ flex: 1, maxWidth: "500px" }}>
             <Search size={22} style={{ color: "#94A3B8" }} />
             <input
               type="text"
@@ -294,14 +327,39 @@ const Inventory = () => {
               value={sortBy}
               onChange={(val) => setSortBy(val)}
               options={[
-                { value: "name-asc", label: t("inventory.sortNameAsc") || "Name (A-Z)" },
-                { value: "name-desc", label: t("inventory.sortNameDesc") || "Name (Z-A)" },
-                { value: "qty-high", label: t("inventory.sortQtyHigh") || "Quantity (High to Low)" },
-                { value: "qty-low", label: t("inventory.sortQtyLow") || "Quantity (Low to High)" },
-                { value: "cost-high", label: t("inventory.sortCostHigh") || "Cost (High to Low)" },
-                { value: "cost-low", label: t("inventory.sortCostLow") || "Cost (Low to High)" },
-                { value: "expiry-soon", label: t("inventory.sortExpirySoon") || "Expiry Date (Soonest)" },
-                { value: "status", label: t("inventory.sortStatus") || "Status (Severity)" }
+                {
+                  value: "name-asc",
+                  label: t("inventory.sortNameAsc") || "Name (A-Z)",
+                },
+                {
+                  value: "name-desc",
+                  label: t("inventory.sortNameDesc") || "Name (Z-A)",
+                },
+                {
+                  value: "qty-high",
+                  label: t("inventory.sortQtyHigh") || "Quantity (High to Low)",
+                },
+                {
+                  value: "qty-low",
+                  label: t("inventory.sortQtyLow") || "Quantity (Low to High)",
+                },
+                {
+                  value: "cost-high",
+                  label: t("inventory.sortCostHigh") || "Cost (High to Low)",
+                },
+                {
+                  value: "cost-low",
+                  label: t("inventory.sortCostLow") || "Cost (Low to High)",
+                },
+                {
+                  value: "expiry-soon",
+                  label:
+                    t("inventory.sortExpirySoon") || "Expiry Date (Soonest)",
+                },
+                {
+                  value: "status",
+                  label: t("inventory.sortStatus") || "Status (Severity)",
+                },
               ]}
             />
           </div>
@@ -320,7 +378,9 @@ const Inventory = () => {
             <table style={{ borderSpacing: "0" }}>
               <thead>
                 <tr style={{ background: "#F8FAFC" }}>
-                  <th style={{ padding: "16px 32px" }}>{t("inventory.medicineName")}</th>
+                  <th style={{ padding: "16px 32px" }}>
+                    {t("inventory.medicineName")}
+                  </th>
                   <th>{t("inventory.batchNo")}</th>
                   <th>{t("inventory.quantity")}</th>
                   <th>{t("inventory.costPrice")}</th>
@@ -458,9 +518,10 @@ const Inventory = () => {
                               style={{ width: "40px", height: "40px" }}>
                               <Edit size={16} />
                             </button>
+                            {/* 5. Update button to open the modal instead of using window.confirm */}
                             <button
                               className="icon-button"
-                              onClick={() => handleDelete(batch.id)}
+                              onClick={() => openDeleteModal(batch.id)}
                               style={{
                                 width: "40px",
                                 height: "40px",
@@ -502,7 +563,10 @@ const Inventory = () => {
               onChange={(val) => handleMedicineChange(val)}
               disabled={!!editingItem}
               placeholder="-- Choose existing medicine --"
-              options={medicines.map((med) => ({ value: med.id, label: med.name }))}
+              options={medicines.map((med) => ({
+                value: med.id,
+                label: med.name,
+              }))}
             />
           </div>
           <div
@@ -678,6 +742,24 @@ const Inventory = () => {
           </button>
         </form>
       </FormModal>
+
+      {/* 6. Add the Confirm Modal at the bottom */}
+      <ConfirmModal
+        isOpen={isConfirmModalOpen}
+        onClose={() => {
+          setIsConfirmModalOpen(false);
+          setBatchToDelete(null);
+        }}
+        onConfirm={confirmDelete}
+        title={t("inventory.deleteTitle") || "Delete Stock Batch?"}
+        message={
+          t("inventory.confirmDeleteBatch") ||
+          "Are you sure you want to delete this stock batch? This action cannot be undone."
+        }
+        type="danger"
+        confirmText={t("inventory.delete") || "Delete"}
+        cancelText={t("modal.cancel") || "Cancel"}
+      />
     </div>
   );
 };
