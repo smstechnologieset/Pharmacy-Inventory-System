@@ -5,29 +5,29 @@ import {
   Lock,
   ArrowRight,
   AlertCircle,
-  X,
+  User,
+  Phone,
+  Building2,
 } from "lucide-react";
-import { sendPasswordResetEmail } from "firebase/auth";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { useNavigate } from "react-router-dom";
-import { auth } from "../services/firebase";
 
-const Login = () => {
-  const [email, setEmail] = useState("admin@pharmacy.com");
-  const [password, setPassword] = useState("password");
+const Signup = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [pharmacyName, setPharmacyName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [localError, setLocalError] = useState("");
   const [localLoading, setLocalLoading] = useState(false);
-  const [showResetModal, setShowResetModal] = useState(false);
-  const [resetEmail, setResetEmail] = useState("");
-  const [resetLoading, setResetLoading] = useState(false);
-  const [resetError, setResetError] = useState("");
-  const [resetSuccess, setResetSuccess] = useState("");
 
-  const { login, loading: authLoading, error: authError, user } = useAuth();
+  const { signup, loading: authLoading, error: authError, user } = useAuth();
   const { t } = useSettings();
   const navigate = useNavigate();
 
+  // Redirect to dashboard if already logged in
   useEffect(() => {
     if (user) {
       navigate("/");
@@ -40,49 +40,37 @@ const Login = () => {
     setLocalLoading(true);
 
     try {
-      await login(email, password);
+      if (!name.trim()) {
+        throw new Error(t("login.nameRequired") || "Name is required");
+      }
+      if (!pharmacyName.trim()) {
+        throw new Error("Pharmacy name is required");
+      }
+      if (!phone.trim()) {
+        throw new Error(t("login.phoneRequired") || "Phone number is required");
+      }
+      if (password !== confirmPassword) {
+        throw new Error(
+          t("login.passwordsDoNotMatch") || "Passwords do not match",
+        );
+      }
+      if (password.length < 6) {
+        throw new Error(
+          t("login.passwordTooShort") ||
+            "Password must be at least 6 characters",
+        );
+      }
+
+      await signup(email, password, name, "admin", phone, pharmacyName);
+
       setLocalLoading(false);
-      navigate("/");
+
+      navigate("/pending");
     } catch (error) {
       setLocalError(
         error.message || t("login.authFailed") || "Authentication failed",
       );
       setLocalLoading(false);
-    }
-  };
-
-  const openResetModal = () => {
-    setResetEmail(email);
-    setResetError("");
-    setResetSuccess("");
-    setShowResetModal(true);
-  };
-
-  const handlePasswordReset = async (e) => {
-    e.preventDefault();
-    setResetError("");
-    setResetSuccess("");
-
-    if (!resetEmail.trim()) {
-      setResetError(t("login.resetEmailRequired"));
-      return;
-    }
-
-    setResetLoading(true);
-    try {
-      await sendPasswordResetEmail(auth, resetEmail.trim());
-      setResetSuccess(t("login.resetEmailSent"));
-    } catch (error) {
-      console.error("Password reset error:", error);
-      if (error.code === "auth/invalid-email") {
-        setResetError(t("login.resetInvalidEmail"));
-      } else if (error.code === "auth/user-not-found") {
-        setResetError(t("login.resetUserNotFound"));
-      } else {
-        setResetError(t("login.resetFailed"));
-      }
-    } finally {
-      setResetLoading(false);
     }
   };
 
@@ -97,7 +85,7 @@ const Login = () => {
         background: "#F8FAFC",
         fontFamily: "'Lexend', sans-serif",
       }}>
-      {/* Left Side - Branding */}
+      {/* Left Side - Branding (Same as Login) */}
       <div
         style={{
           flex: 1.2,
@@ -226,9 +214,10 @@ const Login = () => {
           alignItems: "center",
           justifyContent: "center",
           padding: "60px",
+          overflowY: "auto",
         }}>
-        <div style={{ width: "100%", maxWidth: "440px" }}>
-          <div style={{ marginBottom: "40px" }}>
+        <div style={{ width: "100%", maxWidth: "440px", padding: "20px 0" }}>
+          <div style={{ marginBottom: "32px" }}>
             <h1
               style={{
                 fontSize: "1.5rem",
@@ -236,15 +225,16 @@ const Login = () => {
                 color: "#1E293B",
                 marginBottom: "8px",
               }}>
-              {t("login.welcomeBack")}
+              {t("login.createAccount") || "Create Account"}
             </h1>
             <p
               style={{
                 color: "#64748B",
                 fontSize: "0.85rem",
-                marginBottom: "32px",
+                marginBottom: "24px",
               }}>
-              {t("login.loginPrompt")}
+              {t("login.signupPrompt") ||
+                "Join us today and manage your pharmacy efficiently."}
             </p>
           </div>
 
@@ -277,18 +267,183 @@ const Login = () => {
 
           <form
             onSubmit={handleSubmit}
-            style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-            {/* Email Field */}
+            style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+            {/* Name Field */}
             <div
-              style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <label
                 style={{
-                  fontSize: "0.95rem",
+                  fontSize: "0.9rem",
                   fontWeight: "700",
                   color: "#1E293B",
                   marginLeft: "4px",
                 }}>
-                {t("login.emailAddress")}
+                {t("login.fullName") || "Full Name"}
+              </label>
+              <div style={{ position: "relative" }}>
+                <User
+                  size={20}
+                  style={{
+                    position: "absolute",
+                    left: "20px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "#94A3B8",
+                  }}
+                />
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "16px 20px 16px 56px",
+                    borderRadius: "20px",
+                    border: "2px solid #F1F5F9",
+                    background: "#F8FAFC",
+                    outline: "none",
+                    fontSize: "1rem",
+                    transition: "all 0.3s",
+                    fontFamily: "inherit",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#0D9488";
+                    e.target.style.background = "white";
+                    e.target.style.boxShadow =
+                      "0 0 0 4px rgba(13, 148, 136, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#F1F5F9";
+                    e.target.style.background = "#F8FAFC";
+                    e.target.style.boxShadow = "none";
+                  }}
+                  placeholder="John Doe"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Pharmacy Name Field */}
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <label
+                style={{
+                  fontSize: "0.9rem",
+                  fontWeight: "700",
+                  color: "#1E293B",
+                  marginLeft: "4px",
+                }}>
+                Pharmacy Name
+              </label>
+              <div style={{ position: "relative" }}>
+                <Building2
+                  size={20}
+                  style={{
+                    position: "absolute",
+                    left: "20px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "#94A3B8",
+                  }}
+                />
+                <input
+                  type="text"
+                  value={pharmacyName}
+                  onChange={(e) => setPharmacyName(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "16px 20px 16px 56px",
+                    borderRadius: "20px",
+                    border: "2px solid #F1F5F9",
+                    background: "#F8FAFC",
+                    outline: "none",
+                    fontSize: "1rem",
+                    transition: "all 0.3s",
+                    fontFamily: "inherit",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#0D9488";
+                    e.target.style.background = "white";
+                    e.target.style.boxShadow =
+                      "0 0 0 4px rgba(13, 148, 136, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#F1F5F9";
+                    e.target.style.background = "#F8FAFC";
+                    e.target.style.boxShadow = "none";
+                  }}
+                  placeholder="Pharmacy name"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Phone Field */}
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <label
+                style={{
+                  fontSize: "0.9rem",
+                  fontWeight: "700",
+                  color: "#1E293B",
+                  marginLeft: "4px",
+                }}>
+                {t("login.phoneNumber") || "Phone Number"}
+              </label>
+              <div style={{ position: "relative" }}>
+                <Phone
+                  size={20}
+                  style={{
+                    position: "absolute",
+                    left: "20px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "#94A3B8",
+                  }}
+                />
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "16px 20px 16px 56px",
+                    borderRadius: "20px",
+                    border: "2px solid #F1F5F9",
+                    background: "#F8FAFC",
+                    outline: "none",
+                    fontSize: "1rem",
+                    transition: "all 0.3s",
+                    fontFamily: "inherit",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#0D9488";
+                    e.target.style.background = "white";
+                    e.target.style.boxShadow =
+                      "0 0 0 4px rgba(13, 148, 136, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#F1F5F9";
+                    e.target.style.background = "#F8FAFC";
+                    e.target.style.boxShadow = "none";
+                  }}
+                  placeholder="+251 9XX XXX XXX"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Email Field */}
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <label
+                style={{
+                  fontSize: "0.9rem",
+                  fontWeight: "700",
+                  color: "#1E293B",
+                  marginLeft: "4px",
+                }}>
+                {t("login.emailAddress") || "Email Address"}
               </label>
               <div style={{ position: "relative" }}>
                 <Mail
@@ -307,7 +462,7 @@ const Login = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   style={{
                     width: "100%",
-                    padding: "18px 20px 18px 56px",
+                    padding: "16px 20px 16px 56px",
                     borderRadius: "20px",
                     border: "2px solid #F1F5F9",
                     background: "#F8FAFC",
@@ -335,38 +490,16 @@ const Login = () => {
 
             {/* Password Field */}
             <div
-              style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <div
+              style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <label
                 style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
+                  fontSize: "0.9rem",
+                  fontWeight: "700",
+                  color: "#1E293B",
+                  marginLeft: "4px",
                 }}>
-                <label
-                  style={{
-                    fontSize: "0.95rem",
-                    fontWeight: "700",
-                    color: "#1E293B",
-                    marginLeft: "4px",
-                  }}>
-                  {t("login.password")}
-                </label>
-                <button
-                  type="button"
-                  onClick={openResetModal}
-                  style={{
-                    fontSize: "0.85rem",
-                    color: "#0D9488",
-                    fontWeight: "700",
-                    textDecoration: "none",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    padding: 0,
-                  }}>
-                  {t("login.forgotPassword")}
-                </button>
-              </div>
+                {t("login.password") || "Password"}
+              </label>
               <div style={{ position: "relative" }}>
                 <Lock
                   size={20}
@@ -384,7 +517,62 @@ const Login = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   style={{
                     width: "100%",
-                    padding: "18px 20px 18px 56px",
+                    padding: "16px 20px 16px 56px",
+                    borderRadius: "20px",
+                    border: "2px solid #F1F5F9",
+                    background: "#F8FAFC",
+                    outline: "none",
+                    fontSize: "1rem",
+                    transition: "all 0.3s",
+                    fontFamily: "inherit",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#0D9488";
+                    e.target.style.background = "white";
+                    e.target.style.boxShadow =
+                      "0 0 0 4px rgba(13, 148, 136, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#F1F5F9";
+                    e.target.style.background = "#F8FAFC";
+                    e.target.style.boxShadow = "none";
+                  }}
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Confirm Password Field */}
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <label
+                style={{
+                  fontSize: "0.9rem",
+                  fontWeight: "700",
+                  color: "#1E293B",
+                  marginLeft: "4px",
+                }}>
+                {t("login.confirmPassword") || "Confirm Password"}
+              </label>
+              <div style={{ position: "relative" }}>
+                <Lock
+                  size={20}
+                  style={{
+                    position: "absolute",
+                    left: "20px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "#94A3B8",
+                  }}
+                />
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "16px 20px 16px 56px",
                     borderRadius: "20px",
                     border: "2px solid #F1F5F9",
                     background: "#F8FAFC",
@@ -416,10 +604,10 @@ const Login = () => {
               className="btn btn-primary"
               style={{
                 width: "100%",
-                height: "64px",
-                fontSize: "1.1rem",
+                height: "60px",
+                fontSize: "1.05rem",
                 borderRadius: "20px",
-                marginTop: "16px",
+                marginTop: "8px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -439,23 +627,25 @@ const Login = () => {
               onMouseLeave={(e) => {
                 e.target.style.backgroundColor = "#0D9488";
               }}>
-              {isLoading ? t("login.loading") : t("login.signIntoAccount")}
+              {isLoading
+                ? t("login.loading") || "Loading..."
+                : t("login.createAccount") || "Create Account"}
               {!isLoading && <ArrowRight size={22} />}
             </button>
           </form>
 
-          {/* Navigate to Signup */}
+          {/* Navigate to Login */}
           <div
             style={{
               textAlign: "center",
-              marginTop: "48px",
+              marginTop: "32px",
               color: "#64748B",
               fontSize: "0.95rem",
             }}>
-            {t("login.dontHaveAccount")}
+            {t("login.alreadyHaveAccount") || "Already have an account?"}{" "}
             <button
               type="button"
-              onClick={() => navigate("/signup")}
+              onClick={() => navigate("/login")}
               style={{
                 color: "#0D9488",
                 fontWeight: "700",
@@ -464,149 +654,14 @@ const Login = () => {
                 border: "none",
                 cursor: "pointer",
                 fontSize: "inherit",
-                marginLeft: "4px",
               }}>
-              {t("login.signUp")}
+              {t("login.signIn") || "Sign In"}
             </button>
           </div>
         </div>
       </div>
-
-      {/* Reset Password Modal (Unchanged) */}
-      {showResetModal && (
-        <div
-          className="modal-overlay"
-          onClick={() => setShowResetModal(false)}
-          style={{ zIndex: 9999 }}>
-          <div
-            className="modal-content"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              maxWidth: "430px",
-              padding: "32px",
-              position: "relative",
-              background: "white",
-              borderRadius: "24px",
-            }}>
-            <button
-              onClick={() => setShowResetModal(false)}
-              title={t("modal.close")}
-              style={{
-                position: "absolute",
-                top: "20px",
-                right: "20px",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "#94A3B8",
-              }}>
-              <X size={20} />
-            </button>
-
-            <h2
-              style={{
-                fontSize: "1.2rem",
-                fontWeight: "800",
-                marginBottom: "8px",
-                color: "#0F172A",
-              }}>
-              {t("login.resetPasswordTitle")}
-            </h2>
-            <p
-              style={{
-                color: "#64748B",
-                fontSize: "0.9rem",
-                lineHeight: "1.5",
-                marginBottom: "24px",
-              }}>
-              {t("login.resetPasswordSubtitle")}
-            </p>
-
-            <form
-              onSubmit={handlePasswordReset}
-              style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <div>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: "0.9rem",
-                    fontWeight: "700",
-                    marginBottom: "8px",
-                    color: "#1E293B",
-                  }}>
-                  {t("login.emailAddress")}
-                </label>
-                <input
-                  type="email"
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  placeholder={t("login.emailPlaceholder")}
-                  className="search-bar"
-                  style={{
-                    width: "100%",
-                    background: "#F8FAFC",
-                    padding: "14px 18px",
-                  }}
-                  autoFocus
-                />
-              </div>
-
-              {resetError && (
-                <div
-                  style={{
-                    color: "#DC2626",
-                    background: "#FEF2F2",
-                    padding: "10px 12px",
-                    borderRadius: "10px",
-                    fontSize: "0.85rem",
-                    fontWeight: "600",
-                  }}>
-                  {resetError}
-                </div>
-              )}
-              {resetSuccess && (
-                <div
-                  style={{
-                    color: "#059669",
-                    background: "#ECFDF5",
-                    padding: "10px 12px",
-                    borderRadius: "10px",
-                    fontSize: "0.85rem",
-                    fontWeight: "600",
-                  }}>
-                  {resetSuccess}
-                </div>
-              )}
-
-              <div style={{ display: "flex", gap: "12px", marginTop: "8px" }}>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setShowResetModal(false)}
-                  style={{
-                    flex: 1,
-                    background: "#F8FAFC",
-                    color: "#475569",
-                    border: "1px solid #E2E8F0",
-                  }}>
-                  {t("modal.cancel")}
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={resetLoading}
-                  style={{ flex: 1, opacity: resetLoading ? 0.7 : 1 }}>
-                  {resetLoading
-                    ? t("login.sendingReset")
-                    : t("login.sendResetLink")}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
-export default Login;
+export default Signup;

@@ -17,10 +17,13 @@ import Suppliers from "./pages/Suppliers";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import SuperAdmin from "./pages/SuperAdmin";
-import StaffWaitingMessage from "./components/StaffWaitingMessage";
-import PharmacySuspendedMessage from "./components/PharmacySuspendedMessage";
+
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import LoadingScreen from "./components/LoadingScreen.jsx";
+import Signup from "./pages/Signup.jsx";
+import PendingPage from "./pages/PendingPage.jsx";
+import PharmacySuspendedMessage from "./components/PharmacySuspendedMessage.jsx";
+import PharmacyPendingMessage from "./components/PharmacyPendingMessage.jsx";
 
 // Basic Protected Route Component (Checks if logged in & handles special states)
 const ProtectedRoute = ({ children }) => {
@@ -36,8 +39,11 @@ const ProtectedRoute = ({ children }) => {
 
   // Pharmacy suspended
   if (pharmacyStatus === "suspended") return <PharmacySuspendedMessage />;
+  if (pharmacyStatus === "pending") return <PharmacyPendingMessage />;
 
   if (user.role === "staff") return <StaffWaitingMessage user={user} />;
+  if (user.status === "pending") return <Navigate to="/pending" />;
+  if (user.status === "rejected") return <Navigate to="/login" />;
   return children;
 };
 
@@ -59,7 +65,6 @@ const RoleGuard = ({ allowedRoles, children }) => {
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />;
   }
-
   return children;
 };
 
@@ -68,7 +73,8 @@ function App() {
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
-
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/pending" element={<PharmacyPendingMessage />} />
         {/* Super Admin Dashboard — completely separate layout */}
         <Route
           path="/super-admin"
@@ -120,7 +126,8 @@ function App() {
           <Route
             path="expiration"
             element={
-              <RoleGuard allowedRoles={["admin", "manager", "pharmacist", "superadmin"]}>
+              <RoleGuard
+                allowedRoles={["admin", "manager", "pharmacist", "superadmin"]}>
                 <Expiration />
               </RoleGuard>
             }
@@ -138,7 +145,7 @@ function App() {
           <Route
             path="reports"
             element={
-              <RoleGuard allowedRoles={["admin", "manager","superadmin"]}>
+              <RoleGuard allowedRoles={["admin", "manager", "superadmin"]}>
                 <Reports />
               </RoleGuard>
             }

@@ -50,8 +50,9 @@ export const createPharmacy = async (pharmacyData) => {
       address: pharmacyData.address || "",
       phone: pharmacyData.phone || "",
       email: pharmacyData.email || "",
+      adminUid: pharmacyData.adminUid || "", // required by Firestore rule
       adminId: pharmacyData.adminId || "",
-      status: "active",
+      status: pharmacyData.status || "active", // allow 'pending' to be passed in
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -427,7 +428,7 @@ export const createUserProfile = async (uid, userData) => {
       pharmacyName: userData.pharmacyName || "",
       createdBy: userData.createdBy || null,
       avatar: userData.avatar || `https://i.pravatar.cc/150?u=${uid}`,
-      status: "Active",
+      status: userData.status || "pending",
       isDeleted: false,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
