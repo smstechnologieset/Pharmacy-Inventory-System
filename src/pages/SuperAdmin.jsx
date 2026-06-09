@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import {
   Building2,
   Plus,
-  Users,
   ShieldCheck,
   ShieldOff,
   Search,
@@ -19,6 +18,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import FormModal from "../components/FormModal";
+import ConfirmModal from "../components/ConfirmModal";
 
 const SuperAdmin = () => {
   const { user, logout } = useAuth();
@@ -31,6 +31,9 @@ const SuperAdmin = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState(null);
+
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [pharmacyToToggle, setPharmacyToToggle] = useState(null);
 
   const [formData, setFormData] = useState({
     pharmacyName: "",
@@ -67,7 +70,6 @@ const SuperAdmin = () => {
     setCreatedCredentials(null);
 
     try {
-      // 1. Create the pharmacy document
       const newPharmacy = await createPharmacy({
         name: formData.pharmacyName,
         address: formData.address,
@@ -75,7 +77,6 @@ const SuperAdmin = () => {
         email: formData.adminEmail,
       });
 
-      // 2. Create the admin account for this pharmacy
       const { uid, password } = await createStaffAccount(
         {
           name: formData.adminName,
@@ -87,20 +88,16 @@ const SuperAdmin = () => {
         user.uid,
       );
 
-      // 3. Update the pharmacy with the admin's UID
       await updatePharmacy(newPharmacy.id, { adminId: uid });
 
-      // Show credentials
       setCreatedCredentials({
         email: formData.adminEmail,
         password,
         pharmacyName: formData.pharmacyName,
       });
 
-      // Refresh data
       await loadData();
 
-      // Reset form but keep modal open to show credentials
       setFormData({
         pharmacyName: "",
         address: "",
@@ -115,19 +112,19 @@ const SuperAdmin = () => {
     }
   };
 
-  const handleToggleSuspend = async (pharmacy) => {
-    const newStatus = pharmacy.status === "suspended" ? "active" : "suspended";
-    const action = newStatus === "suspended" ? "suspend" : "reactivate";
-    if (
-      !window.confirm(
-        `Are you sure you want to ${action} "${pharmacy.name}"? ${
-          newStatus === "suspended"
-            ? "All users will see a suspension notice."
-            : "Users will be able to log in again."
-        }`,
-      )
-    )
-      return;
+  const openConfirmModal = (pharmacy) => {
+    setPharmacyToToggle(pharmacy);
+    setIsConfirmModalOpen(true);
+  };
+
+  const confirmToggleSuspend = async () => {
+    if (!pharmacyToToggle) return;
+    const pharmacy = pharmacyToToggle;
+    const newStatus =
+      pharmacy.status === "suspended" || pharmacy.status === "pending"
+        ? "active"
+        : "suspended";
+    const action = newStatus === "suspended" ? "suspend" : "activate";
 
     try {
       await updatePharmacy(pharmacy.id, { status: newStatus });
@@ -138,6 +135,8 @@ const SuperAdmin = () => {
       );
     } catch (err) {
       setError(err.message || `Failed to ${action} pharmacy.`);
+    } finally {
+      setPharmacyToToggle(null);
     }
   };
 
@@ -155,7 +154,8 @@ const SuperAdmin = () => {
 
   const stats = {
     totalPharmacies: pharmacies.length,
-    activePharmacies: pharmacies.filter((p) => p.status !== "suspended").length,
+    activePharmacies: pharmacies.filter((p) => p.status === "active").length,
+    pendingPharmacies: pharmacies.filter((p) => p.status === "pending").length,
     suspendedPharmacies: pharmacies.filter((p) => p.status === "suspended")
       .length,
     totalUsers: allUsers.filter((u) => u.role !== "superadmin").length,
@@ -200,7 +200,10 @@ const SuperAdmin = () => {
               fontWeight: "600",
               fontSize: "0.85rem",
             }}>
-            <ShieldCheck size={16} style={{ marginRight: "6px", verticalAlign: "middle" }} />
+            <ShieldCheck
+              size={16}
+              style={{ marginRight: "6px", verticalAlign: "middle" }}
+            />
             Super Admin: {user?.name || user?.email}
           </div>
           <button
@@ -261,18 +264,18 @@ const SuperAdmin = () => {
             color: "#059669",
           },
           {
+            label: "Pending",
+            value: stats.pendingPharmacies,
+            icon: <Activity size={24} />,
+            bg: "#FEF3C7",
+            color: "#D97706",
+          },
+          {
             label: "Suspended",
             value: stats.suspendedPharmacies,
             icon: <ShieldOff size={24} />,
             bg: "#FEF2F2",
             color: "#EF4444",
-          },
-          {
-            label: "Total Staff",
-            value: stats.totalUsers,
-            icon: <Users size={24} />,
-            bg: "#EFF6FF",
-            color: "#3B82F6",
           },
         ].map((stat, i) => (
           <div
@@ -343,180 +346,252 @@ const SuperAdmin = () => {
         </button>
       </div>
 
-      {/* Pharmacy Cards */}
+      {/* Pharmacy Table */}
       {loading ? (
-        <div style={{ textAlign: "center", padding: "60px 0", color: "#64748B" }}>
+        <div
+          className="card"
+          style={{ textAlign: "center", padding: "60px 0", color: "#64748B" }}>
           Loading pharmacies...
         </div>
       ) : filteredPharmacies.length === 0 ? (
         <div
           className="card"
-          style={{
-            textAlign: "center",
-            padding: "60px",
-            color: "#94A3B8",
-          }}>
+          style={{ textAlign: "center", padding: "60px", color: "#94A3B8" }}>
           <Building2
             size={48}
             strokeWidth={1}
             style={{ margin: "0 auto 16px", opacity: 0.5 }}
           />
-          <p>No pharmacies registered yet. Click "Register New Pharmacy" to get started.</p>
+          <p>
+            No pharmacies registered yet. Click "Register New Pharmacy" to get
+            started.
+          </p>
         </div>
       ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))",
-            gap: "20px",
-          }}>
-          {filteredPharmacies.map((pharmacy) => {
-            const admin = getPharmacyAdmin(pharmacy.id);
-            const userCount = getPharmacyUserCount(pharmacy.id);
-            const isSuspended = pharmacy.status === "suspended";
-
-            return (
-              <div
-                key={pharmacy.id}
-                className="card"
-                style={{
-                  padding: "28px",
-                  opacity: isSuspended ? 0.7 : 1,
-                  borderLeft: `4px solid ${isSuspended ? "#EF4444" : "#0D9488"}`,
-                }}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    marginBottom: "16px",
-                  }}>
-                  <div>
-                    <h3
-                      style={{
-                        fontSize: "1.1rem",
-                        fontWeight: "700",
-                        color: "#1E293B",
-                        marginBottom: "4px",
-                      }}>
-                      {pharmacy.name}
-                    </h3>
-                    {pharmacy.address && (
-                      <p
-                        style={{
-                          fontSize: "0.8rem",
-                          color: "#94A3B8",
-                        }}>
-                        {pharmacy.address}
-                      </p>
-                    )}
-                  </div>
-                  <span
+        <div className="card" style={{ padding: "0", overflow: "hidden" }}>
+          <div className="table-container">
+            <table style={{ borderSpacing: "0", width: "100%" }}>
+              <thead>
+                <tr style={{ background: "#F8FAFC" }}>
+                  <th
                     style={{
-                      padding: "6px 14px",
-                      borderRadius: "12px",
-                      fontSize: "0.75rem",
+                      padding: "16px 32px",
+                      textAlign: "left",
+                      fontSize: "0.8rem",
                       fontWeight: "700",
-                      background: isSuspended ? "#FEE2E2" : "#ECFDF5",
-                      color: isSuspended ? "#EF4444" : "#059669",
+                      color: "#64748B",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
                     }}>
-                    {isSuspended ? "Suspended" : "Active"}
-                  </span>
-                </div>
-
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "12px",
-                    marginBottom: "20px",
-                  }}>
-                  <div
+                    Pharmacy Info
+                  </th>
+                  <th
                     style={{
-                      padding: "12px",
-                      background: "#F8FAFC",
-                      borderRadius: "12px",
+                      textAlign: "left",
+                      fontSize: "0.8rem",
+                      fontWeight: "700",
+                      color: "#64748B",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
                     }}>
-                    <div
-                      style={{
-                        fontSize: "0.7rem",
-                        color: "#94A3B8",
-                        marginBottom: "4px",
-                      }}>
-                      Admin
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "0.85rem",
-                        fontWeight: "600",
-                        color: "#1E293B",
-                      }}>
-                      {admin?.name || "—"}
-                    </div>
-                    <div style={{ fontSize: "0.7rem", color: "#64748B" }}>
-                      {admin?.email || "—"}
-                    </div>
-                  </div>
-                  <div
+                    Status
+                  </th>
+                  <th
                     style={{
-                      padding: "12px",
-                      background: "#F8FAFC",
-                      borderRadius: "12px",
+                      textAlign: "left",
+                      fontSize: "0.8rem",
+                      fontWeight: "700",
+                      color: "#64748B",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
                     }}>
-                    <div
-                      style={{
-                        fontSize: "0.7rem",
-                        color: "#94A3B8",
-                        marginBottom: "4px",
-                      }}>
-                      Staff Members
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "1.2rem",
-                        fontWeight: "800",
-                        color: "#0D9488",
-                      }}>
-                      {userCount}
-                    </div>
-                  </div>
-                </div>
+                    Admin
+                  </th>
+                  <th
+                    style={{
+                      textAlign: "left",
+                      fontSize: "0.8rem",
+                      fontWeight: "700",
+                      color: "#64748B",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}>
+                    Staff
+                  </th>
+                  <th
+                    style={{
+                      textAlign: "right",
+                      paddingRight: "32px",
+                      fontSize: "0.8rem",
+                      fontWeight: "700",
+                      color: "#64748B",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}>
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPharmacies.map((pharmacy) => {
+                  const admin = getPharmacyAdmin(pharmacy.id);
+                  const userCount = getPharmacyUserCount(pharmacy.id);
+                  const isSuspended = pharmacy.status === "suspended";
+                  const isPending = pharmacy.status === "pending";
+                  const statusStyles = isSuspended
+                    ? { bg: "#FEE2E2", color: "#EF4444", label: "Suspended" }
+                    : isPending
+                      ? { bg: "#FEF3C7", color: "#D97706", label: "Pending" }
+                      : { bg: "#ECFDF5", color: "#059669", label: "Active" };
 
-                <button
-                  onClick={() => handleToggleSuspend(pharmacy)}
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    border: "none",
-                    borderRadius: "12px",
-                    fontWeight: "600",
-                    fontSize: "0.85rem",
-                    cursor: "pointer",
-                    background: isSuspended ? "#ECFDF5" : "#FEF2F2",
-                    color: isSuspended ? "#059669" : "#EF4444",
-                    transition: "opacity 0.2s",
-                  }}>
-                  {isSuspended ? (
-                    <>
-                      <ShieldCheck
-                        size={16}
-                        style={{ marginRight: "6px", verticalAlign: "middle" }}
-                      />
-                      Reactivate Pharmacy
-                    </>
-                  ) : (
-                    <>
-                      <ShieldOff
-                        size={16}
-                        style={{ marginRight: "6px", verticalAlign: "middle" }}
-                      />
-                      Suspend Pharmacy
-                    </>
-                  )}
-                </button>
-              </div>
-            );
-          })}
+                  return (
+                    <tr
+                      key={pharmacy.id}
+                      style={{
+                        borderBottom: "1px solid #F1F5F9",
+                        opacity: isSuspended ? 0.7 : 1,
+                        transition: "background 0.2s",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = "#F8FAFC")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.background = "transparent")
+                      }>
+                      <td style={{ padding: "20px 32px" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "12px",
+                          }}>
+                          <div
+                            style={{
+                              width: "40px",
+                              height: "40px",
+                              borderRadius: "12px",
+                              background: "#F0FDFA",
+                              color: "#0D9488",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                            }}>
+                            <Building2 size={20} />
+                          </div>
+                          <div>
+                            <div
+                              style={{
+                                fontWeight: "700",
+                                fontSize: "0.95rem",
+                                color: "#1E293B",
+                              }}>
+                              {pharmacy.name}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: "0.75rem",
+                                color: "#94A3B8",
+                                marginTop: "2px",
+                              }}>
+                              {pharmacy.address || "No address provided"}
+                            </div>
+                            {pharmacy.phone && (
+                              <div
+                                style={{
+                                  fontSize: "0.75rem",
+                                  color: "#64748B",
+                                  marginTop: "2px",
+                                }}>
+                                {pharmacy.phone}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span
+                          style={{
+                            padding: "6px 14px",
+                            borderRadius: "12px",
+                            fontSize: "0.75rem",
+                            fontWeight: "700",
+                            background: statusStyles.bg,
+                            color: statusStyles.color,
+                          }}>
+                          {statusStyles.label}
+                        </span>
+                      </td>
+                      <td>
+                        <div
+                          style={{
+                            fontWeight: "600",
+                            fontSize: "0.9rem",
+                            color: "#1E293B",
+                          }}>
+                          {admin?.name || "Not assigned"}
+                        </div>
+                        <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                          {admin?.email || "—"}
+                        </div>
+                      </td>
+                      <td>
+                        <div
+                          style={{
+                            fontWeight: "700",
+                            color: "#0D9488",
+                            fontSize: "1.1rem",
+                          }}>
+                          {userCount}
+                        </div>
+                        <div style={{ fontSize: "0.7rem", color: "#94A3B8" }}>
+                          Members
+                        </div>
+                      </td>
+                      <td style={{ paddingRight: "32px", textAlign: "right" }}>
+                        <button
+                          onClick={() => openConfirmModal(pharmacy)}
+                          style={{
+                            padding: "8px 16px",
+                            border: "none",
+                            borderRadius: "12px",
+                            fontWeight: "600",
+                            fontSize: "0.8rem",
+                            cursor: "pointer",
+                            background:
+                              isSuspended || isPending ? "#ECFDF5" : "#FEF2F2",
+                            color:
+                              isSuspended || isPending ? "#059669" : "#EF4444",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            transition: "opacity 0.2s",
+                          }}
+                          onMouseEnter={(e) =>
+                            (e.currentTarget.style.opacity = "0.8")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.opacity = "1")
+                          }>
+                          {isSuspended || isPending ? (
+                            <>
+                              <ShieldCheck size={14} />
+                              {isPending ? "Activate" : "Reactivate"}
+                            </>
+                          ) : (
+                            <>
+                              <ShieldOff size={14} />
+                              Suspend
+                            </>
+                          )}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -823,6 +898,31 @@ const SuperAdmin = () => {
           </form>
         )}
       </FormModal>
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={isConfirmModalOpen}
+        onClose={() => {
+          setIsConfirmModalOpen(false);
+          setPharmacyToToggle(null);
+        }}
+        onConfirm={confirmToggleSuspend}
+        title={`${pharmacyToToggle?.status === "pending" ? "Activate" : pharmacyToToggle?.status === "suspended" ? "Reactivate" : "Suspend"} Pharmacy?`}
+        message={`Are you sure you want to ${pharmacyToToggle?.status === "pending" ? "activate" : pharmacyToToggle?.status === "suspended" ? "reactivate" : "suspend"} "${pharmacyToToggle?.name}"? ${
+          pharmacyToToggle?.status === "active"
+            ? "All users will see a suspension notice."
+            : "Users will be able to access the system."
+        }`}
+        type={pharmacyToToggle?.status === "active" ? "danger" : "success"}
+        confirmText={
+          pharmacyToToggle?.status === "pending"
+            ? "Activate"
+            : pharmacyToToggle?.status === "suspended"
+              ? "Reactivate"
+              : "Suspend"
+        }
+        cancelText="Cancel"
+      />
     </div>
   );
 };
