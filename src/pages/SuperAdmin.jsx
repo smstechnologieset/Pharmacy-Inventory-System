@@ -14,12 +14,12 @@ import {
   updatePharmacy,
   createStaffAccount,
   getAllUsers,
+  updateUserStatusByPharmacyId,
 } from "../services/firestoreService";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import FormModal from "../components/FormModal";
 import ConfirmModal from "../components/ConfirmModal";
-import { updateUserStatusByPharmacyId } from "../../../../../Desktop/src/services/firestoreService.js";
 
 const SuperAdmin = () => {
   const { user, logout } = useAuth();
