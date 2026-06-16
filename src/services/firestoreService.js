@@ -580,34 +580,34 @@
  * Used by SuperAdmin when a pharmacy is activated or suspended, so all
  * staff accounts move in lockstep with their pharmacy.
  */
-export const updateUserStatusByPharmacyId = async (pharmacyId, newStatus) => {
-  try {
-    const usersQuery = query(
-      collection(db, USERS_COLLECTION),
-      where("pharmacyId", "==", pharmacyId),
-    );
-    const snapshot = await getDocs(usersQuery);
+// export const updateUserStatusByPharmacyId = async (pharmacyId, newStatus) => {
+//   try {
+//     const usersQuery = query(
+//       collection(db, USERS_COLLECTION),
+//       where("pharmacyId", "==", pharmacyId),
+//     );
+//     const snapshot = await getDocs(usersQuery);
 
-    if (snapshot.empty) {
-      return 0;
-    }
+//     if (snapshot.empty) {
+//       return 0;
+//     }
 
-    const updates = snapshot.docs.map((userDoc) =>
-      updateDoc(doc(db, USERS_COLLECTION, userDoc.id), {
-        status: newStatus,
-        updatedAt: serverTimestamp(),
-      }),
-    );
-    await Promise.all(updates);
-    return snapshot.size;
-  } catch (error) {
-    console.error(
-      `Error updating user status for pharmacy ${pharmacyId}:`,
-      error,
-    );
-    throw new Error(`Failed to update user status: ${error.message}`);
-  }
-};
+//     const updates = snapshot.docs.map((userDoc) =>
+//       updateDoc(doc(db, USERS_COLLECTION, userDoc.id), {
+//         status: newStatus,
+//         updatedAt: serverTimestamp(),
+//       }),
+//     );
+//     await Promise.all(updates);
+//     return snapshot.size;
+//   } catch (error) {
+//     console.error(
+//       `Error updating user status for pharmacy ${pharmacyId}:`,
+//       error,
+//     );
+//     throw new Error(`Failed to update user status: ${error.message}`);
+//   }
+// };
 
 // /**
 //  * Get users by role
