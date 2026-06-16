@@ -3,18 +3,30 @@ import { Search, Bell, Package, X, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-
 import { useSettings } from "../context/SettingsContext";
-import { getAllMedicines, searchMedicinesByPrefix } from "../services/medicines.js";
+import {
+  getAllMedicines,
+  searchMedicinesByPrefix,
+} from "../services/medicines.js";
 import { getAllStockBatches } from "../services/stockBatches.js";
 import { getSystemSettings } from "../services/settings.js";
+import Avatar from "./Avatar.jsx";
 
 const getStockStatus = (stock, t) => {
   const s = Number(stock);
   if (s === 0)
     return { label: t("header.outOfStock"), color: "#EF4444", bg: "#FEF2F2" };
-  if (s <= 10) return { label: t("header.lowStockAlert"), color: "#F59E0B", bg: "#FFFBEB" };
-  return { label: t("header.inStock") || "In Stock", color: "#10B981", bg: "#ECFDF5" };
+  if (s <= 10)
+    return {
+      label: t("header.lowStockAlert"),
+      color: "#F59E0B",
+      bg: "#FFFBEB",
+    };
+  return {
+    label: t("header.inStock") || "In Stock",
+    color: "#10B981",
+    bg: "#ECFDF5",
+  };
 };
 
 const getExpiryStatus = (expiry, t) => {
@@ -23,9 +35,13 @@ const getExpiryStatus = (expiry, t) => {
   if (Number.isNaN(date.getTime())) return { label: "N/A", color: "#94A3B8" };
   const now = new Date();
   const daysLeft = Math.ceil((date - now) / (1000 * 60 * 60 * 24));
-  if (daysLeft < 0) return { label: t("header.expiredStock"), color: "#EF4444" };
+  if (daysLeft < 0)
+    return { label: t("header.expiredStock"), color: "#EF4444" };
   if (daysLeft <= 30)
-    return { label: `${t("header.expiresIn") || "Expires in"} ${daysLeft}d`, color: "#F59E0B" };
+    return {
+      label: `${t("header.expiresIn") || "Expires in"} ${daysLeft}d`,
+      color: "#F59E0B",
+    };
   return { label: date.toLocaleDateString(), color: "#64748B" };
 };
 
@@ -57,18 +73,22 @@ const Header = () => {
     const delayDebounceFn = setTimeout(async () => {
       try {
         setIsSearching(true);
-        // We do a prefix search. Firestore query requires exact case or we can just lowercase name, 
+        // We do a prefix search. Firestore query requires exact case or we can just lowercase name,
         // but since we don't have lowercase names saved, we just pass the original string (capitalized start usually works).
         // Let's pass the raw string since Firestore is case-sensitive and we haven't added a lowercase_name field.
         // The best we can do without a lowercase index is match exact prefix.
-        const capitalizedQ = query.trim().charAt(0).toUpperCase() + query.trim().slice(1);
+        const capitalizedQ =
+          query.trim().charAt(0).toUpperCase() + query.trim().slice(1);
         const lowerQ = query.trim().toLowerCase();
-        
+
         // We'll search both capitalized and lowercase (two queries) and combine, just to be safe.
         // Wait, Firestore doesn't support 'OR' queries on different boundaries.
         // Let's just use the capitalized version as standard.
-        const meds = await searchMedicinesByPrefix(user?.pharmacyId, capitalizedQ);
-        
+        const meds = await searchMedicinesByPrefix(
+          user?.pharmacyId,
+          capitalizedQ,
+        );
+
         const searchResults = meds.map((m) => ({
           id: m.id,
           medicineId: m.id,
@@ -78,7 +98,7 @@ const Header = () => {
           stock: m.totalStock || 0,
           price: m.price,
         }));
-        
+
         setResults(searchResults);
         setShowDropdown(true);
         setActiveIndex(-1);
@@ -236,139 +256,137 @@ const Header = () => {
           )}
         </div>
 
-        {showDropdown &&
-          results.length >
-            0 && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "calc(100% + 8px)",
-                  left: 0,
-                  right: 0,
-                  background: "white",
-                  borderRadius: "16px",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
-                  border: "1px solid #F1F5F9",
-                  zIndex: 1000,
-                  overflow: "hidden",
-                }}>
-                {results.length > 0 ? (
-                  <>
-                    {results.map((med, i) => {
-                      const stock = getStockStatus(med.stock, t);
-                      const expiry = getExpiryStatus(med.expiry, t);
-                      return (
+        {showDropdown && results.length > 0 && (
+          <div
+            style={{
+              position: "absolute",
+              top: "calc(100% + 8px)",
+              left: 0,
+              right: 0,
+              background: "white",
+              borderRadius: "16px",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
+              border: "1px solid #F1F5F9",
+              zIndex: 1000,
+              overflow: "hidden",
+            }}>
+            {results.length > 0 ? (
+              <>
+                {results.map((med, i) => {
+                  const stock = getStockStatus(med.stock, t);
+                  const expiry = getExpiryStatus(med.expiry, t);
+                  return (
+                    <div
+                      key={med.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "14px",
+                        padding: "12px 16px",
+                        cursor: "pointer",
+                        background: i === activeIndex ? "#F8FAFC" : "white",
+                        borderTop: "1px solid #F8FAFC",
+                      }}
+                      onClick={() => navigate("/inventory")}
+                      onMouseEnter={() => setActiveIndex(i)}>
+                      <div
+                        style={{
+                          width: "38px",
+                          height: "38px",
+                          borderRadius: "10px",
+                          background: "#F0FDFA",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#0D9488",
+                        }}>
+                        <Package size={18} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <div
-                          key={med.id}
                           style={{
                             display: "flex",
                             alignItems: "center",
-                            gap: "14px",
-                            padding: "12px 16px",
-                            cursor: "pointer",
-                            background: i === activeIndex ? "#F8FAFC" : "white",
-                            borderTop: "1px solid #F8FAFC",
-                          }}
-                          onClick={() => navigate("/inventory")}
-                          onMouseEnter={() => setActiveIndex(i)}>
-                          <div
+                            gap: "8px",
+                            marginBottom: "3px",
+                          }}>
+                          <span
                             style={{
-                              width: "38px",
-                              height: "38px",
-                              borderRadius: "10px",
-                              background: "#F0FDFA",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "#0D9488",
-                            }}>
-                            <Package size={18} />
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                                marginBottom: "3px",
-                              }}>
-                              <span
-                                style={{
-                                  fontWeight: "700",
-                                  fontSize: "0.9rem",
-                                  color: "#1E293B",
-                                }}>
-                                {med.name}
-                              </span>
-                              <span
-                                style={{
-                                  fontSize: "0.65rem",
-                                  fontWeight: "700",
-                                  padding: "2px 8px",
-                                  borderRadius: "20px",
-                                  background: stock.bg,
-                                  color: stock.color,
-                                }}>
-                                {stock.label}
-                              </span>
-                            </div>
-                            <div
-                              style={{
-                                display: "flex",
-                                gap: "14px",
-                                fontSize: "0.75rem",
-                              }}>
-                              <span style={{ color: "#64748B" }}>
-                                Batch:{" "}
-                                <strong style={{ color: "#475569" }}>
-                                  {med.batch}
-                                </strong>
-                              </span>
-                              <span style={{ color: "#64748B" }}>
-                                Stock:{" "}
-                                <strong style={{ color: "#475569" }}>
-                                  {med.stock}
-                                </strong>
-                              </span>
-                              <span
-                                style={{
-                                  color: expiry.color,
-                                  fontWeight: "500",
-                                }}>
-                                {expiry.label}
-                              </span>
-                            </div>
-                          </div>
-                          <div
-                            style={{
-                              fontWeight: "800",
+                              fontWeight: "700",
                               fontSize: "0.9rem",
-                              color: "#0D9488",
+                              color: "#1E293B",
                             }}>
-                            ETB {Number(med.price || 0).toLocaleString()}
-                          </div>
+                            {med.name}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: "0.65rem",
+                              fontWeight: "700",
+                              padding: "2px 8px",
+                              borderRadius: "20px",
+                              background: stock.bg,
+                              color: stock.color,
+                            }}>
+                            {stock.label}
+                          </span>
                         </div>
-                      );
-                    })}
-                  </>
-                ) : (
-                  <div
-                    style={{
-                      padding: "32px 16px",
-                      textAlign: "center",
-                      color: "#94A3B8",
-                    }}>
-                    <Package
-                      size={28}
-                      style={{ marginBottom: "8px", opacity: 0.4 }}
-                    />
-                    <p style={{ fontWeight: "600", margin: "0 0 4px" }}>
-                      {t("header.noMedicinesFound")}
-                    </p>
-                  </div>
-                )}
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "14px",
+                            fontSize: "0.75rem",
+                          }}>
+                          <span style={{ color: "#64748B" }}>
+                            Batch:{" "}
+                            <strong style={{ color: "#475569" }}>
+                              {med.batch}
+                            </strong>
+                          </span>
+                          <span style={{ color: "#64748B" }}>
+                            Stock:{" "}
+                            <strong style={{ color: "#475569" }}>
+                              {med.stock}
+                            </strong>
+                          </span>
+                          <span
+                            style={{
+                              color: expiry.color,
+                              fontWeight: "500",
+                            }}>
+                            {expiry.label}
+                          </span>
+                        </div>
+                      </div>
+                      <div
+                        style={{
+                          fontWeight: "800",
+                          fontSize: "0.9rem",
+                          color: "#0D9488",
+                        }}>
+                        ETB {Number(med.price || 0).toLocaleString()}
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            ) : (
+              <div
+                style={{
+                  padding: "32px 16px",
+                  textAlign: "center",
+                  color: "#94A3B8",
+                }}>
+                <Package
+                  size={28}
+                  style={{ marginBottom: "8px", opacity: 0.4 }}
+                />
+                <p style={{ fontWeight: "600", margin: "0 0 4px" }}>
+                  {t("header.noMedicinesFound")}
+                </p>
               </div>
             )}
+          </div>
+        )}
       </div>
 
       <div className="header-right">
@@ -410,7 +428,9 @@ const Header = () => {
                   justifyContent: "space-between",
                   fontWeight: "700",
                 }}>
-                <span>{t("header.notifications")} ({realNotifications.length})</span>
+                <span>
+                  {t("header.notifications")} ({realNotifications.length})
+                </span>
               </div>
               <div style={{ maxHeight: "400px", overflowY: "auto" }}>
                 {realNotifications.length === 0 ? (
@@ -456,23 +476,13 @@ const Header = () => {
             </div>
           )}
         </div>
-
-        <div
-          title={user?.name}
-          style={{
-            width: "44px",
-            height: "44px",
-            borderRadius: "50%",
-            overflow: "hidden",
-            border: "3px solid #F0FDFA",
-            background: "#F8FAFC",
-          }}>
-          <img
-            src={user?.avatar}
-            alt={user?.name}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
-        </div>
+        <Avatar
+          src={user?.avatar}
+          name={user?.name}
+          pharmacyName={user?.pharmacyName}
+          size={44}
+          style={{ border: "3px solid #F0FDFA" }}
+        />
 
         <button
           className="icon-button"

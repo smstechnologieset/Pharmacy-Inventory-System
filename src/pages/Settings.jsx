@@ -20,6 +20,7 @@ import { useSettings } from "../context/SettingsContext";
 import CustomSelect from "../components/CustomSelect";
 import { updateSystemSettings } from "../services/settings.js";
 import { updateUserProfile } from "../services/users.js";
+import Avatar from "../components/Avatar.jsx";
 
 const Settings = () => {
   const { user } = useAuth();
@@ -206,17 +207,15 @@ const Settings = () => {
                 border: "1px solid rgba(13, 148, 136, 0.1)",
                 marginBottom: "24px",
               }}>
-              <img
+              <Avatar
                 src={profileForm.avatar || user?.avatar}
+                name={user?.name}
+                pharmacyName={user?.pharmacyName}
+                size={80}
                 style={{
-                  width: "80px",
-                  height: "80px",
-                  borderRadius: "50%",
                   border: "4px solid white",
                   boxShadow: "0 8px 16px rgba(0,0,0,0.05)",
-                  objectFit: "cover",
                 }}
-                alt="Avatar"
               />
               <div>
                 <div
@@ -306,34 +305,7 @@ const Settings = () => {
                   }
                 />
               </div>
-              <div>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: "0.85rem",
-                    fontWeight: "700",
-                    marginBottom: "8px",
-                    color: "#475569",
-                  }}>
-                  {t("settings.avatarUrl") || "Avatar URL"}
-                </label>
-                <input
-                  type="text"
-                  className="search-bar"
-                  style={{
-                    width: "100%",
-                    background: "#F8FAFC",
-                    padding: "12px 16px",
-                    border: "none",
-                    borderRadius: "12px",
-                    outline: "none",
-                  }}
-                  value={profileForm.avatar}
-                  onChange={(e) =>
-                    setProfileForm({ ...profileForm, avatar: e.target.value })
-                  }
-                />
-              </div>
+
 
               {profileSuccessMsg && (
                 <div

@@ -29,7 +29,7 @@ export const createUserProfile = async (uid, userData) => {
       pharmacyId: userData.pharmacyId || null,
       pharmacyName: userData.pharmacyName || "",
       createdBy: userData.createdBy || null,
-      avatar: userData.avatar || `https://i.pravatar.cc/150?u=${uid}`,
+      avatar: userData.avatar || null,
       status: userData.status || "pending", 
       isDeleted: false,
       createdAt: serverTimestamp(),
