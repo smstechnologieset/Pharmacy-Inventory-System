@@ -9,18 +9,13 @@ import {
   Building2,
   X,
 } from "lucide-react";
-import {
-  getAllSuppliers,
-  createSupplier,
-  updateSupplier,
-  deleteSupplier,
-  getAllMedicines,
-  updateMedicine,
-} from "../services/firestoreService";
+
 import FormModal from "../components/FormModal";
 import ConfirmModal from "../components/ConfirmModal"; // 1. Import the ConfirmModal
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
+import { createSupplier, deleteSupplier, getAllSuppliers, updateSupplier } from "../services/suppliers.js";
+import { getAllMedicines, updateMedicine } from "../services/medicines.js";
 
 const Suppliers = () => {
   const { user } = useAuth();

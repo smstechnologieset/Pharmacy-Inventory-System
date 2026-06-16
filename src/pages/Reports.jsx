@@ -23,15 +23,13 @@ import {
 import { Bar, Pie } from "react-chartjs-2";
 import { useAuth } from "../context/AuthContext";
 
-import {
-  getAllSales,
-  getSalesByDateRange,
-  getAllMedicines,
-  getAllStockBatches,
-  getSystemSettings,
-} from "../services/firestoreService";
+
 
 import { exportToPDF } from "../utils/exportToPdf.js";
+import { getSystemSettings } from "../services/settings.js";
+import { getAllSales, getSalesByDateRange } from "../services/sales.js";
+import { getAllMedicines } from "../services/medicines.js";
+import { getAllStockBatches } from "../services/stockBatches.js";
 
 ChartJS.register(
   CategoryScale,

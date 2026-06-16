@@ -14,13 +14,15 @@ import {
   onAuthStateChanged,
 } from "firebase/auth";
 import { auth, db } from "../services/firebase";
-import {
-  createUserProfile,
-  getUserProfile,
-  getPharmacyById,
-  createPharmacy,
-} from "../services/firestoreService";
+// import {
+//   createUserProfile,
+//   getUserProfile,
+//   getPharmacyById,
+//   createPharmacy,
+// } from "../services/firestoreService";
 import { doc, onSnapshot } from "firebase/firestore";
+import { createPharmacy, getPharmacyById } from "../services/pharmacies.js";
+import { createUserProfile, getUserProfile } from "../services/users.js";
 
 const AuthContext = createContext();
 
@@ -124,6 +126,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const userCredential = await signUp(auth, email, password);
       const firebaseUser = userCredential.user;
+      console.log("user profile url:",userCredential.user)
  await sendEmailVerification(firebaseUser);
       // 1. Create pharmacy doc first to get the pharmacyId
       const pharmacy = await createPharmacy({
@@ -183,8 +186,8 @@ const login = async (email, password) => {
     // Block unverified users from logging in
     if ( !firebaseUser.emailVerified ) {
       
-      await signOut(auth);
-      throw new Error("Please verify your email before logging in.");
+      // await signOut(auth);
+      throw new Error("__unverified__");
     }
 
     const userProfile = await getUserProfile(firebaseUser.uid);

@@ -15,14 +15,14 @@ import {
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import {
-  getSystemSettings,
-  subscribeToPharmacyStats,
-  subscribeToDailySalesStats,
-  getDashboardStockStats,
-  subscribeToRecentSales,
+
 } from "../services/firestoreService";
 import { useSettings } from "../context/SettingsContext";
 import { useAuth } from "../context/AuthContext";
+import { getSystemSettings } from "../services/settings.js";
+import { subscribeToPharmacyStats } from "../services/pharmacies.js";
+import { subscribeToDailySalesStats, subscribeToRecentSales } from "../services/sales.js";
+import { getDashboardStockStats } from "../services/stockBatches.js";
 
 const getSaleDate = (sale) => {
   if (sale.createdAt?.toDate) return sale.createdAt.toDate();

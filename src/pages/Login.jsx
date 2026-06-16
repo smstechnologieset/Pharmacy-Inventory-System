@@ -46,10 +46,12 @@ const Login = () => {
       await login(email, password);
       setLocalLoading(false);
       navigate("/");
-    } catch (error) {
-      setLocalError(
-        error.message || t("login.authFailed") || "Authentication failed",
-      );
+    } catch ( error ) {
+      if (error.message === "__unverified__") {
+        navigate("/verify-email");
+      } else {
+        setLocalError(error.message || "Authentication failed");
+      }
       setLocalLoading(false);
     }
   };

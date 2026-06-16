@@ -9,18 +9,14 @@ import {
   CheckCircle,
   RotateCcw,
 } from "lucide-react";
-import {
-  getAllMedicines,
-  getRecentSales,
-  getAllStockBatches,
-  processCheckoutTransaction,
-  createStockMovement,
-  processRefundTransaction,
-  getAllSales,
-} from "../services/firestoreService";
+
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import CustomSelect from "../components/CustomSelect";
+import { getAllMedicines } from "../services/medicines.js";
+import { getAllSales, getRecentSales } from "../services/sales.js";
+import { createStockMovement, getAllStockBatches } from "../services/stockBatches.js";
+import { processCheckoutTransaction, processRefundTransaction } from "../services/transactions.js";
 
 const Sales = () => {
   const { user } = useAuth();

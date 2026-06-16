@@ -6,9 +6,10 @@ import React, {
   useEffect,
   useCallback,
 } from "react";
-import { getSystemSettings } from "../services/firestoreService";
+// import { getSystemSettings } from "../services/firestoreService";
 import { translations, getNestedTranslation } from "../data/translations";
 import { useAuth } from "./AuthContext";
+import { getSystemSettings } from "../services/settings.js";
 
 const SettingsContext = createContext();
 

@@ -12,18 +12,14 @@ import {
   Copy,
   CheckCheck,
 } from "lucide-react";
-import {
-  getAllUsers,
-  updateUserProfile,
-  createStaffAccount,
-  softDeleteUser,
-} from "../services/firestoreService";
+
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import FormModal from "../components/FormModal";
 
 import CustomSelect from "../components/CustomSelect";
 import ConfirmModal from "../components/ConfirmModal.jsx";
+import { createStaffAccount, getAllUsers, softDeleteUser, updateUserProfile } from "../services/users.js";
 
 const getRoleIcon = (role) =>
   role === "admin" ? <Shield size={14} /> : <UserCheck size={14} />;
