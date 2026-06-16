@@ -181,7 +181,8 @@ const login = async (email, password) => {
     const firebaseUser = userCredential.user;
 
     // Block unverified users from logging in
-    if (!firebaseUser.emailVerified) {
+    if ( !firebaseUser.emailVerified ) {
+      
       await signOut(auth);
       throw new Error("Please verify your email before logging in.");
     }

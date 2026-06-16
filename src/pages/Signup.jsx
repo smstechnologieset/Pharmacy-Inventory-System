@@ -8,6 +8,8 @@ import {
   User,
   Phone,
   Building2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
@@ -20,6 +22,14 @@ const Signup = () => {
   const [pharmacyName, setPharmacyName] = useState("");
   const [phone, setPhone] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  
+  // States for password visibility
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // State for phone input focus styling
+  const [isPhoneFocused, setIsPhoneFocused] = useState(false);
+  
   const [localError, setLocalError] = useState("");
   const [localLoading, setLocalLoading] = useState(false);
 
@@ -33,6 +43,20 @@ const Signup = () => {
       navigate("/");
     }
   }, [user, navigate]);
+
+  // Handle phone input changes and auto-strip country code/leading zero
+  const handlePhoneChange = (e) => {
+    let value = e.target.value;
+    // If user pastes or types +251 at the beginning, strip it
+    if (value.startsWith("+251")) {
+      value = value.substring(4);
+    } 
+    // If user types 0 at the beginning, strip it
+    else if (value.startsWith("0")) {
+      value = value.substring(1);
+    }
+    setPhone(value);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -49,6 +73,18 @@ const Signup = () => {
       if (!phone.trim()) {
         throw new Error(t("login.phoneRequired") || "Phone number is required");
       }
+
+      // --- ETHIOPIAN PHONE NUMBER VALIDATION ---
+      // Since the country code is handled by the UI, we only validate the 9-digit number
+      const phoneRegex = /^9\d{8}$/;
+      
+      if (!phoneRegex.test(phone)) {
+        throw new Error(
+          "Invalid phone number. Please enter a valid 9-digit Ethiopian phone number (e.g., 911121314)."
+        );
+      }
+      // -----------------------------------------
+
       if (password !== confirmPassword) {
         throw new Error(
           t("login.passwordsDoNotMatch") || "Passwords do not match",
@@ -61,10 +97,10 @@ const Signup = () => {
         );
       }
 
-      await signup(email, password, name, "admin", phone, pharmacyName);
+      // Pass the full international format (+251...) to the signup function
+      await signup(email, password, name, "admin", `+251${phone}`, pharmacyName);
 
       setLocalLoading(false);
-
       navigate("/verify-email");
     } catch (error) {
       setLocalError(
@@ -268,9 +304,9 @@ const Signup = () => {
           <form
             onSubmit={handleSubmit}
             style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+            
             {/* Name Field */}
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <label
                 style={{
                   fontSize: "0.9rem",
@@ -278,7 +314,7 @@ const Signup = () => {
                   color: "#1E293B",
                   marginLeft: "4px",
                 }}>
-                {t("login.fullName") || "Full Name"}
+                {t("login.fullName") || "Full Name"} <span style={{ color: "#EF4444" }}>*</span>
               </label>
               <div style={{ position: "relative" }}>
                 <User
@@ -309,8 +345,7 @@ const Signup = () => {
                   onFocus={(e) => {
                     e.target.style.borderColor = "#0D9488";
                     e.target.style.background = "white";
-                    e.target.style.boxShadow =
-                      "0 0 0 4px rgba(13, 148, 136, 0.1)";
+                    e.target.style.boxShadow = "0 0 0 4px rgba(13, 148, 136, 0.1)";
                   }}
                   onBlur={(e) => {
                     e.target.style.borderColor = "#F1F5F9";
@@ -324,8 +359,7 @@ const Signup = () => {
             </div>
 
             {/* Pharmacy Name Field */}
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <label
                 style={{
                   fontSize: "0.9rem",
@@ -333,7 +367,7 @@ const Signup = () => {
                   color: "#1E293B",
                   marginLeft: "4px",
                 }}>
-                Pharmacy Name
+                Pharmacy Name <span style={{ color: "#EF4444" }}>*</span>
               </label>
               <div style={{ position: "relative" }}>
                 <Building2
@@ -364,8 +398,7 @@ const Signup = () => {
                   onFocus={(e) => {
                     e.target.style.borderColor = "#0D9488";
                     e.target.style.background = "white";
-                    e.target.style.boxShadow =
-                      "0 0 0 4px rgba(13, 148, 136, 0.1)";
+                    e.target.style.boxShadow = "0 0 0 4px rgba(13, 148, 136, 0.1)";
                   }}
                   onBlur={(e) => {
                     e.target.style.borderColor = "#F1F5F9";
@@ -378,9 +411,8 @@ const Signup = () => {
               </div>
             </div>
 
-            {/* Phone Field */}
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {/* Phone Field (Unified Container) */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <label
                 style={{
                   fontSize: "0.9rem",
@@ -388,54 +420,63 @@ const Signup = () => {
                   color: "#1E293B",
                   marginLeft: "4px",
                 }}>
-                {t("login.phoneNumber") || "Phone Number"}
+                {t("login.phoneNumber") || "Phone Number"} <span style={{ color: "#EF4444" }}>*</span>
               </label>
-              <div style={{ position: "relative" }}>
-                <Phone
-                  size={20}
-                  style={{
-                    position: "absolute",
-                    left: "20px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    color: "#94A3B8",
-                  }}
-                />
+              <div 
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  borderRadius: "20px",
+                  border: `2px solid ${isPhoneFocused ? "#0D9488" : "#F1F5F9"}`,
+                  background: isPhoneFocused ? "white" : "#F8FAFC",
+                  boxShadow: isPhoneFocused ? "0 0 0 4px rgba(13, 148, 136, 0.1)" : "none",
+                  transition: "all 0.3s",
+                  overflow: "hidden"
+                }}
+              >
+                {/* Phone Icon */}
+                <div style={{ padding: "0 0 0 20px", color: "#94A3B8", display: "flex", alignItems: "center" }}>
+                  <Phone size={20} />
+                </div>
+                
+                {/* Country Code */}
+                <div style={{
+                  padding: "16px 12px",
+                  fontWeight: "600",
+                  color: "#1E293B",
+                  borderRight: "2px solid #E2E8F0",
+                  fontSize: "1rem",
+                  userSelect: "none",
+                  whiteSpace: "nowrap"
+                }}>
+                  +251
+                </div>
+                
+                {/* Phone Input */}
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={handlePhoneChange}
+                  onFocus={() => setIsPhoneFocused(true)}
+                  onBlur={() => setIsPhoneFocused(false)}
                   style={{
-                    width: "100%",
-                    padding: "16px 20px 16px 56px",
-                    borderRadius: "20px",
-                    border: "2px solid #F1F5F9",
-                    background: "#F8FAFC",
+                    flex: 1,
+                    padding: "16px 20px 16px 16px",
+                    border: "none",
+                    background: "transparent",
                     outline: "none",
                     fontSize: "1rem",
-                    transition: "all 0.3s",
                     fontFamily: "inherit",
+                    minWidth: 0 // Prevents overflow on small screens
                   }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = "#0D9488";
-                    e.target.style.background = "white";
-                    e.target.style.boxShadow =
-                      "0 0 0 4px rgba(13, 148, 136, 0.1)";
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = "#F1F5F9";
-                    e.target.style.background = "#F8FAFC";
-                    e.target.style.boxShadow = "none";
-                  }}
-                  placeholder="+251 9XX XXX XXX"
+                  placeholder="9XX XXX XXX"
                   required
                 />
               </div>
             </div>
 
             {/* Email Field */}
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <label
                 style={{
                   fontSize: "0.9rem",
@@ -443,7 +484,7 @@ const Signup = () => {
                   color: "#1E293B",
                   marginLeft: "4px",
                 }}>
-                {t("login.emailAddress") || "Email Address"}
+                {t("login.emailAddress") || "Email Address"} <span style={{ color: "#EF4444" }}>*</span>
               </label>
               <div style={{ position: "relative" }}>
                 <Mail
@@ -474,8 +515,7 @@ const Signup = () => {
                   onFocus={(e) => {
                     e.target.style.borderColor = "#0D9488";
                     e.target.style.background = "white";
-                    e.target.style.boxShadow =
-                      "0 0 0 4px rgba(13, 148, 136, 0.1)";
+                    e.target.style.boxShadow = "0 0 0 4px rgba(13, 148, 136, 0.1)";
                   }}
                   onBlur={(e) => {
                     e.target.style.borderColor = "#F1F5F9";
@@ -489,8 +529,7 @@ const Signup = () => {
             </div>
 
             {/* Password Field */}
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <label
                 style={{
                   fontSize: "0.9rem",
@@ -498,7 +537,7 @@ const Signup = () => {
                   color: "#1E293B",
                   marginLeft: "4px",
                 }}>
-                {t("login.password") || "Password"}
+                {t("login.password") || "Password"} <span style={{ color: "#EF4444" }}>*</span>
               </label>
               <div style={{ position: "relative" }}>
                 <Lock
@@ -512,12 +551,12 @@ const Signup = () => {
                   }}
                 />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   style={{
                     width: "100%",
-                    padding: "16px 20px 16px 56px",
+                    padding: "16px 56px 16px 56px",
                     borderRadius: "20px",
                     border: "2px solid #F1F5F9",
                     background: "#F8FAFC",
@@ -529,8 +568,7 @@ const Signup = () => {
                   onFocus={(e) => {
                     e.target.style.borderColor = "#0D9488";
                     e.target.style.background = "white";
-                    e.target.style.boxShadow =
-                      "0 0 0 4px rgba(13, 148, 136, 0.1)";
+                    e.target.style.boxShadow = "0 0 0 4px rgba(13, 148, 136, 0.1)";
                   }}
                   onBlur={(e) => {
                     e.target.style.borderColor = "#F1F5F9";
@@ -540,12 +578,32 @@ const Signup = () => {
                   placeholder="••••••••"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: "absolute",
+                    right: "20px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#94A3B8",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 0,
+                  }}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
             </div>
 
             {/* Confirm Password Field */}
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <label
                 style={{
                   fontSize: "0.9rem",
@@ -553,7 +611,7 @@ const Signup = () => {
                   color: "#1E293B",
                   marginLeft: "4px",
                 }}>
-                {t("login.confirmPassword") || "Confirm Password"}
+                {t("login.confirmPassword") || "Confirm Password"} <span style={{ color: "#EF4444" }}>*</span>
               </label>
               <div style={{ position: "relative" }}>
                 <Lock
@@ -567,12 +625,12 @@ const Signup = () => {
                   }}
                 />
                 <input
-                  type="password"
+                  type={showConfirmPassword ? "text" : "password"}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   style={{
                     width: "100%",
-                    padding: "16px 20px 16px 56px",
+                    padding: "16px 56px 16px 56px",
                     borderRadius: "20px",
                     border: "2px solid #F1F5F9",
                     background: "#F8FAFC",
@@ -584,8 +642,7 @@ const Signup = () => {
                   onFocus={(e) => {
                     e.target.style.borderColor = "#0D9488";
                     e.target.style.background = "white";
-                    e.target.style.boxShadow =
-                      "0 0 0 4px rgba(13, 148, 136, 0.1)";
+                    e.target.style.boxShadow = "0 0 0 4px rgba(13, 148, 136, 0.1)";
                   }}
                   onBlur={(e) => {
                     e.target.style.borderColor = "#F1F5F9";
@@ -595,6 +652,27 @@ const Signup = () => {
                   placeholder="••••••••"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={{
+                    position: "absolute",
+                    right: "20px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#94A3B8",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 0,
+                  }}
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                >
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
             </div>
 
