@@ -21,7 +21,6 @@ import { useSettings } from "../context/SettingsContext";
 import FormModal from "../components/FormModal";
 import ConfirmModal from "../components/ConfirmModal";
 
-
 const SuperAdmin = () => {
   const { user, logout } = useAuth();
   const { t } = useSettings();
