@@ -6,6 +6,8 @@ import {
   ArrowRight,
   AlertCircle,
   X,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { useAuth } from "../context/AuthContext";
@@ -14,8 +16,9 @@ import { useNavigate } from "react-router-dom";
 import { auth } from "../services/firebase";
 
 const Login = () => {
-  const [email, setEmail] = useState("admin@pharmacy.com");
-  const [password, setPassword] = useState("password");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false); // New state for password visibility
   const [localError, setLocalError] = useState("");
   const [localLoading, setLocalLoading] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
@@ -379,12 +382,12 @@ const Login = () => {
                   }}
                 />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   style={{
                     width: "100%",
-                    padding: "18px 20px 18px 56px",
+                    padding: "18px 56px 18px 56px", // Increased right padding for the eye icon
                     borderRadius: "20px",
                     border: "2px solid #F1F5F9",
                     background: "#F8FAFC",
@@ -407,6 +410,28 @@ const Login = () => {
                   placeholder="••••••••"
                   required
                 />
+                {/* Eye Icon Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: "absolute",
+                    right: "20px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#94A3B8",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 0,
+                  }}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
             </div>
 
