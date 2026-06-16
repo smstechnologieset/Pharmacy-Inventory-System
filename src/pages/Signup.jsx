@@ -8,6 +8,8 @@ import {
   User,
   Phone,
   Building2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
@@ -20,6 +22,11 @@ const Signup = () => {
   const [pharmacyName, setPharmacyName] = useState("");
   const [phone, setPhone] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  
+  // New states for password visibility
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
   const [localError, setLocalError] = useState("");
   const [localLoading, setLocalLoading] = useState(false);
 
@@ -268,9 +275,9 @@ const Signup = () => {
           <form
             onSubmit={handleSubmit}
             style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+            
             {/* Name Field */}
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <label
                 style={{
                   fontSize: "0.9rem",
@@ -278,7 +285,7 @@ const Signup = () => {
                   color: "#1E293B",
                   marginLeft: "4px",
                 }}>
-                {t("login.fullName") || "Full Name"}
+                {t("login.fullName") || "Full Name"} <span style={{ color: "#EF4444" }}>*</span>
               </label>
               <div style={{ position: "relative" }}>
                 <User
@@ -309,8 +316,7 @@ const Signup = () => {
                   onFocus={(e) => {
                     e.target.style.borderColor = "#0D9488";
                     e.target.style.background = "white";
-                    e.target.style.boxShadow =
-                      "0 0 0 4px rgba(13, 148, 136, 0.1)";
+                    e.target.style.boxShadow = "0 0 0 4px rgba(13, 148, 136, 0.1)";
                   }}
                   onBlur={(e) => {
                     e.target.style.borderColor = "#F1F5F9";
@@ -324,8 +330,7 @@ const Signup = () => {
             </div>
 
             {/* Pharmacy Name Field */}
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <label
                 style={{
                   fontSize: "0.9rem",
@@ -333,7 +338,7 @@ const Signup = () => {
                   color: "#1E293B",
                   marginLeft: "4px",
                 }}>
-                Pharmacy Name
+                Pharmacy Name <span style={{ color: "#EF4444" }}>*</span>
               </label>
               <div style={{ position: "relative" }}>
                 <Building2
@@ -364,8 +369,7 @@ const Signup = () => {
                   onFocus={(e) => {
                     e.target.style.borderColor = "#0D9488";
                     e.target.style.background = "white";
-                    e.target.style.boxShadow =
-                      "0 0 0 4px rgba(13, 148, 136, 0.1)";
+                    e.target.style.boxShadow = "0 0 0 4px rgba(13, 148, 136, 0.1)";
                   }}
                   onBlur={(e) => {
                     e.target.style.borderColor = "#F1F5F9";
@@ -379,8 +383,7 @@ const Signup = () => {
             </div>
 
             {/* Phone Field */}
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <label
                 style={{
                   fontSize: "0.9rem",
@@ -388,7 +391,7 @@ const Signup = () => {
                   color: "#1E293B",
                   marginLeft: "4px",
                 }}>
-                {t("login.phoneNumber") || "Phone Number"}
+                {t("login.phoneNumber") || "Phone Number"} <span style={{ color: "#EF4444" }}>*</span>
               </label>
               <div style={{ position: "relative" }}>
                 <Phone
@@ -419,8 +422,7 @@ const Signup = () => {
                   onFocus={(e) => {
                     e.target.style.borderColor = "#0D9488";
                     e.target.style.background = "white";
-                    e.target.style.boxShadow =
-                      "0 0 0 4px rgba(13, 148, 136, 0.1)";
+                    e.target.style.boxShadow = "0 0 0 4px rgba(13, 148, 136, 0.1)";
                   }}
                   onBlur={(e) => {
                     e.target.style.borderColor = "#F1F5F9";
@@ -434,8 +436,7 @@ const Signup = () => {
             </div>
 
             {/* Email Field */}
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <label
                 style={{
                   fontSize: "0.9rem",
@@ -443,7 +444,7 @@ const Signup = () => {
                   color: "#1E293B",
                   marginLeft: "4px",
                 }}>
-                {t("login.emailAddress") || "Email Address"}
+                {t("login.emailAddress") || "Email Address"} <span style={{ color: "#EF4444" }}>*</span>
               </label>
               <div style={{ position: "relative" }}>
                 <Mail
@@ -474,8 +475,7 @@ const Signup = () => {
                   onFocus={(e) => {
                     e.target.style.borderColor = "#0D9488";
                     e.target.style.background = "white";
-                    e.target.style.boxShadow =
-                      "0 0 0 4px rgba(13, 148, 136, 0.1)";
+                    e.target.style.boxShadow = "0 0 0 4px rgba(13, 148, 136, 0.1)";
                   }}
                   onBlur={(e) => {
                     e.target.style.borderColor = "#F1F5F9";
@@ -489,8 +489,7 @@ const Signup = () => {
             </div>
 
             {/* Password Field */}
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <label
                 style={{
                   fontSize: "0.9rem",
@@ -498,7 +497,7 @@ const Signup = () => {
                   color: "#1E293B",
                   marginLeft: "4px",
                 }}>
-                {t("login.password") || "Password"}
+                {t("login.password") || "Password"} <span style={{ color: "#EF4444" }}>*</span>
               </label>
               <div style={{ position: "relative" }}>
                 <Lock
@@ -512,12 +511,12 @@ const Signup = () => {
                   }}
                 />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   style={{
                     width: "100%",
-                    padding: "16px 20px 16px 56px",
+                    padding: "16px 56px 16px 56px", // Increased right padding for the eye icon
                     borderRadius: "20px",
                     border: "2px solid #F1F5F9",
                     background: "#F8FAFC",
@@ -529,8 +528,7 @@ const Signup = () => {
                   onFocus={(e) => {
                     e.target.style.borderColor = "#0D9488";
                     e.target.style.background = "white";
-                    e.target.style.boxShadow =
-                      "0 0 0 4px rgba(13, 148, 136, 0.1)";
+                    e.target.style.boxShadow = "0 0 0 4px rgba(13, 148, 136, 0.1)";
                   }}
                   onBlur={(e) => {
                     e.target.style.borderColor = "#F1F5F9";
@@ -540,12 +538,33 @@ const Signup = () => {
                   placeholder="••••••••"
                   required
                 />
+                {/* Eye Icon Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: "absolute",
+                    right: "20px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#94A3B8",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 0,
+                  }}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
             </div>
 
             {/* Confirm Password Field */}
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <label
                 style={{
                   fontSize: "0.9rem",
@@ -553,7 +572,7 @@ const Signup = () => {
                   color: "#1E293B",
                   marginLeft: "4px",
                 }}>
-                {t("login.confirmPassword") || "Confirm Password"}
+                {t("login.confirmPassword") || "Confirm Password"} <span style={{ color: "#EF4444" }}>*</span>
               </label>
               <div style={{ position: "relative" }}>
                 <Lock
@@ -567,12 +586,12 @@ const Signup = () => {
                   }}
                 />
                 <input
-                  type="password"
+                  type={showConfirmPassword ? "text" : "password"}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   style={{
                     width: "100%",
-                    padding: "16px 20px 16px 56px",
+                    padding: "16px 56px 16px 56px", // Increased right padding for the eye icon
                     borderRadius: "20px",
                     border: "2px solid #F1F5F9",
                     background: "#F8FAFC",
@@ -584,8 +603,7 @@ const Signup = () => {
                   onFocus={(e) => {
                     e.target.style.borderColor = "#0D9488";
                     e.target.style.background = "white";
-                    e.target.style.boxShadow =
-                      "0 0 0 4px rgba(13, 148, 136, 0.1)";
+                    e.target.style.boxShadow = "0 0 0 4px rgba(13, 148, 136, 0.1)";
                   }}
                   onBlur={(e) => {
                     e.target.style.borderColor = "#F1F5F9";
@@ -595,6 +613,28 @@ const Signup = () => {
                   placeholder="••••••••"
                   required
                 />
+                {/* Eye Icon Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={{
+                    position: "absolute",
+                    right: "20px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#94A3B8",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 0,
+                  }}
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                >
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
             </div>
 
