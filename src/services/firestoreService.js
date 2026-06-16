@@ -110,27 +110,6 @@ export const updatePharmacy = async (pharmacyId, updates) => {
   }
 };
 
-export const updateUserStatusByPharmacyId = async (pharmacyId, status) => {
-  try {
-    const q = query(
-      collection(db, USERS_COLLECTION),
-      where("pharmacyId", "==", pharmacyId),
-      where("role", "==", "admin"),
-    );
-    const snapshot = await getDocs(q);
-    const updates = snapshot.docs.map((d) =>
-      updateDoc(doc(db, USERS_COLLECTION, d.id), {
-        status,
-        updatedAt: serverTimestamp(),
-      }),
-    );
-    await Promise.all(updates);
-  } catch (error) {
-    console.error("Error updating user status:", error);
-    throw new Error(`Failed to update user status: ${error.message}`);
-  }
-};
-
 // ═══════════════════════════════════════════════════════════════
 // MEDICINE CRUD (Pharmacy-scoped)
 // ═══════════════════════════════════════════════════════════════
