@@ -91,7 +91,7 @@ const Medicine = () => {
         description: product.description,
         supplierId: product.supplierId || "",
         supplierName: product.supplierName || "",
-      });
+      }); 
     } else {
       setEditingProduct(null);
       setFormData({
