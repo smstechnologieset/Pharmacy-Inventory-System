@@ -1,14 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { AlertCircle, CheckCircle, Trash2, Clock } from "lucide-react";
-import {
-  getAllMedicines,
-  getAllStockBatches,
-  updateStockBatch,
-  deleteStockBatch,
-  createStockMovement,
-} from "../services/firestoreService.js";
+
 import { useAuth } from "../context/AuthContext.jsx";
 import { useSettings } from "../context/SettingsContext";
+import { createStockMovement, deleteStockBatch, getAllStockBatches, updateStockBatch } from "../services/stockBatches.js";
+import { getAllMedicines } from "../services/medicines.js";
 
 const Expiration = () => {
   const { user } = useAuth();

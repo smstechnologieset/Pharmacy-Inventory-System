@@ -14,13 +14,15 @@ import {
   onAuthStateChanged,
 } from "firebase/auth";
 import { auth, db } from "../services/firebase";
-import {
-  createUserProfile,
-  getUserProfile,
-  getPharmacyById,
-  createPharmacy,
-} from "../services/firestoreService";
+// import {
+//   createUserProfile,
+//   getUserProfile,
+//   getPharmacyById,
+//   createPharmacy,
+// } from "../services/firestoreService";
 import { doc, onSnapshot } from "firebase/firestore";
+import { createPharmacy, getPharmacyById } from "../services/pharmacies.js";
+import { createUserProfile, getUserProfile } from "../services/users.js";
 
 const AuthContext = createContext();
 

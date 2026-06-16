@@ -2,16 +2,17 @@ import React, { useState, useEffect } from "react";
 import { Search, Plus, Edit, Trash2 } from "lucide-react";
 import FormModal from "../components/FormModal";
 import ConfirmModal from "../components/ConfirmModal"; // 1. Import the ConfirmModal
-import {
-  createMedicine,
-  getAllMedicines,
-  updateMedicine,
-  deleteMedicine,
-  getAllSuppliers,
-} from "../services/firestoreService";
+
 import { useSettings } from "../context/SettingsContext";
 import CustomSelect from "../components/CustomSelect";
 import { useAuth } from "../context/AuthContext";
+import {
+  getAllMedicines,
+  createMedicine,
+  updateMedicine,
+  deleteMedicine,
+} from "../services/medicines.js";
+import { getAllSuppliers } from "../services/suppliers.js";
 
 const Medicine = () => {
   const { t } = useSettings();

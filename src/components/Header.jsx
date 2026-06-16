@@ -2,14 +2,12 @@ import React, { useState, useEffect, useRef } from "react";
 import { Search, Bell, Package, X, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import {
-  getAllMedicines,
-  getAllStockBatches,
-  getSystemSettings,
-  searchMedicinesByPrefix,
-} from "../services/firestoreService";
+
 
 import { useSettings } from "../context/SettingsContext";
+import { getAllMedicines, searchMedicinesByPrefix } from "../services/medicines.js";
+import { getAllStockBatches } from "../services/stockBatches.js";
+import { getSystemSettings } from "../services/settings.js";
 
 const getStockStatus = (stock, t) => {
   const s = Number(stock);

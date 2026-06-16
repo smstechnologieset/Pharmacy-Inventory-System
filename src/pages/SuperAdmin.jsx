@@ -8,18 +8,13 @@ import {
   Activity,
   LogOut,
 } from "lucide-react";
-import {
-  getAllPharmacies,
-  createPharmacy,
-  updatePharmacy,
-  createStaffAccount,
-  getAllUsers,
-  updateUserStatusByPharmacyId,
-} from "../services/firestoreService";
+
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import FormModal from "../components/FormModal";
 import ConfirmModal from "../components/ConfirmModal";
+import { createPharmacy, getAllPharmacies, updatePharmacy, updateUserStatusByPharmacyId } from "../services/pharmacies.js";
+import { createStaffAccount, getAllUsers } from "../services/users.js";
 
 
 const SuperAdmin = () => {

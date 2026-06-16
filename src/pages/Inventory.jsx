@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { Search, Plus, Edit, Trash2, Box } from "lucide-react";
-import {
-  getAllMedicines,
-  getAllStockBatches,
-  createStockBatch,
-  updateStockBatch,
-  deleteStockBatch,
-  createStockMovement,
-} from "../services/firestoreService";
+
 import FormModal from "../components/FormModal";
 import ConfirmModal from "../components/ConfirmModal"; // 1. Import the ConfirmModal
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import CustomSelect from "../components/CustomSelect";
+import {
+  getAllStockBatches,
+  createStockBatch,
+  updateStockBatch,
+  deleteStockBatch,
+  createStockMovement,
+} from "../services/stockBatches.js";
+import { getAllMedicines } from "../services/medicines.js";
 
 const Inventory = () => {
   const { user } = useAuth();

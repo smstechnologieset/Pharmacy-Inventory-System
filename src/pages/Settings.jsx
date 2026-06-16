@@ -15,12 +15,11 @@ import {
   EmailAuthProvider,
 } from "firebase/auth";
 import { useAuth } from "../context/AuthContext";
-import {
-  updateSystemSettings,
-  updateUserProfile, // ✅ Added import
-} from "../services/firestoreService";
+
 import { useSettings } from "../context/SettingsContext";
 import CustomSelect from "../components/CustomSelect";
+import { updateSystemSettings } from "../services/settings.js";
+import { updateUserProfile } from "../services/users.js";
 
 const Settings = () => {
   const { user } = useAuth();
