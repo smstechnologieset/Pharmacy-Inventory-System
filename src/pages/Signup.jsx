@@ -23,9 +23,12 @@ const Signup = () => {
   const [phone, setPhone] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   
-  // New states for password visibility
+  // States for password visibility
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // State for phone input focus styling
+  const [isPhoneFocused, setIsPhoneFocused] = useState(false);
   
   const [localError, setLocalError] = useState("");
   const [localLoading, setLocalLoading] = useState(false);
@@ -40,6 +43,20 @@ const Signup = () => {
       navigate("/");
     }
   }, [user, navigate]);
+
+  // Handle phone input changes and auto-strip country code/leading zero
+  const handlePhoneChange = (e) => {
+    let value = e.target.value;
+    // If user pastes or types +251 at the beginning, strip it
+    if (value.startsWith("+251")) {
+      value = value.substring(4);
+    } 
+    // If user types 0 at the beginning, strip it
+    else if (value.startsWith("0")) {
+      value = value.substring(1);
+    }
+    setPhone(value);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -56,6 +73,18 @@ const Signup = () => {
       if (!phone.trim()) {
         throw new Error(t("login.phoneRequired") || "Phone number is required");
       }
+
+      // --- ETHIOPIAN PHONE NUMBER VALIDATION ---
+      // Since the country code is handled by the UI, we only validate the 9-digit number
+      const phoneRegex = /^9\d{8}$/;
+      
+      if (!phoneRegex.test(phone)) {
+        throw new Error(
+          "Invalid phone number. Please enter a valid 9-digit Ethiopian phone number (e.g., 911121314)."
+        );
+      }
+      // -----------------------------------------
+
       if (password !== confirmPassword) {
         throw new Error(
           t("login.passwordsDoNotMatch") || "Passwords do not match",
@@ -68,10 +97,10 @@ const Signup = () => {
         );
       }
 
-      await signup(email, password, name, "admin", phone, pharmacyName);
+      // Pass the full international format (+251...) to the signup function
+      await signup(email, password, name, "admin", `+251${phone}`, pharmacyName);
 
       setLocalLoading(false);
-
       navigate("/verify-email");
     } catch (error) {
       setLocalError(
@@ -382,7 +411,7 @@ const Signup = () => {
               </div>
             </div>
 
-            {/* Phone Field */}
+            {/* Phone Field (Unified Container) */}
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <label
                 style={{
@@ -393,43 +422,54 @@ const Signup = () => {
                 }}>
                 {t("login.phoneNumber") || "Phone Number"} <span style={{ color: "#EF4444" }}>*</span>
               </label>
-              <div style={{ position: "relative" }}>
-                <Phone
-                  size={20}
-                  style={{
-                    position: "absolute",
-                    left: "20px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    color: "#94A3B8",
-                  }}
-                />
+              <div 
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  borderRadius: "20px",
+                  border: `2px solid ${isPhoneFocused ? "#0D9488" : "#F1F5F9"}`,
+                  background: isPhoneFocused ? "white" : "#F8FAFC",
+                  boxShadow: isPhoneFocused ? "0 0 0 4px rgba(13, 148, 136, 0.1)" : "none",
+                  transition: "all 0.3s",
+                  overflow: "hidden"
+                }}
+              >
+                {/* Phone Icon */}
+                <div style={{ padding: "0 0 0 20px", color: "#94A3B8", display: "flex", alignItems: "center" }}>
+                  <Phone size={20} />
+                </div>
+                
+                {/* Country Code */}
+                <div style={{
+                  padding: "16px 12px",
+                  fontWeight: "600",
+                  color: "#1E293B",
+                  borderRight: "2px solid #E2E8F0",
+                  fontSize: "1rem",
+                  userSelect: "none",
+                  whiteSpace: "nowrap"
+                }}>
+                  +251
+                </div>
+                
+                {/* Phone Input */}
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={handlePhoneChange}
+                  onFocus={() => setIsPhoneFocused(true)}
+                  onBlur={() => setIsPhoneFocused(false)}
                   style={{
-                    width: "100%",
-                    padding: "16px 20px 16px 56px",
-                    borderRadius: "20px",
-                    border: "2px solid #F1F5F9",
-                    background: "#F8FAFC",
+                    flex: 1,
+                    padding: "16px 20px 16px 16px",
+                    border: "none",
+                    background: "transparent",
                     outline: "none",
                     fontSize: "1rem",
-                    transition: "all 0.3s",
                     fontFamily: "inherit",
+                    minWidth: 0 // Prevents overflow on small screens
                   }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = "#0D9488";
-                    e.target.style.background = "white";
-                    e.target.style.boxShadow = "0 0 0 4px rgba(13, 148, 136, 0.1)";
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = "#F1F5F9";
-                    e.target.style.background = "#F8FAFC";
-                    e.target.style.boxShadow = "none";
-                  }}
-                  placeholder="+251 9XX XXX XXX"
+                  placeholder="9XX XXX XXX"
                   required
                 />
               </div>
@@ -516,7 +556,7 @@ const Signup = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   style={{
                     width: "100%",
-                    padding: "16px 56px 16px 56px", // Increased right padding for the eye icon
+                    padding: "16px 56px 16px 56px",
                     borderRadius: "20px",
                     border: "2px solid #F1F5F9",
                     background: "#F8FAFC",
@@ -538,7 +578,6 @@ const Signup = () => {
                   placeholder="••••••••"
                   required
                 />
-                {/* Eye Icon Toggle Button */}
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -591,7 +630,7 @@ const Signup = () => {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   style={{
                     width: "100%",
-                    padding: "16px 56px 16px 56px", // Increased right padding for the eye icon
+                    padding: "16px 56px 16px 56px",
                     borderRadius: "20px",
                     border: "2px solid #F1F5F9",
                     background: "#F8FAFC",
@@ -613,7 +652,6 @@ const Signup = () => {
                   placeholder="••••••••"
                   required
                 />
-                {/* Eye Icon Toggle Button */}
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
