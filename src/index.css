@@ -556,3 +556,7 @@ tbody tr:hover td {
   top: 0;
   width: 80mm;
 }
+@keyframes notifPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.4); }
+}

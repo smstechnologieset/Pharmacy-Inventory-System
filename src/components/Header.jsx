@@ -5,10 +5,15 @@ import { useAuth } from "../context/AuthContext";
 
 import { useSettings } from "../context/SettingsContext";
 import {
-
   searchMedicinesByPrefix,
   subscribeToMedicines,
 } from "../services/medicines.js";
+import {
+  upsertNotification,
+  resolveNotification,
+  markAllNotificationsRead,
+  subscribeToNotifications,
+} from "../services/notifications.js";
 import { subscribeToStockBatches } from "../services/stockBatches.js";
 import { getSystemSettings } from "../services/settings.js";
 import Avatar from "./Avatar.jsx";
@@ -51,10 +56,17 @@ const Header = () => {
   const { t } = useSettings();
   const navigate = useNavigate();
   const [showNotifs, setShowNotifs] = useState(false);
-  const [realNotifications, setRealNotifications] = useState([]);
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
+  const canSeeNotifications = [
+    "admin",
+    "manager",
+    "pharmacist",
+    "superadmin",
+  ].includes(user?.role);
+
+  const [realNotifications, setPersistedNotifs] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -74,17 +86,9 @@ const Header = () => {
     const delayDebounceFn = setTimeout(async () => {
       try {
         setIsSearching(true);
-        // We do a prefix search. Firestore query requires exact case or we can just lowercase name,
-        // but since we don't have lowercase names saved, we just pass the original string (capitalized start usually works).
-        // Let's pass the raw string since Firestore is case-sensitive and we haven't added a lowercase_name field.
-        // The best we can do without a lowercase index is match exact prefix.
         const capitalizedQ =
           query.trim().charAt(0).toUpperCase() + query.trim().slice(1);
-        const lowerQ = query.trim().toLowerCase();
 
-        // We'll search both capitalized and lowercase (two queries) and combine, just to be safe.
-        // Wait, Firestore doesn't support 'OR' queries on different boundaries.
-        // Let's just use the capitalized version as standard.
         const meds = await searchMedicinesByPrefix(
           user?.pharmacyId,
           capitalizedQ,
@@ -108,41 +112,30 @@ const Header = () => {
       } finally {
         setIsSearching(false);
       }
-    }, 400); // 400ms debounce
+    }, 400);
 
     return () => clearTimeout(delayDebounceFn);
   }, [query, user?.pharmacyId]);
 
-  // Generate Real Notifications based on Settings
-  // Generate Real Notifications based on Settings — now live
+  // Detect conditions and upsert notification docs to Firestore
   useEffect(() => {
-    if (!user?.pharmacyId) return;
+    if (!user?.pharmacyId || !canSeeNotifications) return;
 
     let medsCache = [];
     let batchesCache = [];
     let settingsCache = { lowStockThreshold: 10, expiryWarningDays: 60 };
 
-    const buildNotifications = () => {
+    const detectAndSync = async () => {
       const medMap = medsCache.reduce((acc, m) => {
         acc[m.id] = m;
         return acc;
       }, {});
       const threshold = settingsCache.lowStockThreshold || 10;
       const warnDays = settingsCache.expiryWarningDays || 60;
-
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // Group by medicineId + alert type, instead of one notif per batch
-      const groups = {};
-
-      const addToGroup = (key, medName, type, title, detail) => {
-        if (!groups[key]) {
-          groups[key] = { medName, type, title, count: 0, details: [] };
-        }
-        groups[key].count += 1;
-        groups[key].details.push(detail);
-      };
+      const detected = {};
 
       batchesCache.forEach((b) => {
         const medName = medMap[b.medicineId]?.name || "Unknown Medicine";
@@ -150,89 +143,112 @@ const Header = () => {
           ? b.expiry.toDate()
           : new Date(b.expiry);
 
+        const mark = (type, title, detail) => {
+          const key = `${b.medicineId}_${type}`;
+          if (!detected[key])
+            detected[key] = { medName, title, count: 0, details: [] };
+          detected[key].count += 1;
+          detected[key].details.push(detail);
+        };
+
         if (!isNaN(expiryDate)) {
           const diffDays = Math.ceil(
             (expiryDate - today) / (1000 * 60 * 60 * 24),
           );
-          if (diffDays < 0) {
-            addToGroup(
-              `exp-${b.medicineId}`,
-              medName,
-              "error",
-              t("header.expiredStock"),
-              `Batch ${b.batchNo}`,
-            );
-          } else if (diffDays <= warnDays) {
-            addToGroup(
-              `warn-${b.medicineId}`,
-              medName,
-              "warning",
+          if (diffDays < 0)
+            mark("expired", t("header.expiredStock"), `Batch ${b.batchNo}`);
+          else if (diffDays <= warnDays)
+            mark(
+              "expiring",
               t("header.expiringSoon"),
               `Batch ${b.batchNo} (${diffDays}d)`,
             );
-          }
         }
 
-        if (b.quantity === 0) {
-          addToGroup(
-            `out-${b.medicineId}`,
-            medName,
-            "error",
-            t("header.outOfStock"),
-            `Batch ${b.batchNo}`,
-          );
-        } else if (b.quantity <= threshold) {
-          addToGroup(
-            `low-${b.medicineId}`,
-            medName,
-            "warning",
+        if (b.quantity === 0)
+          mark("out-of-stock", t("header.outOfStock"), `Batch ${b.batchNo}`);
+        else if (b.quantity <= threshold)
+          mark(
+            "low-stock",
             t("header.lowStockAlert"),
             `Batch ${b.batchNo} (${b.quantity} units)`,
           );
-        }
       });
 
-      const notifs = Object.entries(groups).map(([key, g]) => ({
-        id: key,
-        medicineId: key.split("-")[1],
-        title: g.title,
-        type: g.type,
-        message:
-          g.count === 1
-            ? `${g.medName} — ${g.details[0]}`
-            : `${g.medName} — ${g.count} batches (${g.title.toLowerCase()})`,
-      }));
+      // Upsert all currently-detected conditions
+      await Promise.all(
+        Object.entries(detected).map(([key, d]) => {
+          const [medicineId, type] = key.split("_");
+          const message =
+            d.count === 1
+              ? `${d.medName} — ${d.details[0]}`
+              : `${d.medName} — ${d.count} batches (${d.title.toLowerCase()})`;
+          return upsertNotification(user.pharmacyId, medicineId, type, {
+            title: d.title,
+            message,
+            severity:
+              type === "expired" || type === "out-of-stock"
+                ? "error"
+                : "warning",
+            isResolved: false,
+          });
+        }),
+      );
 
-      // Severity sort: errors first, then warnings
-      notifs.sort((a, b) => {
-        if (a.type === b.type) return 0;
-        return a.type === "error" ? -1 : 1;
-      });
-
-      setRealNotifications(notifs);
+      // Resolve conditions that no longer exist
+      const stillActiveKeys = Object.keys(detected);
+      const allPossibleTypes = [
+        "expired",
+        "expiring",
+        "out-of-stock",
+        "low-stock",
+      ];
+      const knownMedicineIds = new Set(medsCache.map((m) => m.id));
+      await Promise.all(
+        Array.from(knownMedicineIds).flatMap((medicineId) =>
+          allPossibleTypes
+            .filter(
+              (type) => !stillActiveKeys.includes(`${medicineId}_${type}`),
+            )
+            .map((type) =>
+              resolveNotification(user.pharmacyId, medicineId, type),
+            ),
+        ),
+      );
     };
 
-    // Fetch settings once (doesn't need to be live for this purpose)
     getSystemSettings(user.pharmacyId).then((settings) => {
       settingsCache = settings;
-      buildNotifications();
     });
 
     const unsubMedicines = subscribeToMedicines(user.pharmacyId, (meds) => {
       medsCache = meds;
-      buildNotifications();
+      detectAndSync();
     });
 
     const unsubBatches = subscribeToStockBatches(user.pharmacyId, (batches) => {
       batchesCache = batches;
-      buildNotifications();
+      detectAndSync();
     });
 
     return () => {
       unsubMedicines();
       unsubBatches();
     };
-  }, [t, user?.pharmacyId]);
+  }, [t, user?.pharmacyId, canSeeNotifications]);
+
+  // Subscribe to persisted notification docs for display
+  useEffect(() => {
+    if (!user?.pharmacyId || !canSeeNotifications) return;
+    const unsub = subscribeToNotifications(user.pharmacyId, (notifs) => {
+      const sorted = [...notifs].sort((a, b) => {
+        if (a.severity !== b.severity) return a.severity === "error" ? -1 : 1;
+        return 0;
+      });
+      setPersistedNotifs(sorted);
+    });
+    return () => unsub();
+  }, [user?.pharmacyId, canSeeNotifications]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -257,6 +273,18 @@ const Header = () => {
       setActiveIndex(-1);
       inputRef.current?.blur();
     }
+  };
+
+  const unreadCount = realNotifications.filter((n) => !n.isRead).length;
+  const hasUnreadCritical = realNotifications.some(
+    (n) => !n.isRead && n.severity === "error",
+  );
+
+  const handleMarkAllRead = async () => {
+    const unreadIds = realNotifications
+      .filter((n) => !n.isRead)
+      .map((n) => n.id);
+    if (unreadIds.length > 0) await markAllNotificationsRead(unreadIds);
   };
 
   const handleLogout = async () => {
@@ -441,7 +469,7 @@ const Header = () => {
       <div className="header-right">
         <div className="icon-button" onClick={() => setShowNotifs(!showNotifs)}>
           <Bell size={22} />
-          {realNotifications.length > 0 && (
+          {unreadCount > 0 && (
             <div
               className="badge"
               style={{
@@ -452,6 +480,9 @@ const Header = () => {
                 height: "8px",
                 background: "#EF4444",
                 borderRadius: "50%",
+                animation: hasUnreadCritical
+                  ? "notifPulse 1.4s ease-in-out infinite"
+                  : "none",
               }}></div>
           )}
           {showNotifs && (
@@ -475,11 +506,26 @@ const Header = () => {
                   borderBottom: "1px solid #F1F5F9",
                   display: "flex",
                   justifyContent: "space-between",
+                  alignItems: "center",
                   fontWeight: "700",
                 }}>
                 <span>
                   {t("header.notifications")} ({realNotifications.length})
                 </span>
+                {unreadCount > 0 && (
+                  <button
+                    onClick={handleMarkAllRead}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#0D9488",
+                      fontSize: "0.75rem",
+                      fontWeight: "700",
+                      cursor: "pointer",
+                    }}>
+                    Mark all read
+                  </button>
+                )}
               </div>
               <div style={{ maxHeight: "400px", overflowY: "auto" }}>
                 {realNotifications.length === 0 ? (
@@ -497,6 +543,7 @@ const Header = () => {
                       key={n.id}
                       className="notif-item"
                       onClick={() => {
+                        if (!n.isRead) markAllNotificationsRead([n.id]);
                         navigate("/inventory");
                         setShowNotifs(false);
                       }}
@@ -504,14 +551,31 @@ const Header = () => {
                         padding: "12px 16px",
                         borderBottom: "1px solid #F8FAFC",
                         cursor: "pointer",
+                        background: n.isRead ? "white" : "#F8FAFC",
+                        opacity: n.isRead ? 0.65 : 1,
                       }}>
                       <div
                         className="notif-title"
                         style={{
-                          color: n.type === "error" ? "#EF4444" : "#F59E0B",
+                          color: n.severity === "error" ? "#EF4444" : "#F59E0B",
                           fontSize: "0.85rem",
                           fontWeight: "700",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
                         }}>
+                        {!n.isRead && (
+                          <span
+                            style={{
+                              width: "6px",
+                              height: "6px",
+                              borderRadius: "50%",
+                              background:
+                                n.severity === "error" ? "#EF4444" : "#F59E0B",
+                              display: "inline-block",
+                            }}
+                          />
+                        )}
                         {n.title}
                       </div>
                       <div
@@ -554,6 +618,6 @@ const Header = () => {
       </div>
     </header>
   );
-};;
+};
 
 export default Header;
