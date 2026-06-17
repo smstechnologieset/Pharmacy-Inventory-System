@@ -9,6 +9,7 @@ import {
   updateDoc,
   serverTimestamp,
   limit,
+  onSnapshot,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { MEDICINES_COLLECTION } from "./collections";
@@ -105,4 +106,22 @@ export const deleteMedicine = async (medicineId) => {
     console.error("Error deleting medicine:", error);
     throw new Error(`Failed to delete medicine: ${error.message}`);
   }
+};
+
+
+export const subscribeToMedicines = (pharmacyId, callback) => {
+  const q = pharmacyId
+    ? query(collection(db, MEDICINES_COLLECTION), where("pharmacyId", "==", pharmacyId), where("isDeleted", "==", false))
+    : query(collection(db, MEDICINES_COLLECTION), where("isDeleted", "==", false));
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const medicines = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      callback(medicines);
+    },
+    (error) => {
+      console.error("Error in medicines subscription:", error);
+    }
+  );
 };

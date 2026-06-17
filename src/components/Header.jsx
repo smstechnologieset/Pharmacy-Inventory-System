@@ -5,10 +5,11 @@ import { useAuth } from "../context/AuthContext";
 
 import { useSettings } from "../context/SettingsContext";
 import {
-  getAllMedicines,
+
   searchMedicinesByPrefix,
+  subscribeToMedicines,
 } from "../services/medicines.js";
-import { getAllStockBatches } from "../services/stockBatches.js";
+import { subscribeToStockBatches } from "../services/stockBatches.js";
 import { getSystemSettings } from "../services/settings.js";
 import Avatar from "./Avatar.jsx";
 
@@ -113,76 +114,93 @@ const Header = () => {
   }, [query, user?.pharmacyId]);
 
   // Generate Real Notifications based on Settings
+  // Generate Real Notifications based on Settings — now live
   useEffect(() => {
     if (!user?.pharmacyId) return;
-    const generateNotifs = async () => {
-      try {
-        const [batches, meds, settings] = await Promise.all([
-          getAllStockBatches(user.pharmacyId),
-          getAllMedicines(user.pharmacyId),
-          getSystemSettings(user.pharmacyId),
-        ]);
-        const medMap = meds.reduce((acc, m) => {
-          acc[m.id] = m;
-          return acc;
-        }, {});
-        const threshold = settings.lowStockThreshold || 10;
-        const warnDays = settings.expiryWarningDays || 60;
 
-        const notifs = [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+    let medsCache = [];
+    let batchesCache = [];
+    let settingsCache = { lowStockThreshold: 10, expiryWarningDays: 60 };
 
-        batches.forEach((b) => {
-          const medName = medMap[b.medicineId]?.name || "Unknown Medicine";
-          const expiryDate = b.expiry?.toDate
-            ? b.expiry.toDate()
-            : new Date(b.expiry);
+    const buildNotifications = () => {
+      const medMap = medsCache.reduce((acc, m) => {
+        acc[m.id] = m;
+        return acc;
+      }, {});
+      const threshold = settingsCache.lowStockThreshold || 10;
+      const warnDays = settingsCache.expiryWarningDays || 60;
 
-          if (!isNaN(expiryDate)) {
-            const diffDays = Math.ceil(
-              (expiryDate - today) / (1000 * 60 * 60 * 24),
-            );
-            if (diffDays < 0) {
-              notifs.push({
-                id: `exp-${b.id}`,
-                title: t("header.expiredStock"),
-                message: `${medName} (Batch ${b.batchNo}) has expired.`,
-                type: "error",
-              });
-            } else if (diffDays <= warnDays) {
-              notifs.push({
-                id: `warn-${b.id}`,
-                title: t("header.expiringSoon"),
-                message: `${medName} (Batch ${b.batchNo}) expires in ${diffDays} days.`,
-                type: "warning",
-              });
-            }
-          }
+      const notifs = [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-          if (b.quantity <= threshold && b.quantity > 0) {
+      batchesCache.forEach((b) => {
+        const medName = medMap[b.medicineId]?.name || "Unknown Medicine";
+        const expiryDate = b.expiry?.toDate
+          ? b.expiry.toDate()
+          : new Date(b.expiry);
+
+        if (!isNaN(expiryDate)) {
+          const diffDays = Math.ceil(
+            (expiryDate - today) / (1000 * 60 * 60 * 24),
+          );
+          if (diffDays < 0) {
             notifs.push({
-              id: `low-${b.id}`,
-              title: t("header.lowStockAlert"),
-              message: `${medName} (Batch ${b.batchNo}) is at ${b.quantity} units.`,
-              type: "warning",
-            });
-          } else if (b.quantity === 0) {
-            notifs.push({
-              id: `out-${b.id}`,
-              title: t("header.outOfStock"),
-              message: `${medName} (Batch ${b.batchNo}) is completely out of stock.`,
+              id: `exp-${b.id}`,
+              title: t("header.expiredStock"),
+              message: `${medName} (Batch ${b.batchNo}) has expired.`,
               type: "error",
             });
+          } else if (diffDays <= warnDays) {
+            notifs.push({
+              id: `warn-${b.id}`,
+              title: t("header.expiringSoon"),
+              message: `${medName} (Batch ${b.batchNo}) expires in ${diffDays} days.`,
+              type: "warning",
+            });
           }
-        });
+        }
 
-        setRealNotifications(notifs);
-      } catch (err) {
-        console.error("Failed to generate notifications", err);
-      }
+        if (b.quantity <= threshold && b.quantity > 0) {
+          notifs.push({
+            id: `low-${b.id}`,
+            title: t("header.lowStockAlert"),
+            message: `${medName} (Batch ${b.batchNo}) is at ${b.quantity} units.`,
+            type: "warning",
+          });
+        } else if (b.quantity === 0) {
+          notifs.push({
+            id: `out-${b.id}`,
+            title: t("header.outOfStock"),
+            message: `${medName} (Batch ${b.batchNo}) is completely out of stock.`,
+            type: "error",
+          });
+        }
+      });
+
+      setRealNotifications(notifs);
     };
-    generateNotifs();
+
+    // Fetch settings once (doesn't need to be live for this purpose)
+    getSystemSettings(user.pharmacyId).then((settings) => {
+      settingsCache = settings;
+      buildNotifications();
+    });
+
+    const unsubMedicines = subscribeToMedicines(user.pharmacyId, (meds) => {
+      medsCache = meds;
+      buildNotifications();
+    });
+
+    const unsubBatches = subscribeToStockBatches(user.pharmacyId, (batches) => {
+      batchesCache = batches;
+      buildNotifications();
+    });
+
+    return () => {
+      unsubMedicines();
+      unsubBatches();
+    };
   }, [t, user?.pharmacyId]);
 
   useEffect(() => {
@@ -500,6 +518,6 @@ const Header = () => {
       </div>
     </header>
   );
-};
+};;
 
 export default Header;

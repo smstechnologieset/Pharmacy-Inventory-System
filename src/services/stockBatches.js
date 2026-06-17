@@ -11,6 +11,7 @@ import {
   getCountFromServer,
   getAggregateFromServer,
   sum,
+  onSnapshot,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { STOCK_BATCHES_COLLECTION, MEDICINES_COLLECTION } from "./collections";
@@ -227,4 +228,24 @@ export const getDashboardStockStats = async (pharmacyId, settings) => {
     lowStock: lowStockSnap.data().count || 0,
     expired: expiredCount, // Now uses the JS calculated count!
   };
+};
+
+
+
+
+export const subscribeToStockBatches = (pharmacyId, callback) => {
+  const q = pharmacyId
+    ? query(collection(db, STOCK_BATCHES_COLLECTION), where("pharmacyId", "==", pharmacyId), where("isDeleted", "==", false))
+    : query(collection(db, STOCK_BATCHES_COLLECTION), where("isDeleted", "==", false));
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const batches = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      callback(batches);
+    },
+    (error) => {
+      console.error("Error in stock batches subscription:", error);
+    }
+  );
 };
