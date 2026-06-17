@@ -130,9 +130,19 @@ const Header = () => {
       const threshold = settingsCache.lowStockThreshold || 10;
       const warnDays = settingsCache.expiryWarningDays || 60;
 
-      const notifs = [];
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+
+      // Group by medicineId + alert type, instead of one notif per batch
+      const groups = {};
+
+      const addToGroup = (key, medName, type, title, detail) => {
+        if (!groups[key]) {
+          groups[key] = { medName, type, title, count: 0, details: [] };
+        }
+        groups[key].count += 1;
+        groups[key].details.push(detail);
+      };
 
       batchesCache.forEach((b) => {
         const medName = medMap[b.medicineId]?.name || "Unknown Medicine";
@@ -145,37 +155,58 @@ const Header = () => {
             (expiryDate - today) / (1000 * 60 * 60 * 24),
           );
           if (diffDays < 0) {
-            notifs.push({
-              id: `exp-${b.id}`,
-              title: t("header.expiredStock"),
-              message: `${medName} (Batch ${b.batchNo}) has expired.`,
-              type: "error",
-            });
+            addToGroup(
+              `exp-${b.medicineId}`,
+              medName,
+              "error",
+              t("header.expiredStock"),
+              `Batch ${b.batchNo}`,
+            );
           } else if (diffDays <= warnDays) {
-            notifs.push({
-              id: `warn-${b.id}`,
-              title: t("header.expiringSoon"),
-              message: `${medName} (Batch ${b.batchNo}) expires in ${diffDays} days.`,
-              type: "warning",
-            });
+            addToGroup(
+              `warn-${b.medicineId}`,
+              medName,
+              "warning",
+              t("header.expiringSoon"),
+              `Batch ${b.batchNo} (${diffDays}d)`,
+            );
           }
         }
 
-        if (b.quantity <= threshold && b.quantity > 0) {
-          notifs.push({
-            id: `low-${b.id}`,
-            title: t("header.lowStockAlert"),
-            message: `${medName} (Batch ${b.batchNo}) is at ${b.quantity} units.`,
-            type: "warning",
-          });
-        } else if (b.quantity === 0) {
-          notifs.push({
-            id: `out-${b.id}`,
-            title: t("header.outOfStock"),
-            message: `${medName} (Batch ${b.batchNo}) is completely out of stock.`,
-            type: "error",
-          });
+        if (b.quantity === 0) {
+          addToGroup(
+            `out-${b.medicineId}`,
+            medName,
+            "error",
+            t("header.outOfStock"),
+            `Batch ${b.batchNo}`,
+          );
+        } else if (b.quantity <= threshold) {
+          addToGroup(
+            `low-${b.medicineId}`,
+            medName,
+            "warning",
+            t("header.lowStockAlert"),
+            `Batch ${b.batchNo} (${b.quantity} units)`,
+          );
         }
+      });
+
+      const notifs = Object.entries(groups).map(([key, g]) => ({
+        id: key,
+        medicineId: key.split("-")[1],
+        title: g.title,
+        type: g.type,
+        message:
+          g.count === 1
+            ? `${g.medName} — ${g.details[0]}`
+            : `${g.medName} — ${g.count} batches (${g.title.toLowerCase()})`,
+      }));
+
+      // Severity sort: errors first, then warnings
+      notifs.sort((a, b) => {
+        if (a.type === b.type) return 0;
+        return a.type === "error" ? -1 : 1;
       });
 
       setRealNotifications(notifs);
@@ -465,9 +496,14 @@ const Header = () => {
                     <div
                       key={n.id}
                       className="notif-item"
+                      onClick={() => {
+                        navigate("/inventory");
+                        setShowNotifs(false);
+                      }}
                       style={{
                         padding: "12px 16px",
                         borderBottom: "1px solid #F8FAFC",
+                        cursor: "pointer",
                       }}>
                       <div
                         className="notif-title"
