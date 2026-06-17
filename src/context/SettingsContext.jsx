@@ -25,20 +25,23 @@ export const SettingsProvider = ({ children }) => {
   const [language, setLanguage] = useState(() => {
     return localStorage.getItem("appLanguage") || "en";
   });
-
   useEffect(() => {
     if (!user?.pharmacyId) return;
     const fetchGlobalSettings = async () => {
       try {
         const settings = await getSystemSettings(user.pharmacyId);
         setGlobalSettings(settings);
+        // Apply language from Firestore if available
+        if (settings.language) {
+          setLanguage(settings.language);
+          localStorage.setItem("appLanguage", settings.language);
+        }
       } catch (err) {
         console.error("Failed to fetch global settings:", err);
       }
     };
     fetchGlobalSettings();
   }, [user?.pharmacyId]);
-
   const updateLanguage = (lang) => {
     setLanguage(lang);
     localStorage.setItem("appLanguage", lang);

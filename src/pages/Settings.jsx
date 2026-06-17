@@ -24,7 +24,7 @@ import Avatar from "../components/Avatar.jsx";
 
 const Settings = () => {
   const { user } = useAuth();
-  const { settings: contextSettings, updateLanguage, t } = useSettings();
+  const { settings: contextSettings, updateLanguage, t, setGlobalSettings } = useSettings(); // add setGlobalSettings
 
   const [localState, setLocalState] = useState({
     currency: contextSettings.currency || "ETB",
@@ -74,9 +74,13 @@ const Settings = () => {
     setSaving(true);
     setSuccessMsg("");
     try {
-      const { language, ...globalPayload } = localState;
-      await updateSystemSettings(globalPayload, user?.pharmacyId);
+      const { language, ...rest } = localState;
+      await updateSystemSettings(
+        { ...rest, language }, // include language in Firestore write
+        user?.pharmacyId,
+      );
       updateLanguage(language);
+      setGlobalSettings({ ...rest, language });
       setSuccessMsg(t("settings.successMsg") || "Settings saved successfully!");
       setTimeout(() => setSuccessMsg(""), 3000);
     } catch (err) {
