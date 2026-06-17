@@ -119,50 +119,112 @@ export const deleteStockBatch = async (batchId) => {
   }
 };
 
-export const getDashboardStockStats = async (pharmacyId, settings) => {
-    const batchesRef = collection(db, STOCK_BATCHES_COLLECTION);
-    const qBase = query(
-      batchesRef,
-      where("pharmacyId", "==", pharmacyId),
-      where("isDeleted", "==", false),
-    );
+// export const getDashboardStockStats = async (pharmacyId, settings) => {
+//     const batchesRef = collection(db, STOCK_BATCHES_COLLECTION);
+//     const qBase = query(
+//       batchesRef,
+//       where("pharmacyId", "==", pharmacyId),
+//       where("isDeleted", "==", false),
+//     );
   
-    // 1. Total Inventory Stock (using getAggregateFromServer)
-    const totalStockAgg = await getAggregateFromServer(qBase, {
-      total: sum("quantity"),
-    });
+//     // 1. Total Inventory Stock (using getAggregateFromServer)
+//     const totalStockAgg = await getAggregateFromServer(qBase, {
+//       total: sum("quantity"),
+//     });
   
-    // Total batches
-    const totalBatchesSnap = await getCountFromServer(qBase);
+//     // Total batches
+//     const totalBatchesSnap = await getCountFromServer(qBase);
   
-    // 2. Out of stock
-    const outOfStockSnap = await getCountFromServer(
-      query(qBase, where("quantity", "==", 0)),
-    );
+//     // 2. Out of stock
+//     const outOfStockSnap = await getCountFromServer(
+//       query(qBase, where("quantity", "==", 0)),
+//     );
   
-    // 3. Low stock
-    const lowStockSnap = await getCountFromServer(
-      query(
-        qBase,
-        where("quantity", ">", 0),
-        where("quantity", "<=", Number(settings?.lowStockThreshold || 10)),
-      ),
-    );
+//     // 3. Low stock
+//     const lowStockSnap = await getCountFromServer(
+//       query(
+//         qBase,
+//         where("quantity", ">", 0),
+//         where("quantity", "<=", Number(settings?.lowStockThreshold || 10)),
+//       ),
+//     );
   
-    // 4. Expired
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const expiredSnap = await getCountFromServer(
-      query(qBase, where("expiry", "<", now)),
-    );
+//     // 4. Expired
+//     const now = new Date();
+//     now.setHours(0, 0, 0, 0);
+//     const expiredSnap = await getCountFromServer(
+//       query(qBase, where("expiry", "<", now)),
+//     );
   
-    return {
-      inventoryStock: totalStockAgg.data().total || 0,
-      totalBatches: totalBatchesSnap.data().count || 0,
-      outOfStock: outOfStockSnap.data().count || 0,
-      lowStock: lowStockSnap.data().count || 0,
-      expired: expiredSnap.data().count || 0,
-    };
-  };
+//     return {
+//       inventoryStock: totalStockAgg.data().total || 0,
+//       totalBatches: totalBatchesSnap.data().count || 0,
+//       outOfStock: outOfStockSnap.data().count || 0,
+//       lowStock: lowStockSnap.data().count || 0,
+//       expired: expiredSnap.data().count || 0,
+//     };
+//   };
 
+export const getDashboardStockStats = async (pharmacyId, settings) => {
+  const batchesRef = collection(db, STOCK_BATCHES_COLLECTION);
+  const qBase = query(
+    batchesRef,
+    where("pharmacyId", "==", pharmacyId),
+    where("isDeleted", "==", false),
+  );
+
+  // 1. Total Inventory Stock (using getAggregateFromServer)
+  const totalStockAgg = await getAggregateFromServer(qBase, {
+    total: sum("quantity"),
+  });
+
+  // Total batches
+  const totalBatchesSnap = await getCountFromServer(qBase);
+
+  // 2. Out of stock
+  const outOfStockSnap = await getCountFromServer(
+    query(qBase, where("quantity", "==", 0)),
+  );
+
+  // 3. Low stock
+  const lowStockSnap = await getCountFromServer(
+    query(
+      qBase,
+      where("quantity", ">", 0),
+      where("quantity", "<=", Number(settings?.lowStockThreshold || 10)),
+    ),
+  );
+
+  // 4. Expired (FIXED)
+  // We calculate this in JavaScript to perfectly match the timezone-safe 
+  // YYYY-MM-DD string comparison logic used in your Expiration page.
+  const allBatchesSnap = await getDocs(qBase);
+  let expiredCount = 0;
   
+  // Exact same helper logic from your Expiration page
+  const toDateKey = (date) => {
+    if (!date) return null;
+    const d = date?.toDate ? date.toDate() : new Date(date);
+    return d.toISOString().split("T")[0];
+  };
+  
+  const todayKey = toDateKey(new Date());
+
+  allBatchesSnap.forEach((doc) => {
+    const data = doc.data();
+    if (data.expiry) {
+      const expiryKey = toDateKey(data.expiry);
+      if (expiryKey && expiryKey < todayKey) {
+        expiredCount++;
+      }
+    }
+  });
+
+  return {
+    inventoryStock: totalStockAgg.data().total || 0,
+    totalBatches: totalBatchesSnap.data().count || 0,
+    outOfStock: outOfStockSnap.data().count || 0,
+    lowStock: lowStockSnap.data().count || 0,
+    expired: expiredCount, // Now uses the JS calculated count!
+  };
+};
