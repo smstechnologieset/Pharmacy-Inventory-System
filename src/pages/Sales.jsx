@@ -77,39 +77,132 @@ const Sales = () => {
   }, [user?.pharmacyId]);
 
   // Group batches by medicine to show total available stock in the grid
+  // Group batches by medicine, but ONLY show the batch expiring soonest
   const validBatches = batches.filter(
     (b) => b.quantity > 0 && !isExpired(b.expiry),
   );
+
   const productGrid = medicines
+    .filter((med) => med.name?.toLowerCase().includes(searchTerm.toLowerCase()))
     .map((med) => {
       const medBatches = validBatches.filter((b) => b.medicineId === med.id);
-      const totalStock = medBatches.reduce((sum, b) => sum + b.quantity, 0);
-      const oldestBatch = medBatches.sort((a, b) => {
+
+      // If no valid batches, hide the medicine entirely
+      if (medBatches.length === 0) return null;
+
+      // Sort by expiry date ascending (FEFO)
+      medBatches.sort((a, b) => {
         const dateA = a.expiry?.toDate ? a.expiry.toDate() : new Date(a.expiry);
         const dateB = b.expiry?.toDate ? b.expiry.toDate() : new Date(b.expiry);
         return dateA - dateB;
-      })[0];
+      });
+
+      // Grab ONLY the first batch (the one that needs to be sold first)
+      const activeBatch = medBatches[0];
 
       return {
         ...med,
-        availableStock: totalStock,
-        displayPrice: oldestBatch ? oldestBatch.sellingPrice : med.price,
+        activeBatchId: activeBatch.id,
+        activeBatchNo: activeBatch.batchNo,
+        activeExpiry: activeBatch.expiry,
+        availableStock: activeBatch.quantity, // Show ONLY this batch's stock
+        displayPrice: activeBatch.sellingPrice || med.price,
       };
     })
-    .filter(
-      (med) =>
-        med.availableStock > 0 &&
-        med.name?.toLowerCase().includes(searchTerm.toLowerCase()),
-    );
+    .filter(Boolean); // Removes nulls (medicines with 0 valid batches)
+
+  // const productGrid = medicines
+  //   .map((med) => {
+  //     const medBatches = validBatches.filter((b) => b.medicineId === med.id);
+  //     const totalStock = medBatches.reduce((sum, b) => sum + b.quantity, 0);
+  //     const oldestBatch = medBatches.sort((a, b) => {
+  //       const dateA = a.expiry?.toDate ? a.expiry.toDate() : new Date(a.expiry);
+  //       const dateB = b.expiry?.toDate ? b.expiry.toDate() : new Date(b.expiry);
+  //       return dateA - dateB;
+  //     })[0];
+
+  //     return {
+  //       ...med,
+  //       availableStock: totalStock,
+  //       displayPrice: oldestBatch ? oldestBatch.sellingPrice : med.price,
+  //     };
+  //   })
+  //   .filter(
+  //     (med) =>
+  //       med.availableStock > 0 &&
+  //       med.name?.toLowerCase().includes(searchTerm.toLowerCase()),
+  //   );
 
   // FEFO Allocation: Automatically adds the batch expiring soonest
+  // const handleAddToCart = (medicineId) => {
+  //   const medBatches = validBatches
+  //     .filter((b) => b.medicineId === medicineId)
+  //     .sort((a, b) => {
+  //       const dateA = a.expiry?.toDate ? a.expiry.toDate() : new Date(a.expiry);
+  //       const dateB = b.expiry?.toDate ? b.expiry.toDate() : new Date(b.expiry);
+  //       return dateA - dateB;
+  //     });
+
+  //   if (medBatches.length === 0) {
+  //     setError("This medicine is currently out of stock or expired.");
+  //     return;
+  //   }
+
+  //   const med = medicines.find((m) => m.id === medicineId);
+  //   let added = false;
+  //   const newCart = [...cart];
+
+  //   // Try to add to an existing cart item first
+  //   for (let i = 0; i < medBatches.length; i++) {
+  //     const batch = medBatches[i];
+  //     const cartIndex = newCart.findIndex((item) => item.batchId === batch.id);
+  //     if (cartIndex !== -1 && newCart[cartIndex].quantity < batch.quantity) {
+  //       newCart[cartIndex].quantity += 1;
+  //       added = true;
+  //       break;
+  //     }
+  //   }
+
+  //   // If not added, find a batch not in cart yet
+  //   if (!added) {
+  //     for (let i = 0; i < medBatches.length; i++) {
+  //       const batch = medBatches[i];
+  //       const cartIndex = newCart.findIndex(
+  //         (item) => item.batchId === batch.id,
+  //       );
+  //       if (cartIndex === -1) {
+  //         newCart.push({
+  //           batchId: batch.id,
+  //           medicineId: med.id,
+  //           name: med.name,
+  //           price: batch.sellingPrice || med.price,
+  //           costPrice: batch.costPrice || 0, // ← ADD THIS LINE
+  //           quantity: 1,
+  //           maxQty: batch.quantity,
+  //           batchNo: batch.batchNo,
+  //           expiry: batch.expiry,
+  //         });
+  //         added = true;
+  //         break;
+  //       }
+  //     }
+  //   }
+
+  //   if (added) {
+  //     setCart(newCart);
+  //     setError("");
+  //   } else {
+  //     setError("All available batches are fully added to the cart.");
+  //   }
+  // };
+
   const handleAddToCart = (medicineId) => {
     const medBatches = validBatches
       .filter((b) => b.medicineId === medicineId)
       .sort((a, b) => {
         const dateA = a.expiry?.toDate ? a.expiry.toDate() : new Date(a.expiry);
         const dateB = b.expiry?.toDate ? b.expiry.toDate() : new Date(b.expiry);
-        return dateA - dateB;
+        return dateA - dateB; // Soonest expiring first
       });
 
     if (medBatches.length === 0) {
@@ -118,42 +211,36 @@ const Sales = () => {
     }
 
     const med = medicines.find((m) => m.id === medicineId);
-    let added = false;
     const newCart = [...cart];
+    let added = false;
 
-    // Try to add to an existing cart item first
+    // Strict FEFO: Find the first batch in the sorted list that has available stock
     for (let i = 0; i < medBatches.length; i++) {
       const batch = medBatches[i];
       const cartIndex = newCart.findIndex((item) => item.batchId === batch.id);
-      if (cartIndex !== -1 && newCart[cartIndex].quantity < batch.quantity) {
-        newCart[cartIndex].quantity += 1;
-        added = true;
-        break;
-      }
-    }
+      const currentCartQty = cartIndex !== -1 ? newCart[cartIndex].quantity : 0;
 
-    // If not added, find a batch not in cart yet
-    if (!added) {
-      for (let i = 0; i < medBatches.length; i++) {
-        const batch = medBatches[i];
-        const cartIndex = newCart.findIndex(
-          (item) => item.batchId === batch.id,
-        );
-        if (cartIndex === -1) {
+      // If this batch still has available stock to add
+      if (currentCartQty < batch.quantity) {
+        if (cartIndex !== -1) {
+          // It's already in the cart, just increment
+          newCart[cartIndex].quantity += 1;
+        } else {
+          // It's not in the cart, add it as a new line item
           newCart.push({
             batchId: batch.id,
             medicineId: med.id,
             name: med.name,
             price: batch.sellingPrice || med.price,
-            costPrice: batch.costPrice || 0, // ← ADD THIS LINE
+            costPrice: batch.costPrice || 0,
             quantity: 1,
             maxQty: batch.quantity,
             batchNo: batch.batchNo,
             expiry: batch.expiry,
           });
-          added = true;
-          break;
         }
+        added = true;
+        break; // Stop after adding to the soonest available batch
       }
     }
 
@@ -164,7 +251,6 @@ const Sales = () => {
       setError("All available batches are fully added to the cart.");
     }
   };
-
   const updateQuantity = (batchId, delta) => {
     setCart(
       cart
@@ -213,15 +299,18 @@ const Sales = () => {
 
       // Log stock movements for audit trail (Priority 7)
       for (const item of cart) {
-        await createStockMovement({
-          medicineId: item.medicineId,
-          medicineName: item.name,
-          batchNo: item.batchNo,
-          type: "sale",
-          quantityChanged: -item.quantity,
-          reason: `Sold via POS (Invoice: ${result.invoiceNumber})`,
-          performedBy: user?.uid || "Unknown",
-        }, user?.pharmacyId);
+        await createStockMovement(
+          {
+            medicineId: item.medicineId,
+            medicineName: item.name,
+            batchNo: item.batchNo,
+            type: "sale",
+            quantityChanged: -item.quantity,
+            reason: `Sold via POS (Invoice: ${result.invoiceNumber})`,
+            performedBy: user?.uid || "Unknown",
+          },
+          user?.pharmacyId,
+        );
       }
 
       const now = new Date();
@@ -274,19 +363,27 @@ const Sales = () => {
       return;
 
     try {
-      await processRefundTransaction(sale.id, sale.items, user?.uid, user?.pharmacyId);
+      await processRefundTransaction(
+        sale.id,
+        sale.items,
+        user?.uid,
+        user?.pharmacyId,
+      );
 
       // Log stock movements for audit trail
       for (const item of sale.items) {
-        await createStockMovement({
-          medicineId: item.medicineId,
-          medicineName: item.name,
-          batchNo: item.batchNo,
-          type: "return",
-          quantityChanged: item.quantity, // Positive because it's returning to stock
-          reason: `Refund for Invoice: ${sale.invoiceNumber}`,
-          performedBy: user?.uid || "Unknown",
-        }, user?.pharmacyId);
+        await createStockMovement(
+          {
+            medicineId: item.medicineId,
+            medicineName: item.name,
+            batchNo: item.batchNo,
+            type: "return",
+            quantityChanged: item.quantity, // Positive because it's returning to stock
+            reason: `Refund for Invoice: ${sale.invoiceNumber}`,
+            performedBy: user?.uid || "Unknown",
+          },
+          user?.pharmacyId,
+        );
       }
 
       // Refresh sales list
@@ -602,7 +699,9 @@ const Sales = () => {
               style={{ width: "100%", height: "52px", fontSize: "1rem" }}
               disabled={cart.length === 0 || isCheckingOut}
               onClick={handleCheckout}>
-              {isCheckingOut ? t("sales.processing") : t("sales.confirmCheckout")}
+              {isCheckingOut
+                ? t("sales.processing")
+                : t("sales.confirmCheckout")}
             </button>
           </div>
         </div>
