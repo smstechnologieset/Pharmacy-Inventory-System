@@ -181,32 +181,45 @@ export const translations = {
       delete: "Delete",
     },
     expiration: {
-      title: "Stock Expiration",
-      subtitle: "Proactively manage items nearing expiry.",
-      loading: "Loading expiration data...",
-      loadError:
-        "Could not load expiration data. Please check your connection.",
-      retry: "Retry",
+      title: "Expiration & Alerts",
+      subtitle:
+        "Monitor expiring and expired stock batches to prevent losses and ensure product quality.",
       allAlerts: "All Alerts",
       expiringSoon: "Expiring Soon",
       expired: "Expired",
       expiredItems: "Expired Items",
-      noAlerts: "No expiration alerts found.",
-      medicineName: "Medicine Name",
+      medicineName: "Medicine",
       batchNo: "Batch No",
       expiryDate: "Expiry Date",
-      remaining: "Remaining",
+      remaining: "Remaining Stock",
       status: "Status",
       actions: "Actions",
+      noAlerts: "No expiration alerts at the moment. Great job!",
+      loadError:
+        "Could not load expiration data. Please check your connection.",
+      retry: "Retry",
+      loading: "Loading expiration data...",
+      lowStock: "Low Stock",
       disposed: "Disposed",
       markDisposed: "Mark Disposed",
-      lowStock: "Low Stock",
+
+      // Confirmations
+      confirmDelete:
+        "Are you sure you want to permanently delete this batch? This action cannot be undone and will remove all stock records.",
+      confirmDispose:
+        "Are you sure you want to mark this batch as disposed? The stock quantity will be set to 0 and logged in the audit trail.",
+      confirmDeleteTitle: "Delete Batch?",
+      confirmDisposeTitle: "Mark as Disposed?",
+
+      // Action Messages
       batchRemoved: "Batch removed successfully.",
       failedToRemove: "Failed to remove batch. Please try again.",
-      confirmDispose: "Mark this batch as disposed? Stock will be set to 0.",
       batchDisposed: "Batch marked as disposed.",
       failedToDispose: "Failed to mark as disposed. Please try again.",
-      confirmDelete: "Permanently delete this batch from inventory?",
+
+      // Buttons
+      delete: "Delete",
+      dispose: "Dispose",
     },
     reports: {
       title: "Analytics & Reports",
@@ -570,31 +583,43 @@ export const translations = {
       delete: "ሰርዝ",
     },
     expiration: {
-      title: "የክምችት ጊዜ ማብቂያ",
-      subtitle: "ጊዜያቸው የሚያልፍባቸውን ዕቃዎች አስቀድመው ያስተዳድሩ።",
-      loading: "የማብቂያ ጊዜ መረጃን በማስመጣት ላይ...",
-      loadError: "የማብቂያ ጊዜ መረጃን ማምጣት አልተቻለም። እባክዎ ግንኙነትዎን ያረጋግጡ።",
-      retry: "እንደገና ሞክር",
-      allAlerts: "ሁሉም ማሳወቂያዎች",
-      expiringSoon: "በቅርቡ ጊዜያቸው የሚያልፍ",
-      expired: "ጊዜያቸው ያለፈ",
-      expiredItems: "ጊዜያቸው ያለፈባቸው ዕቃዎች",
-      noAlerts: "ምንም የጊዜ ማብቂያ ማሳወቂያዎች አልተገኙም።",
-      medicineName: "የመድሃኒት ስም",
+      title: "የሚያበቁ እና ያበቁ መድሃኒቶች",
+      subtitle: "የሚያበቁ እና ያበቁ የክምችት ባቾችን ይታተሉ ጉዳት መከከል እና የምርት ጥራት ለማረጋገጥ።",
+      allAlerts: "ሁሉም ማሳሰቢያዎች",
+      expiringSoon: "በቅርብ የሚያበቁ",
+      expired: "ያበቁ",
+      expiredItems: "ያበቁ ዕቃች",
+      medicineName: "መድሃኒት",
       batchNo: "ባች ቁጥር",
-      expiryDate: "የማብቂያ ቀን",
-      remaining: "ቀሪ",
-      status: "ሁኔታ",
+      expiryDate: "የማብቂያ ን",
+      remaining: "የቀረ ምችት",
+      status: "ሁታ",
       actions: "እርምጃዎች",
-      disposed: "ተወግዷል",
-      markDisposed: "እንደተወገደ ምልክት አድርግ",
-      lowStock: "አነስተኛ ክምችት",
-      batchRemoved: "ባቹ በተሳካ ሁኔታ ተወግዷል።",
-      failedToRemove: "ባቹን ማስወገድ አልተቻለም። እባክዎ እንደገና ይሞክሩ።",
-      confirmDispose: "ይህን ባች እንደተወገደ ምልክት ይደረግበት? ክምችቱ ወደ 0 ይቀየራል።",
-      batchDisposed: "ባቹ እንደተወገደ ምልክት ተደርጎበታል።",
-      failedToDispose: "እንደተወገደ ምልክት ማድረግ አልተቻለም። እባክዎ እንደገና ይሞክሩ።",
-      confirmDelete: "ይህን ባች ከክምችት ውስጥ በቋሚነት ይሰረዝ?",
+      noAlerts: "በአሁኑ ጊዜ ምንም የማብቂያ ማሳሰቢያዎች የሉም። በጣም ጥሩ!",
+      loadError: "የማብቂያ መረጃን ጫን አልተቻለም። እባክዎ ግንኙነትዎን ይፈትሹ።",
+      retry: "እንደገና ይሞክሩ",
+      loading: "የማብቂያ መረጃ በመጫን ላይ...",
+      lowStock: "ዝቅተኛ ክምችት",
+      disposed: "ተወግል",
+      markDisposed: "እንደተወገ ምልት አድርግ",
+
+      // Confirmations
+      confirmDelete:
+        "ይህን ባች ሙሉ በሙሉ መሰረዝ እንደሚፈልጉ እርግኛ ዎት? ይ ድርጊት ሊቀለበስ አይችልም እና ሁሉንም የክምችት መዝገቦች ያስወግዳል።",
+      confirmDispose:
+        "ይህን ባች እንደተወገ ምልት ማረ እንደሚፈልጉ እርግጠኛ ነዎት? የክምችት መጠኑ ወደ 0 ይቀየራል እና በኦት መዝገብ ስጥ ይመዘገባል።",
+      confirmDeleteTitle: "ባች ይሰረዝ?",
+      confirmDisposeTitle: "እንደተወገደ ምልክት አድርግ?",
+
+      // Action Messages
+      batchRemoved: "ባች በተሳካ ሁኔታ ተወግዷል።",
+      failedToRemove: "ባች ማስወገ አልተቻለም። እባክዎ እንደገና ይሞሩ።",
+      batchDisposed: "ባች እንደተወገደ ተመልክቷል",
+      failedToDispose: "እንደተወገደ ምልክት ማረ አልተቻለም። እባክ እንደና ይክሩ",
+
+      // Buttons
+      delete: "ሰርዝ",
+      dispose: "አስወግድ",
     },
     reports: {
       title: "ትንተና እና ሪፖርቶች",

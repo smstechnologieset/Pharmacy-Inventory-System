@@ -31,31 +31,45 @@ service cloud.firestore {
     }
     
     match /users/{userId} {
-      allow read: if isSuperAdmin() ||
-                  request.auth.uid == userId ||
-                  (resource != null && isPharmacyMember(resource.data.pharmacyId));
+  allow read: if isSuperAdmin() ||
+              request.auth.uid == userId ||
+              (resource != null && isPharmacyMember(resource.data.pharmacyId));
 
-      allow create: if
-          request.auth.uid == userId &&
-          request.resource.data.role == 'admin' &&
-          request.resource.data.status == 'pending';
+  allow create: if
+      // Self-signup: new admin creating their own profile
+      (
+        request.auth.uid == userId &&
+        request.resource.data.role == 'admin' &&
+        request.resource.data.status == 'pending'
+      )
+      ||
+      // Admin/manager creating staff accounts for their own pharmacy
+      (
+        isAuthenticated() &&
+        getUserRole() in ['admin', 'manager'] &&
+        getUserPharmacyId() == request.resource.data.pharmacyId &&
+        !(request.resource.data.role in ['admin', 'superadmin'])
+      )
+      ||
+      // Superadmin creating pharmacy admins
+      isSuperAdmin();
 
-      allow update: if
-          isSuperAdmin() ||
-          (
-            request.auth.uid == userId &&
-            request.resource.data.role == resource.data.role &&
-            request.resource.data.pharmacyId == resource.data.pharmacyId
-          ) ||
-          (
-            isPharmacyMember(request.resource.data.pharmacyId) &&
-            getUserRole() in ['admin', 'manager'] &&
-            !(request.resource.data.role in ['admin', 'superadmin']) &&
-            !(resource.data.role in ['admin', 'superadmin'])
-          );
+  allow update: if
+      isSuperAdmin() ||
+      (
+        request.auth.uid == userId &&
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.pharmacyId == resource.data.pharmacyId
+      ) ||
+      (
+        isPharmacyMember(request.resource.data.pharmacyId) &&
+        getUserRole() in ['admin', 'manager'] &&
+        !(request.resource.data.role in ['admin', 'superadmin']) &&
+        !(resource.data.role in ['admin', 'superadmin'])
+      );
 
-      allow delete: if isSuperAdmin();
-    }
+  allow delete: if isSuperAdmin();
+}
     
     match /pharmacies/{pharmacyId} {
       allow create: if
@@ -90,6 +104,10 @@ service cloud.firestore {
       allow read: if isSuperAdmin() || isPharmacyMember(resource.data.pharmacyId);
       allow write: if isSuperAdmin() || isPharmacyMember(request.resource.data.pharmacyId);
     }
+    match /notifications/{docId} {
+  allow read: if isSuperAdmin() || isPharmacyMember(resource.data.pharmacyId);
+  allow write: if isSuperAdmin() || isPharmacyMember(request.resource.data.pharmacyId);
+}
     
     match /stockMovements/{docId} {
       allow read: if isSuperAdmin() || isPharmacyMember(resource.data.pharmacyId);

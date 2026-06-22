@@ -3,8 +3,14 @@ import { AlertCircle, CheckCircle, Trash2, Clock } from "lucide-react";
 
 import { useAuth } from "../context/AuthContext.jsx";
 import { useSettings } from "../context/SettingsContext";
-import { createStockMovement, deleteStockBatch, getAllStockBatches, updateStockBatch } from "../services/stockBatches.js";
+import {
+  createStockMovement,
+  deleteStockBatch,
+  getAllStockBatches,
+  updateStockBatch,
+} from "../services/stockBatches.js";
 import { getAllMedicines } from "../services/medicines.js";
+import ConfirmModal from "../components/ConfirmModal"; // 1. Import ConfirmModal
 
 const Expiration = () => {
   const { user } = useAuth();
@@ -14,10 +20,14 @@ const Expiration = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // 2. Add states for the Confirm Modal and Action Feedback
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null); // { batchId, action }
+  const [actionMessage, setActionMessage] = useState(null); // { type: 'success' | 'error', text: '' }
+
   // Helper: timezone-safe date comparison (YYYY-MM-DD)
   const toDateKey = (date) => {
     if (!date) return null;
-    // Handle Firestore Timestamps or standard ISO strings
     const d = date?.toDate ? date.toDate() : new Date(date);
     return d.toISOString().split("T")[0];
   };
@@ -41,30 +51,27 @@ const Expiration = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Fetch both master medicines and stock batches
         const [batches, medicines] = await Promise.all([
           getAllStockBatches(user?.pharmacyId),
           getAllMedicines(user?.pharmacyId),
         ]);
 
-        // Create a lookup map for medicine details
         const medMap = medicines.reduce((acc, med) => {
           acc[med.id] = med;
           return acc;
         }, {});
 
-        // Combine batch data with medicine master data
         const combinedData = batches
-          .filter((b) => b.expiry) // Only look at batches with expiry dates
+          .filter((b) => b.expiry)
           .map((b) => ({
             ...b,
-            id: b.id, // Batch ID
+            id: b.id,
             medicineId: b.medicineId,
             name: medMap[b.medicineId]?.name || "Unknown Medicine",
             category: medMap[b.medicineId]?.category || "N/A",
             batchNo: b.batchNo || "N/A",
             expiry: b.expiry,
-            stock: b.quantity || 0, // Use batch quantity
+            stock: b.quantity || 0,
             status: b.status || "In Stock",
           }));
 
@@ -73,7 +80,8 @@ const Expiration = () => {
       } catch (err) {
         console.error("Failed to load expiration data:", err);
         setError(
-          t("expiration.loadError") || "Could not load expiration data. Please check your connection.",
+          t("expiration.loadError") ||
+            "Could not load expiration data. Please check your connection.",
         );
       } finally {
         setLoading(false);
@@ -82,43 +90,53 @@ const Expiration = () => {
     fetchData();
   }, [t, user?.pharmacyId]);
 
-  const handleAction = async (batchId, action) => {
+  // 3. Split logic: Open modal first
+  const openActionModal = (batchId, action) => {
+    setPendingAction({ batchId, action });
+    setIsConfirmModalOpen(true);
+  };
+
+  // 4. Execute action on confirm
+  const confirmAction = async () => {
+    if (!pendingAction) return;
+    const { batchId, action } = pendingAction;
     const item = items.find((i) => i.id === batchId);
     if (!item) return;
 
+    setActionMessage(null);
+
     if (action === "remove") {
-      if (
-        !window.confirm(
-          t("expiration.confirmDelete")
-        )
-      )
-        return;
       try {
         await deleteStockBatch(batchId);
 
-        await createStockMovement({
-          medicineId: item.medicineId,
-          medicineName: item.name,
-          batchNo: item.batchNo,
-          type: "expired_disposal",
-          quantityChanged: -item.stock,
-          reason: "Manual deletion via Expiration page",
-          performedBy: user?.uid || "Unknown",
-        }, user?.pharmacyId);
+        await createStockMovement(
+          {
+            medicineId: item.medicineId,
+            medicineName: item.name,
+            batchNo: item.batchNo,
+            type: "expired_disposal",
+            quantityChanged: -item.stock,
+            reason: "Manual deletion via Expiration page",
+            performedBy: user?.uid || "Unknown",
+          },
+          user?.pharmacyId,
+        );
 
         setItems(items.filter((i) => i.id !== batchId));
-        alert(t("expiration.batchRemoved") || "Batch removed successfully.");
+        setActionMessage({
+          type: "success",
+          text: t("expiration.batchRemoved") || "Batch removed successfully.",
+        });
       } catch (err) {
         console.error("Failed to remove batch:", err);
-        alert(t("expiration.failedToRemove") || "Failed to remove batch. Please try again.");
+        setActionMessage({
+          type: "error",
+          text:
+            t("expiration.failedToRemove") ||
+            "Failed to remove batch. Please try again.",
+        });
       }
     } else if (action === "dispose") {
-      if (
-        !window.confirm(
-          t("expiration.confirmDispose")
-        )
-      )
-        return;
       try {
         await updateStockBatch(batchId, {
           quantity: 0,
@@ -126,15 +144,18 @@ const Expiration = () => {
           disposedAt: new Date().toISOString(),
         });
 
-        await createStockMovement({
-          medicineId: item.medicineId,
-          medicineName: item.name,
-          batchNo: item.batchNo,
-          type: "expired_disposal",
-          quantityChanged: -item.stock,
-          reason: "Expired - marked disposed",
-          performedBy: user?.uid || "Unknown",
-        }, user?.pharmacyId);
+        await createStockMovement(
+          {
+            medicineId: item.medicineId,
+            medicineName: item.name,
+            batchNo: item.batchNo,
+            type: "expired_disposal",
+            quantityChanged: -item.stock,
+            reason: "Expired - marked disposed",
+            performedBy: user?.uid || "Unknown",
+          },
+          user?.pharmacyId,
+        );
 
         setItems(
           items.map((i) =>
@@ -148,15 +169,26 @@ const Expiration = () => {
               : i,
           ),
         );
-        alert(t("expiration.batchDisposed") || "Batch marked as disposed.");
+        setActionMessage({
+          type: "success",
+          text: t("expiration.batchDisposed") || "Batch marked as disposed.",
+        });
       } catch (err) {
         console.error("Failed to dispose batch:", err);
-        alert(t("expiration.failedToDispose") || "Failed to mark as disposed. Please try again.");
+        setActionMessage({
+          type: "error",
+          text:
+            t("expiration.failedToDispose") ||
+            "Failed to mark as disposed. Please try again.",
+        });
       }
     }
+
+    setPendingAction(null);
+    // Auto-clear success/error message after 4 seconds
+    setTimeout(() => setActionMessage(null), 4000);
   };
 
-  // Filtering logic (timezone-safe)
   const expiringSoon = items.filter((item) => isExpiringSoon(item.expiry));
   const expiredItems = items.filter((item) => isExpired(item.expiry));
 
@@ -246,6 +278,30 @@ const Expiration = () => {
         </div>
       </div>
 
+      {/* 5. Inline Feedback Banner (Replaces native alert) */}
+      {actionMessage && (
+        <div
+          style={{
+            color: actionMessage.type === "success" ? "#065F46" : "#B91C1C",
+            background:
+              actionMessage.type === "success" ? "#ECFDF5" : "#FEE2E2",
+            padding: "14px 24px",
+            borderRadius: "16px",
+            marginBottom: "24px",
+            fontWeight: "600",
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+          }}>
+          {actionMessage.type === "success" ? (
+            <CheckCircle size={20} />
+          ) : (
+            <AlertCircle size={20} />
+          )}
+          {actionMessage.text}
+        </div>
+      )}
+
       <div className="stats-grid">
         <div className="card stat-card">
           <div
@@ -278,7 +334,9 @@ const Expiration = () => {
           <table style={{ borderSpacing: "0" }}>
             <thead>
               <tr style={{ background: "#F8FAFC" }}>
-                <th style={{ padding: "16px 32px" }}>{t("expiration.medicineName")}</th>
+                <th style={{ padding: "16px 32px" }}>
+                  {t("expiration.medicineName")}
+                </th>
                 <th>{t("expiration.batchNo")}</th>
                 <th>{t("expiration.expiryDate")}</th>
                 <th>{t("expiration.remaining")}</th>
@@ -370,7 +428,7 @@ const Expiration = () => {
                               color: "#475569",
                               fontSize: "0.8rem",
                             }}
-                            onClick={() => handleAction(item.id, "dispose")}
+                            onClick={() => openActionModal(item.id, "dispose")}
                             disabled={item.status === "Disposed"}>
                             {item.status === "Disposed"
                               ? t("expiration.disposed")
@@ -383,7 +441,7 @@ const Expiration = () => {
                               height: "36px",
                               color: "#EF4444",
                             }}
-                            onClick={() => handleAction(item.id, "remove")}>
+                            onClick={() => openActionModal(item.id, "remove")}>
                             <Trash2 size={16} />
                           </button>
                         </div>
@@ -396,6 +454,35 @@ const Expiration = () => {
           </table>
         </div>
       </div>
+
+      {/* 6. Render Confirm Modal */}
+      <ConfirmModal
+        isOpen={isConfirmModalOpen}
+        onClose={() => {
+          setIsConfirmModalOpen(false);
+          setPendingAction(null);
+        }}
+        onConfirm={confirmAction}
+        title={
+          pendingAction?.action === "remove"
+            ? t("expiration.confirmDeleteTitle") || "Delete Batch?"
+            : t("expiration.confirmDisposeTitle") || "Mark as Disposed?"
+        }
+        message={
+          pendingAction?.action === "remove"
+            ? t("expiration.confirmDelete") ||
+              "Are you sure you want to permanently delete this batch? This action cannot be undone."
+            : t("expiration.confirmDispose") ||
+              "Are you sure you want to mark this batch as disposed? The stock quantity will be set to 0."
+        }
+        type={pendingAction?.action === "remove" ? "danger" : "warning"}
+        confirmText={
+          pendingAction?.action === "remove"
+            ? t("expiration.delete") || "Delete"
+            : t("expiration.dispose") || "Dispose"
+        }
+        cancelText={t("modal.cancel") || "Cancel"}
+      />
     </div>
   );
 };
