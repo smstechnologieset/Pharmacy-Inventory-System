@@ -134,67 +134,6 @@ const Sales = () => {
   //   );
 
   // FEFO Allocation: Automatically adds the batch expiring soonest
-  // const handleAddToCart = (medicineId) => {
-  //   const medBatches = validBatches
-  //     .filter((b) => b.medicineId === medicineId)
-  //     .sort((a, b) => {
-  //       const dateA = a.expiry?.toDate ? a.expiry.toDate() : new Date(a.expiry);
-  //       const dateB = b.expiry?.toDate ? b.expiry.toDate() : new Date(b.expiry);
-  //       return dateA - dateB;
-  //     });
-
-  //   if (medBatches.length === 0) {
-  //     setError("This medicine is currently out of stock or expired.");
-  //     return;
-  //   }
-
-  //   const med = medicines.find((m) => m.id === medicineId);
-  //   let added = false;
-  //   const newCart = [...cart];
-
-  //   // Try to add to an existing cart item first
-  //   for (let i = 0; i < medBatches.length; i++) {
-  //     const batch = medBatches[i];
-  //     const cartIndex = newCart.findIndex((item) => item.batchId === batch.id);
-  //     if (cartIndex !== -1 && newCart[cartIndex].quantity < batch.quantity) {
-  //       newCart[cartIndex].quantity += 1;
-  //       added = true;
-  //       break;
-  //     }
-  //   }
-
-  //   // If not added, find a batch not in cart yet
-  //   if (!added) {
-  //     for (let i = 0; i < medBatches.length; i++) {
-  //       const batch = medBatches[i];
-  //       const cartIndex = newCart.findIndex(
-  //         (item) => item.batchId === batch.id,
-  //       );
-  //       if (cartIndex === -1) {
-  //         newCart.push({
-  //           batchId: batch.id,
-  //           medicineId: med.id,
-  //           name: med.name,
-  //           price: batch.sellingPrice || med.price,
-  //           costPrice: batch.costPrice || 0, // ← ADD THIS LINE
-  //           quantity: 1,
-  //           maxQty: batch.quantity,
-  //           batchNo: batch.batchNo,
-  //           expiry: batch.expiry,
-  //         });
-  //         added = true;
-  //         break;
-  //       }
-  //     }
-  //   }
-
-  //   if (added) {
-  //     setCart(newCart);
-  //     setError("");
-  //   } else {
-  //     setError("All available batches are fully added to the cart.");
-  //   }
-  // };
 
   const handleAddToCart = (medicineId) => {
     const medBatches = validBatches
@@ -515,6 +454,17 @@ const Sales = () => {
                       marginBottom: "2px",
                     }}>
                     Batch: {med.activeBatchNo}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "0.65rem",
+                      color: "#EF4444",
+                      marginBottom: "8px",
+                    }}>
+                    Exp:{" "}
+                    {med.activeExpiry?.toDate
+                      ? med.activeExpiry.toDate().toLocaleDateString()
+                      : new Date(med.activeExpiry).toLocaleDateString()}
                   </div>
                   <div
                     style={{
