@@ -506,6 +506,16 @@ const Sales = () => {
                     }}>
                     {med.name}
                   </div>
+                  {/* --- NEW: BATCH & EXPIRY DISPLAY --- */}
+                  <div
+                    style={{
+                      fontSize: "0.7rem",
+                      color: "#0D9488",
+                      fontWeight: "700",
+                      marginBottom: "2px",
+                    }}>
+                    Batch: {med.activeBatchNo}
+                  </div>
                   <div
                     style={{
                       color: "#0D9488",
