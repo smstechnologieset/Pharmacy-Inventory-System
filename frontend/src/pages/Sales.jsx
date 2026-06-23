@@ -283,7 +283,7 @@ const Sales = () => {
       const uniqueMedicineIds = [
         ...new Set(cart.map((item) => item.medicineId)),
       ];
-
+      console.log("🚀 CHECKING STOCK FOR:", uniqueMedicineIds); 
       uniqueMedicineIds.forEach((medId) => {
         // Calculate the new total stock for this medicine using the freshly fetched batches
         const medFreshBatches = stockBatches.filter(

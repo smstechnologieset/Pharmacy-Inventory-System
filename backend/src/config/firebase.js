@@ -1,21 +1,33 @@
-import admin from 'firebase-admin';
-import dotenv from 'dotenv';
+import admin from "firebase-admin";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 
-dotenv.config();
+// Required to get the current directory path in ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export const initializeFirebase = () => {
   if (admin.apps.length === 0) {
     try {
+      // Look for the JSON file in the root of the backend folder
+      const serviceAccountPath = join(
+        __dirname,
+        "../../serviceAccountKey.json",
+      );
+      const serviceAccount = JSON.parse(
+        readFileSync(serviceAccountPath, "utf8"),
+      );
+
       admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-        }),
+        credential: admin.credential.cert(serviceAccount),
       });
-      console.log('✅ Firebase Admin SDK initialized successfully');
+
+      console.log(
+        "✅ Firebase Admin SDK initialized successfully via JSON file",
+      );
     } catch (error) {
-      console.error('❌ Firebase Admin SDK initialization failed:', error);
+      console.error("❌ Firebase Admin SDK initialization failed:", error);
       throw error;
     }
   }

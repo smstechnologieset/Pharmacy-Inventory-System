@@ -5,4 +5,4 @@ node_modules/
 .DS_Store
 dist/
 build/
-pharmacy-inventory-syste-e4a6c-firebase-adminsdk-fbsvc-99a5e4fefc.json
+serviceAccountKey.json
