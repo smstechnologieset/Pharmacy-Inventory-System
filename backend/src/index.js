@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { initializeFirebase } from "./config/firebase.js";
+import { initializeWebPush } from "./config/webPush.js";
 import notificationRoutes from "./routes/notifications.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -12,6 +13,9 @@ const PORT = process.env.PORT || 5000;
 
 // Initialize Firebase Admin SDK
 initializeFirebase();
+
+// Initialize Web Push (VAPID keys)
+initializeWebPush();
 
 // Middleware
 app.use(

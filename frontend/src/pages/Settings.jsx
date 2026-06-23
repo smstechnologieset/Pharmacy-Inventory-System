@@ -7,6 +7,8 @@ import {
   Save,
   HelpCircle,
   X,
+  Bell, 
+  BellOff,
 } from "lucide-react";
 import {
   getAuth,
@@ -21,10 +23,19 @@ import CustomSelect from "../components/CustomSelect";
 import { updateSystemSettings } from "../services/settings.js";
 import { updateUserProfile } from "../services/users.js";
 import Avatar from "../components/Avatar.jsx";
-
+import {
+  subscribeToPush,
+  unsubscribeFromPush,
+  isSubscribed,
+} from "../services/notification/notifications.js";
 const Settings = () => {
   const { user } = useAuth();
-  const { settings: contextSettings, updateLanguage, t, setGlobalSettings } = useSettings(); // add setGlobalSettings
+  const {
+    settings: contextSettings,
+    updateLanguage,
+    t,
+    setGlobalSettings,
+  } = useSettings(); 
 
   const [localState, setLocalState] = useState({
     currency: contextSettings.currency || "ETB",
@@ -34,7 +45,41 @@ const Settings = () => {
   });
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+  // ── Notification State ─────────────────────────────────────────────────────
+  const [isSubscribedState, setIsSubscribedState] = useState(false);
+  const [notifLoading, setNotifLoading] = useState(false);
 
+  // Check if user is already subscribed when the page loads
+  useEffect(() => {
+    const checkSub = async () => {
+      const sub = await isSubscribed();
+      setIsSubscribedState(sub);
+    };
+    checkSub();
+  }, []);
+
+  const handleToggleNotifications = async () => {
+    setNotifLoading(true);
+    try {
+      if (isSubscribedState) {
+        await unsubscribeFromPush();
+        setIsSubscribedState(false);
+        setSuccessMsg("Notifications disabled successfully!");
+      } else {
+        await subscribeToPush(user?.uid);
+        setIsSubscribedState(true);
+        setSuccessMsg("Notifications enabled successfully!");
+      }
+      setTimeout(() => setSuccessMsg(""), 3000);
+    } catch (err) {
+      console.error("Notification toggle error:", err);
+      alert(
+        "Failed to update notification settings. Please make sure you allow browser permissions.",
+      );
+    } finally {
+      setNotifLoading(false);
+    }
+  };
   // ── Profile Edit State ─────────────────────────────────────────────────────
   const [profileForm, setProfileForm] = useState({
     name: user?.name || "",
@@ -310,7 +355,6 @@ const Settings = () => {
                 />
               </div>
 
-
               {profileSuccessMsg && (
                 <div
                   style={{
@@ -401,6 +445,60 @@ const Settings = () => {
                 {t("settings.twoFactor")}
               </button>
             </div>
+          </div>
+          <div className="card">
+            <h2
+              style={{
+                fontSize: "1.1rem",
+                fontWeight: "700",
+                marginBottom: "24px",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+              }}>
+              <Bell size={20} color="var(--primary)" /> Notifications
+            </h2>
+            <p
+              style={{
+                color: "#64748B",
+                fontSize: "0.9rem",
+                marginBottom: "20px",
+              }}>
+              Get instant browser alerts for low stock, out of stock, and
+              expired medicines.
+            </p>
+            <button
+              className="btn"
+              onClick={handleToggleNotifications}
+              disabled={notifLoading}
+              style={{
+                justifyContent: "flex-start",
+                background: isSubscribedState ? "#ECFDF5" : "#F8FAFC",
+                color: isSubscribedState ? "#059669" : "#1E293B",
+                padding: "16px 24px",
+                borderRadius: "16px",
+                border: "none",
+                cursor: notifLoading ? "not-allowed" : "pointer",
+                fontWeight: "600",
+                display: "flex",
+                alignItems: "center",
+                width: "100%",
+                opacity: notifLoading ? 0.7 : 1,
+              }}>
+              {isSubscribedState ? (
+                <Bell size={18} style={{ marginRight: "12px" }} />
+              ) : (
+                <BellOff
+                  size={18}
+                  style={{ marginRight: "12px", opacity: 0.6 }}
+                />
+              )}
+              {notifLoading
+                ? "Updating..."
+                : isSubscribedState
+                  ? "Disable Notifications"
+                  : "Enable Notifications"}
+            </button>
           </div>
         </div>
 
@@ -715,6 +813,6 @@ const Settings = () => {
       )}
     </div>
   );
-};
+};;
 
 export default Settings;
