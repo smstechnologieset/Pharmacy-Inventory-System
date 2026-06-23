@@ -14,7 +14,6 @@
   "dependencies": {
     "chart.js": "^4.5.1",
     "firebase": "^12.13.0",
-    "firebase-admin": "^13.10.0",
     "inquirer": "^14.0.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
@@ -30,6 +29,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.0",
     "eslint": "^9.39.4",
+    "inquirer": "^14.0.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",

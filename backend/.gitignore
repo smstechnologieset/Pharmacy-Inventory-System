@@ -1,0 +1,8 @@
+node_modules/
+.env
+.env.local
+*.log
+.DS_Store
+dist/
+build/
+pharmacy-inventory-syste-e4a6c-firebase-adminsdk-fbsvc-99a5e4fefc.json
