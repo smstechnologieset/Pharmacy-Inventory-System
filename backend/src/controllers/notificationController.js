@@ -1,15 +1,20 @@
 import { getFirestore } from "../config/firebase.js";
 import { webpush } from "../config/webPush.js";
+import {
+  ValidationError,
+  InternalServerError,
+  NotFoundError,
+} from "../utils/AppError.js";
 
 const SUBSCRIPTIONS_COLLECTION = "push_subscriptions";
 
 // Subscribe to push notifications
-export const subscribe = async (req, res) => {
+export const subscribe = async (req, res, next) => {
   try {
     const { subscription, userId } = req.body;
 
     if (!subscription || !subscription.endpoint) {
-      return res.status(400).json({ error: "Invalid subscription object" });
+      throw new ValidationError("Invalid subscription object");
     }
 
     const db = getFirestore();
@@ -27,18 +32,17 @@ export const subscribe = async (req, res) => {
 
     res.json({ success: true, message: "Subscribed successfully" });
   } catch (error) {
-    console.error("Subscribe error:", error);
-    res.status(500).json({ error: "Failed to subscribe" });
+    next(error);
   }
 };
 
 // Unsubscribe from push notifications
-export const unsubscribe = async (req, res) => {
+export const unsubscribe = async (req, res, next) => {
   try {
     const { endpoint } = req.body;
 
     if (!endpoint) {
-      return res.status(400).json({ error: "Endpoint is required" });
+      throw new ValidationError("Endpoint is required");
     }
 
     const db = getFirestore();
@@ -46,6 +50,10 @@ export const unsubscribe = async (req, res) => {
     const snapshot = await subscriptionsRef
       .where("subscription.endpoint", "==", endpoint)
       .get();
+
+    if (snapshot.empty) {
+      throw new NotFoundError("Subscription");
+    }
 
     const batch = db.batch();
     snapshot.docs.forEach((doc) => {
@@ -55,18 +63,17 @@ export const unsubscribe = async (req, res) => {
 
     res.json({ success: true, message: "Unsubscribed successfully" });
   } catch (error) {
-    console.error("Unsubscribe error:", error);
-    res.status(500).json({ error: "Failed to unsubscribe" });
+    next(error);
   }
 };
 
 // Send notification to all active subscribers
-export const sendNotification = async (req, res) => {
+export const sendNotification = async (req, res, next) => {
   try {
     const { title, body, icon, url } = req.body;
 
     if (!title || !body) {
-      return res.status(400).json({ error: "Title and body are required" });
+      throw new ValidationError("Title and body are required");
     }
 
     const db = getFirestore();
@@ -108,19 +115,18 @@ export const sendNotification = async (req, res) => {
       message: `Notification sent to ${snapshot.size} subscribers`,
     });
   } catch (error) {
-    console.error("Send notification error:", error);
-    res.status(500).json({ error: "Failed to send notification" });
+    next(error);
   }
 };
 
 // Check stock levels and send notifications
-export const checkStockAndNotify = async (req, res) => {
+export const checkStockAndNotify = async (req, res, next) => {
   try {
     const { medicineId, medicineName, quantity, minStock, expiryDate } =
       req.body;
-    console.log("medicine id: ", medicineId);
+
     if (!medicineId || !medicineName || quantity === undefined) {
-      return res.status(400).json({ error: "Medicine details are required" });
+      throw new ValidationError("Medicine details are required");
     }
 
     const notifications = [];
@@ -199,11 +205,20 @@ export const checkStockAndNotify = async (req, res) => {
       res.json({ success: true, message: "No notifications needed" });
     }
   } catch (error) {
-    console.error("Check stock error:", error);
-    res.status(500).json({ error: "Failed to check stock" });
+    next(error);
   }
 };
 
-export const getVapidPublicKey = (req, res) => {
-  res.json({ publicKey: process.env.VAPID_PUBLIC_KEY });
+export const getVapidPublicKey = (req, res, next) => {
+  try {
+    const publicKey = process.env.VAPID_PUBLIC_KEY;
+
+    if (!publicKey) {
+      throw new InternalServerError("VAPID_PUBLIC_KEY not configured");
+    }
+
+    res.json({ publicKey });
+  } catch (error) {
+    next(error);
+  }
 };

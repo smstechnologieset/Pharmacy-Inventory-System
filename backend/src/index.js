@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import { initializeFirebase } from "./config/firebase.js";
 import { initializeWebPush } from "./config/webPush.js";
 import notificationRoutes from "./routes/notifications.js";
-import { errorHandler } from "./middleware/errorHandler.js";
+import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 
 dotenv.config();
 
@@ -26,6 +26,12 @@ app.use(
 );
 app.use(express.json());
 
+// Ensure all responses are JSON (prevent Express from sending HTML errors)
+app.use((req, res, next) => {
+  res.setHeader("Content-Type", "application/json");
+  next();
+});
+
 // Health check endpoint
 app.get("/health", (req, res) => {
   res.json({ status: "ok", message: "Pharmacy Inventory Backend is running" });
@@ -34,7 +40,10 @@ app.get("/health", (req, res) => {
 // Routes
 app.use("/api/notifications", notificationRoutes);
 
-// Error handling middleware
+// 404 Not Found Handler (must be before error handler)
+app.use(notFoundHandler);
+
+// Error handling middleware (must be last)
 app.use(errorHandler);
 
 // Start server
