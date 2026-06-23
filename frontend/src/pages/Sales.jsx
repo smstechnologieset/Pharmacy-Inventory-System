@@ -17,6 +17,7 @@ import { getAllMedicines } from "../services/medicines.js";
 import { getAllSales, getRecentSales } from "../services/sales.js";
 import { createStockMovement, getAllStockBatches } from "../services/stockBatches.js";
 import { processCheckoutTransaction, processRefundTransaction } from "../services/transactions.js";
+import { triggerStockNotification } from "../services/notification/notifications.js";
 
 const Sales = () => {
   const { user } = useAuth();
@@ -276,6 +277,47 @@ const Sales = () => {
       ]);
       setTransactions(salesList);
       setBatches(stockBatches);
+
+      // 🚀 TRIGGER PUSH NOTIFICATIONS FOR SOLD MEDICINES
+      // Get unique medicine IDs from the cart
+      const uniqueMedicineIds = [
+        ...new Set(cart.map((item) => item.medicineId)),
+      ];
+
+      uniqueMedicineIds.forEach((medId) => {
+        // Calculate the new total stock for this medicine using the freshly fetched batches
+        const medFreshBatches = stockBatches.filter(
+          (b) =>
+            b.medicineId === medId && b.quantity > 0 && !isExpired(b.expiry),
+        );
+        const newTotalStock = medFreshBatches.reduce(
+          (sum, b) => sum + b.quantity,
+          0,
+        );
+
+        // Get medicine details from state
+        const medDetails = medicines.find((m) => m.id === medId);
+
+        if (medDetails) {
+          // Use the soonest expiring batch for the expiryDate parameter
+          const soonestExpiry =
+            medFreshBatches.length > 0 ? medFreshBatches[0].expiry : null;
+
+          triggerStockNotification({
+            medicineId: medId,
+            medicineName: medDetails.name,
+            quantity: newTotalStock,
+            minStock: medDetails.minStock || 50, // Fallback to 50 if minStock isn't defined
+            expiryDate: soonestExpiry,
+          }).catch((err) =>
+            console.warn(
+              `Push notification check failed for ${medDetails.name}:`,
+              err,
+            ),
+          );
+        }
+      });
+
       setCart([]);
       setShowReceipt(true);
     } catch (checkoutError) {

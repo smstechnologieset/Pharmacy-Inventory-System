@@ -190,3 +190,7 @@ export const checkStockAndNotify = async (req, res) => {
     res.status(500).json({ error: 'Failed to check stock' });
   }
 };
+
+export const getVapidPublicKey = (req, res) => {
+  res.json({ publicKey: process.env.VAPID_PUBLIC_KEY });
+};

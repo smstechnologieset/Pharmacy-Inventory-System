@@ -14,6 +14,7 @@ import {
   createStockMovement,
 } from "../services/stockBatches.js";
 import { getAllMedicines } from "../services/medicines.js";
+import { triggerStockNotification } from "../services/notification/notifications.js";
 
 const Inventory = () => {
   const { user } = useAuth();
@@ -222,6 +223,17 @@ const Inventory = () => {
           ...current,
         ]);
       }
+
+      // 🚀 TRIGGER PUSH NOTIFICATION CHECK
+      // We use .catch() so if the backend is down, it doesn't break the UI.
+      triggerStockNotification({
+        medicineId: payload.medicineId,
+        medicineName: selectedMed?.name || "Unknown Medicine",
+        quantity: payload.quantity,
+        minStock: selectedMed?.minStock || 50, // See note below about this
+        expiryDate: payload.expiry,
+      }).catch((err) => console.warn("Push notification check failed:", err));
+
       setIsModalOpen(false);
     } catch (err) {
       setError(err.message || "Failed to save inventory");

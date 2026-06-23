@@ -1,8 +1,9 @@
 import express from 'express';
-import { subscribe, unsubscribe, sendNotification, checkStockAndNotify } from '../controllers/notificationController.js';
+import { subscribe, unsubscribe, sendNotification, checkStockAndNotify, getVapidPublicKey } from '../controllers/notificationController.js';
 
 const router = express.Router();
 
+router.get("/vapid-public-key", getVapidPublicKey);
 // Subscribe to push notifications
 router.post('/subscribe', subscribe);
 
