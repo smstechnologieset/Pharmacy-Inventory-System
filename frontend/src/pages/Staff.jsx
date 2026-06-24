@@ -11,6 +11,8 @@ import {
   EyeOff,
   Copy,
   CheckCheck,
+  UserX, 
+  MoreVertical,
 } from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
@@ -19,7 +21,15 @@ import FormModal from "../components/FormModal";
 
 import CustomSelect from "../components/CustomSelect";
 import ConfirmModal from "../components/ConfirmModal.jsx";
-import { createStaffAccount, getAllUsers, softDeleteUser, updateUserProfile } from "../services/users.js";
+import {
+  createStaffAccount,
+  disableStaff,
+  enableStaff,
+  getAllUsers,
+  hardDeleteStaff,
+  softDeleteUser,
+  updateUserProfile,
+} from "../services/users.js";
 
 const getRoleIcon = (role) =>
   role === "admin" ? <Shield size={14} /> : <UserCheck size={14} />;
@@ -45,6 +55,8 @@ const Staff = () => {
     label,
   }));
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [disableTarget, setDisableTarget] = useState(null); // Add this
+  const [openMenuId, setOpenMenuId] = useState(null); // Add this for dropdown
   const [staffList, setStaffList] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -143,7 +155,12 @@ const Staff = () => {
         setIsModalOpen(false);
       } else {
         // Creates Firebase Auth account without disturbing admin session
-        const { uid, password } = await createStaffAccount(formData, user?.pharmacyId, user?.pharmacyName, user?.uid);
+        const { uid, password } = await createStaffAccount(
+          formData,
+          user?.pharmacyId,
+          user?.pharmacyName,
+          user?.uid,
+        );
         setStaffList((prev) => [
           ...prev,
           {
@@ -180,12 +197,43 @@ const Staff = () => {
     }
   };
 
+  // const handleDelete = async () => {
+  //   if (!deleteTarget) return;
+  //   try {
+  //     await softDeleteUser(deleteTarget.id);
+  //     setStaffList((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+  //     setDeleteTarget(null);
+  //   } catch (err) {
+  //     console.error(err);
+  //     setPageError(
+  //       t("staff.failedToDelete") || "Failed to delete staff member.",
+  //     );
+  //     setDeleteTarget(null);
+  //   }
+  // };
+  const handleDisable = async () => {
+    if (!disableTarget) return;
+    try {
+      await disableStaff(disableTarget.id);
+      setStaffList((prev) =>
+        prev.map((s) =>
+          s.id === disableTarget.id ? { ...s, status: "Disabled" } : s,
+        ),
+      );
+      setDisableTarget(null);
+    } catch (err) {
+      console.error(err);
+      setPageError(
+        t("staff.failedToDisable") || "Failed to disable staff member.",
+      );
+      setDisableTarget(null);
+    }
+  };
 
-  const handleDelete = async () => {
+  const handleHardDelete = async () => {
     if (!deleteTarget) return;
     try {
-
-      await softDeleteUser(deleteTarget.id);
+      await hardDeleteStaff(deleteTarget.id);
       setStaffList((prev) => prev.filter((s) => s.id !== deleteTarget.id));
       setDeleteTarget(null);
     } catch (err) {
@@ -196,7 +244,6 @@ const Staff = () => {
       setDeleteTarget(null);
     }
   };
-
   const handleCopy = () => {
     navigator.clipboard.writeText(successInfo.password).then(() => {
       setCopied(true);
@@ -340,24 +387,34 @@ const Staff = () => {
                   <td style={{ color: "#475569", fontWeight: "500" }}>
                     {isAdmin ? staff.email : maskEmail(staff.email)}
                   </td>
-
                   <td>
                     <span
                       className="status-badge"
                       style={{
                         background:
-                          staff.status === "Active" ? "#ECFDF5" : "#FEF2F2",
+                          staff.status === "Active"
+                            ? "#ECFDF5"
+                            : staff.status === "Disabled"
+                              ? "#FEF3C7"
+                              : "#FEF2F2",
                         color:
-                          staff.status === "Active" ? "#059669" : "#DC2626",
+                          staff.status === "Active"
+                            ? "#059669"
+                            : staff.status === "Disabled"
+                              ? "#D97706"
+                              : "#DC2626",
                         fontSize: "0.75rem",
                       }}>
                       {staff.status === "Active"
                         ? t("staff.active")
-                        : t("staff.inactive")}
+                        : staff.status === "Disabled"
+                          ? "Disabled"
+                          : t("staff.inactive")}
                     </span>
                   </td>
 
                   {/* Edit/Delete only for admins */}
+                  {/* Edit/Actions only for admins */}
                   {isAdmin && (
                     <td style={{ paddingRight: "32px" }}>
                       <div
@@ -365,29 +422,155 @@ const Staff = () => {
                           display: "flex",
                           gap: "12px",
                           justifyContent: "flex-end",
+                          alignItems: "center",
                         }}>
-                        {staff.role !== "admin" && staff.role !== "superadmin" && (
-                          <>
-                            <button
-                              className="icon-button"
-                              onClick={() => handleOpenModal(staff)}
-                              style={{ width: "40px", height: "40px" }}
-                              title={t("staff.edit")}>
-                              <Edit size={16} />
-                            </button>
-                            <button
-                              className="icon-button"
-                              onClick={() => setDeleteTarget(staff)}
-                              style={{
-                                width: "40px",
-                                height: "40px",
-                                color: "#EF4444",
-                              }}
-                              title={t("staff.delete")}>
-                              <Trash2 size={16} />
-                            </button>
-                          </>
-                        )}
+                        {staff.role !== "admin" &&
+                          staff.role !== "superadmin" && (
+                            <>
+                              <button
+                                className="icon-button"
+                                onClick={() => handleOpenModal(staff)}
+                                style={{ width: "40px", height: "40px" }}
+                                title={t("staff.edit")}>
+                                <Edit size={16} />
+                              </button>
+
+                              {/* Dropdown Menu */}
+                              <div style={{ position: "relative" }}>
+                                <button
+                                  className="icon-button"
+                                  onClick={() =>
+                                    setOpenMenuId(
+                                      openMenuId === staff.id ? null : staff.id,
+                                    )
+                                  }
+                                  style={{ width: "40px", height: "40px" }}
+                                  title="More actions">
+                                  <MoreVertical size={16} />
+                                </button>
+
+                                {openMenuId === staff.id && (
+                                  <div
+                                    style={{
+                                      position: "absolute",
+                                      right: 0,
+                                      top: "100%",
+                                      marginTop: "8px",
+                                      background: "white",
+                                      border: "1px solid #E2E8F0",
+                                      borderRadius: "12px",
+                                      boxShadow:
+                                        "0 10px 15px -3px rgba(0,0,0,0.1)",
+                                      zIndex: 1000,
+                                      minWidth: "200px",
+                                      overflow: "hidden",
+                                    }}>
+                                    {staff.status === "Disabled" ? (
+                                      <button
+                                        onClick={async () => {
+                                          try {
+                                            await enableStaff(staff.id);
+                                            setStaffList((prev) =>
+                                              prev.map((s) =>
+                                                s.id === staff.id
+                                                  ? { ...s, status: "Active" }
+                                                  : s,
+                                              ),
+                                            );
+                                            setOpenMenuId(null);
+                                          } catch (err) {
+                                            console.error(err);
+                                            setPageError(
+                                              "Failed to re-enable staff member.",
+                                            );
+                                          }
+                                        }}
+                                        style={{
+                                          width: "100%",
+                                          padding: "12px 16px",
+                                          background: "none",
+                                          border: "none",
+                                          cursor: "pointer",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          gap: "12px",
+                                          fontSize: "0.9rem",
+                                          color: "#059669",
+                                          textAlign: "left",
+                                        }}
+                                        onMouseEnter={(e) =>
+                                          (e.target.style.background =
+                                            "#ECFDF5")
+                                        }
+                                        onMouseLeave={(e) =>
+                                          (e.target.style.background = "none")
+                                        }>
+                                        <UserCheck size={16} />
+                                        Re-enable Staff
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={() => {
+                                          setDisableTarget(staff);
+                                          setOpenMenuId(null);
+                                        }}
+                                        style={{
+                                          width: "100%",
+                                          padding: "12px 16px",
+                                          background: "none",
+                                          border: "none",
+                                          cursor: "pointer",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          gap: "12px",
+                                          fontSize: "0.9rem",
+                                          color: "#F59E0B",
+                                          textAlign: "left",
+                                        }}
+                                        onMouseEnter={(e) =>
+                                          (e.target.style.background =
+                                            "#FFFBEB")
+                                        }
+                                        onMouseLeave={(e) =>
+                                          (e.target.style.background = "none")
+                                        }>
+                                        <UserX size={16} />
+                                        Disable Staff
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => {
+                                        setDeleteTarget(staff);
+                                        setOpenMenuId(null);
+                                      }}
+                                      style={{
+                                        width: "100%",
+                                        padding: "12px 16px",
+                                        background: "none",
+                                        border: "none",
+                                        cursor: "pointer",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "12px",
+                                        fontSize: "0.9rem",
+                                        color: "#EF4444",
+                                        textAlign: "left",
+                                        borderTop: "1px solid #F1F5F9",
+                                      }}
+                                      onMouseEnter={(e) =>
+                                        (e.target.style.background = "#FEF2F2")
+                                      }
+                                      onMouseLeave={(e) =>
+                                        (e.target.style.background = "none")
+                                      }>
+                                      <Trash2 size={16} />
+                                      Delete Permanently
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          )}
                       </div>
                     </td>
                   )}
@@ -690,16 +873,29 @@ const Staff = () => {
           </button>
         </div>
       </FormModal>
-            {/* ── Delete Confirmation Modal ───────────────────────────────────────── */}
+      {/* ── Delete Confirmation Modal ───────────────────────────────────────── */}
+      {/* ── Disable Confirmation Modal ───────────────────────────────────────── */}
+      <ConfirmModal
+        isOpen={!!disableTarget}
+        onClose={() => setDisableTarget(null)}
+        onConfirm={handleDisable}
+        type="warning"
+        title="Disable Staff Member?"
+        message={`Are you sure you want to disable ${disableTarget?.name || ""}? They will no longer be able to log in, but their data will be preserved.`}
+        confirmText="Disable"
+        cancelText="Cancel"
+      />
+
+      {/* ── Hard Delete Confirmation Modal ───────────────────────────────────── */}
       <ConfirmModal
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
-        onConfirm={handleDelete}
+        onConfirm={handleHardDelete}
         type="danger"
-        title={t("staff.confirmDeleteTitle")}
-        message={`${t("staff.confirmDeleteMsgPrefix")} ${deleteTarget?.name || ""}? ${t("staff.confirmDeleteMsgSuffix")}`}
-        confirmText={t("staff.yesDelete")}
-        cancelText={t("staff.cancel")}
+        title="Delete Staff Permanently?"
+        message={`⚠️ WARNING: This will permanently delete ${deleteTarget?.name || ""} from the system. This action CANNOT be undone. All their data will be lost.`}
+        confirmText="Delete Forever"
+        cancelText="Cancel"
       />
     </div>
   );

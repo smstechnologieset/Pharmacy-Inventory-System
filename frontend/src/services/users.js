@@ -158,3 +158,69 @@ export const createStaffAccount = async (userData, pharmacyId, pharmacyName, cre
     throw error;
   }
 };
+
+// Disable staff (soft delete)
+export const disableStaff = async (userId) => {
+  const API_URL ='http://localhost:5000/api';
+  
+  try {
+    const response = await fetch(`${API_URL}/staff/disable/${userId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) {
+      const result = await response.json();
+      throw new Error(result.error || 'Failed to disable staff');
+    }
+
+    return userId;
+  } catch (error) {
+    console.error('Error disabling staff:', error);
+    throw error;
+  }
+};
+
+// Hard delete staff (permanent)
+export const hardDeleteStaff = async (userId) => {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  
+  try {
+    const response = await fetch(`${API_URL}/staff/hard-delete/${userId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) {
+      const result = await response.json();
+      throw new Error(result.error || 'Failed to delete staff');
+    }
+
+    return userId;
+  } catch (error) {
+    console.error('Error deleting staff:', error);
+    throw error;
+  }
+};
+
+// Re-enable staff
+export const enableStaff = async (userId) => {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  
+  try {
+    const response = await fetch(`${API_URL}/staff/enable/${userId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) {
+      const result = await response.json();
+      throw new Error(result.error || 'Failed to enable staff');
+    }
+
+    return userId;
+  } catch (error) {
+    console.error('Error enabling staff:', error);
+    throw error;
+  }
+};
