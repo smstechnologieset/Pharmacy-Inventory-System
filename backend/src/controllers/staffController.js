@@ -23,7 +23,6 @@ export const createStaff = async (req, res) => {
     } );
 
     const uid = userRecord.uid;
-    console.log(userRecord.emailVerified);
     
     // 3. Save profile to Firestore
     const db = getFirestore();

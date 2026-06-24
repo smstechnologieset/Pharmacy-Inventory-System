@@ -123,7 +123,7 @@ export const generatePasswordFromEmail = (email) => {
 
 export const createStaffAccount = async (userData, pharmacyId, pharmacyName, createdBy) => {
   // Get the API URL from environment variables (works for both localhost and Vercel)
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  const API_URL ='http://localhost:5000/api';
   
   try {
     const response = await fetch(`${API_URL}/staff/create`, {
