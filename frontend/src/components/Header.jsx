@@ -74,6 +74,9 @@ const Header = () => {
   const searchRef = useRef(null);
   const inputRef = useRef(null);
 
+  // 1. Add a ref for the notification wrapper
+  const notifRef = useRef(null);
+
   // Debounced Server-side Search
   useEffect(() => {
     const q = query.trim().toLowerCase();
@@ -250,10 +253,14 @@ const Header = () => {
     return () => unsub();
   }, [user?.pharmacyId, canSeeNotifications]);
 
+  // 2. Update the click outside handler to close both Search and Notifications
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
         setShowDropdown(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setShowNotifs(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -317,7 +324,6 @@ const Header = () => {
             <button
               onClick={() => {
                 setQuery("");
-                // setResults([]);
                 setShowDropdown(false);
               }}
               style={{
@@ -467,24 +473,30 @@ const Header = () => {
       </div>
 
       <div className="header-right">
-        <div className="icon-button" onClick={() => setShowNotifs(!showNotifs)}>
-          <Bell size={22} />
-          {unreadCount > 0 && (
-            <div
-              className="badge"
-              style={{
-                position: "absolute",
-                top: "8px",
-                right: "8px",
-                width: "8px",
-                height: "8px",
-                background: "#EF4444",
-                borderRadius: "50%",
-                animation: hasUnreadCritical
-                  ? "notifPulse 1.4s ease-in-out infinite"
-                  : "none",
-              }}></div>
-          )}
+        {/* 3. Wrap the notification icon and dropdown in a relative container with the ref */}
+        <div ref={notifRef} style={{ position: "relative" }}>
+          {/* The clickable icon button is now separated from the dropdown content */}
+          <div
+            className="icon-button"
+            onClick={() => setShowNotifs(!showNotifs)}>
+            <Bell size={22} />
+            {unreadCount > 0 && (
+              <div
+                className="badge"
+                style={{
+                  position: "absolute",
+                  top: "8px",
+                  right: "8px",
+                  width: "8px",
+                  height: "8px",
+                  background: "#EF4444",
+                  borderRadius: "50%",
+                  animation: hasUnreadCritical
+                    ? "notifPulse 1.4s ease-in-out infinite"
+                    : "none",
+                }}></div>
+            )}
+          </div>
           {showNotifs && (
             <div
               className="notif-dropdown"
