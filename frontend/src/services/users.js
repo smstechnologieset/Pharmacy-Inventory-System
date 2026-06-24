@@ -120,27 +120,41 @@ export const generatePasswordFromEmail = (email) => {
   return `${username}@${digits}`;
 };
 
+
 export const createStaffAccount = async (userData, pharmacyId, pharmacyName, createdBy) => {
-  const secondaryApp = getApps().find((a) => a.name === "StaffCreator") || initializeApp(firebaseConfig, "StaffCreator");
-  const secondaryAuth = getAuth(secondaryApp);
-  const password = generatePasswordFromEmail(userData.email);
-
+  // Get the API URL from environment variables (works for both localhost and Vercel)
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  
   try {
-    const credential = await createUserWithEmailAndPassword(secondaryAuth, userData.email, password);
-    const { uid } = credential.user;
-    await firebaseSignOut(secondaryAuth);
-
-    await createUserProfile(uid, {
-      ...userData,
-      pharmacyId,
-      pharmacyName,
-      createdBy,
-      avatar: `https://i.pravatar.cc/150?u=${uid}`,
+    const response = await fetch(`${API_URL}/staff/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: userData.name,
+        email: userData.email,
+        role: userData.role,
+        pharmacyId,
+        pharmacyName,
+        createdBy
+      })
     });
 
-    return { uid, password };
+    const result = await response.json();
+
+    if (!response.ok) {
+      const error = new Error(result.error || 'Failed to create staff');
+      // Pass the specific error code so the frontend can show "Email already in use"
+      if (result.error === 'auth/email-already-in-use') {
+        error.code = 'auth/email-already-in-use';
+      }
+      throw error;
+    }
+
+    // Return the exact same format the frontend expects
+    return { uid: result.uid, password: result.password };
+    
   } catch (error) {
-    await firebaseSignOut(secondaryAuth).catch(() => {});
+    console.error('Frontend service error creating staff:', error);
     throw error;
   }
 };

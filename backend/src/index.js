@@ -5,7 +5,7 @@ import { initializeFirebase } from "./config/firebase.js";
 import { initializeWebPush } from "./config/webPush.js";
 import notificationRoutes from "./routes/notifications.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
-
+import staffRoutes from "./routes/staff.js";
 dotenv.config();
 
 const app = express();
@@ -20,7 +20,7 @@ initializeWebPush();
 // Middleware
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://local host:5173",
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
     credentials: true,
   }),
 );
@@ -39,6 +39,7 @@ app.get("/health", (req, res) => {
 
 // Routes
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/staff", staffRoutes);
 
 // 404 Not Found Handler (must be before error handler)
 app.use(notFoundHandler);
