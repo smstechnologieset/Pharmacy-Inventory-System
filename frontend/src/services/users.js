@@ -161,7 +161,7 @@ export const createStaffAccount = async (userData, pharmacyId, pharmacyName, cre
 
 // Disable staff (soft delete)
 export const disableStaff = async (userId) => {
-  const API_URL ='http://localhost:5000/api';
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
   
   try {
     const response = await fetch(`${API_URL}/staff/disable/${userId}`, {
