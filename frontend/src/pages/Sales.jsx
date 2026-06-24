@@ -309,6 +309,8 @@ const Sales = () => {
             quantity: newTotalStock,
             minStock: medDetails.minStock || 50, // Fallback to 50 if minStock isn't defined
             expiryDate: soonestExpiry,
+            pharmacyId: user?.pharmacyId, 
+            pharmacyName: user?.pharmacyName,
           }).catch((err) =>
             console.warn(
               `Push notification check failed for ${medDetails.name}:`,
