@@ -14,15 +14,10 @@ import {
   Filler,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
-import {
-
-} from "../services/firestoreService";
 import { useSettings } from "../context/SettingsContext";
 import { useAuth } from "../context/AuthContext";
 import { getSystemSettings } from "../services/settings.js";
-import { subscribeToPharmacyStats } from "../services/pharmacies.js";
-import { subscribeToDailySalesStats, subscribeToRecentSales } from "../services/sales.js";
-import { getDashboardStockStats } from "../services/stockBatches.js";
+import { fetchDashboardStats } from "../services/dashboard.js";
 
 const getSaleDate = (sale) => {
   if (sale.createdAt?.toDate) return sale.createdAt.toDate();
@@ -55,10 +50,19 @@ const Dashboard = () => {
     expiryWarningDays: 60,
   });
   const [timeFilter, setTimeFilter] = useState("Week");
-  
-  const [pharmacyStats, setPharmacyStats] = useState({ totalRevenue: 0, totalSalesCount: 0 });
+
+  const [pharmacyStats, setPharmacyStats] = useState({
+    totalRevenue: 0,
+    totalSalesCount: 0,
+  });
   const [dailyStats, setDailyStats] = useState([]);
-  const [stockStats, setStockStats] = useState({ inventoryStock: 0, totalBatches: 0, outOfStock: 0, lowStock: 0, expired: 0 });
+  const [stockStats, setStockStats] = useState({
+    inventoryStock: 0,
+    totalBatches: 0,
+    outOfStock: 0,
+    lowStock: 0,
+    expired: 0,
+  });
   const [recentSales, setRecentSales] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -69,21 +73,29 @@ const Dashboard = () => {
   useEffect(() => {
     if (!user?.pharmacyId) return;
 
-    let unsubscribeStats = () => {};
-    let unsubscribeDaily = () => {};
-    let unsubscribeRecent = () => {};
-
     const loadData = async () => {
       try {
         setLoading(true);
 
-        unsubscribeStats = subscribeToPharmacyStats(user.pharmacyId, setPharmacyStats);
-        unsubscribeDaily = subscribeToDailySalesStats(user.pharmacyId, setDailyStats);
-        unsubscribeRecent = subscribeToRecentSales(user.pharmacyId, 5, setRecentSales);
+        const response = await fetchDashboardStats(user.pharmacyId, {
+          lowStockThreshold: settings?.lowStockThreshold,
+          recentSalesLimit: 5,
+        });
 
-        const stockAgg = await getDashboardStockStats(user.pharmacyId, settings);
-        setStockStats(stockAgg);
-        
+        setPharmacyStats(
+          response.pharmacyStats || { totalRevenue: 0, totalSalesCount: 0 },
+        );
+        setDailyStats(response.dailySalesStats || []);
+        setStockStats(
+          response.stockStats || {
+            inventoryStock: 0,
+            totalBatches: 0,
+            outOfStock: 0,
+            lowStock: 0,
+            expired: 0,
+          },
+        );
+        setRecentSales(response.recentSales || []);
       } catch (error) {
         console.error("Unable to load dashboard data:", error);
       } finally {
@@ -92,12 +104,6 @@ const Dashboard = () => {
     };
 
     loadData();
-
-    return () => {
-      unsubscribeStats();
-      unsubscribeDaily();
-      unsubscribeRecent();
-    };
   }, [user?.pharmacyId, settings]);
 
   const inventoryBreakdown = useMemo(() => {
@@ -182,8 +188,7 @@ const Dashboard = () => {
         key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
       else key = String(date.getFullYear());
 
-      if (key in buckets)
-        buckets[key] += Number(stat.revenue || 0);
+      if (key in buckets) buckets[key] += Number(stat.revenue || 0);
     });
 
     return {
@@ -205,8 +210,6 @@ const Dashboard = () => {
       ],
     };
   }, [dailyStats, timeFilter]);
-
-
 
   const chartOptions = {
     responsive: true,
