@@ -1,32 +1,24 @@
-import {
-  doc,
-  addDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-  getDoc,
-  updateDoc,
-  serverTimestamp,
-  onSnapshot,
-} from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase";
-import { PHARMACIES_COLLECTION, USERS_COLLECTION } from "./collections";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
+const handleResponse = async (response) => {
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Pharmacy service request failed");
+  }
+  return data;
+};
 
 export const createPharmacy = async (pharmacyData) => {
   try {
-    const pharmacyRef = await addDoc(collection(db, PHARMACIES_COLLECTION), {
-      name: pharmacyData.name,
-      address: pharmacyData.address || "",
-      phone: pharmacyData.phone || "",
-      email: pharmacyData.email || "",
-      adminUid: pharmacyData.adminUid || "", 
-      adminId: pharmacyData.adminId || "",
-      status: pharmacyData.status || "active", 
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+    const response = await fetch(`${API_URL}/pharmacies`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(pharmacyData),
     });
-    return { id: pharmacyRef.id, ...pharmacyData };
+    return await handleResponse(response);
   } catch (error) {
     console.error("Error creating pharmacy:", error);
     throw new Error(`Failed to create pharmacy: ${error.message}`);
@@ -35,9 +27,8 @@ export const createPharmacy = async (pharmacyData) => {
 
 export const getAllPharmacies = async () => {
   try {
-    const q = query(collection(db, PHARMACIES_COLLECTION));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const response = await fetch(`${API_URL}/pharmacies`);
+    return await handleResponse(response);
   } catch (error) {
     console.error("Error loading pharmacies:", error);
     throw new Error(`Failed to load pharmacies: ${error.message}`);
@@ -46,9 +37,8 @@ export const getAllPharmacies = async () => {
 
 export const getPharmacyById = async (pharmacyId) => {
   try {
-    const pharmacyDoc = await getDoc(doc(db, PHARMACIES_COLLECTION, pharmacyId));
-    if (!pharmacyDoc.exists()) throw new Error("Pharmacy not found");
-    return { id: pharmacyDoc.id, ...pharmacyDoc.data() };
+    const response = await fetch(`${API_URL}/pharmacies/${pharmacyId}`);
+    return await handleResponse(response);
   } catch (error) {
     console.error("Error fetching pharmacy:", error);
     throw new Error(`Failed to fetch pharmacy: ${error.message}`);
@@ -57,9 +47,12 @@ export const getPharmacyById = async (pharmacyId) => {
 
 export const updatePharmacy = async (pharmacyId, updates) => {
   try {
-    const pharmacyDocRef = doc(db, PHARMACIES_COLLECTION, pharmacyId);
-    await updateDoc(pharmacyDocRef, { ...updates, updatedAt: serverTimestamp() });
-    return { id: pharmacyId, ...updates };
+    const response = await fetch(`${API_URL}/pharmacies/${pharmacyId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+    return await handleResponse(response);
   } catch (error) {
     console.error("Error updating pharmacy:", error);
     throw new Error(`Failed to update pharmacy: ${error.message}`);
@@ -68,29 +61,27 @@ export const updatePharmacy = async (pharmacyId, updates) => {
 
 export const updateUserStatusByPharmacyId = async (pharmacyId, status) => {
   try {
-    const q = query(
-      collection(db, USERS_COLLECTION),
-      where("pharmacyId", "==", pharmacyId),
-      where("role", "==", "admin"),
+    const response = await fetch(
+      `${API_URL}/pharmacies/${pharmacyId}/user-status`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      },
     );
-    const snapshot = await getDocs(q);
-    const updates = snapshot.docs.map((d) =>
-      updateDoc(doc(db, USERS_COLLECTION, d.id), {
-        status,
-        updatedAt: serverTimestamp(),
-      }),
-    );
-    await Promise.all(updates);
+    return await handleResponse(response);
   } catch (error) {
     console.error("Error updating user status:", error);
     throw new Error(`Failed to update user status: ${error.message}`);
   }
 };
+
+// Real-time subscription remains on the client via a Firestore listener.
 export const subscribeToPharmacyStats = (pharmacyId, callback) => {
-    const q = doc(db, "pharmacyStats", pharmacyId);
-    return onSnapshot(q, (doc) => {
-      callback(
-        doc.exists() ? doc.data() : { totalRevenue: 0, totalSalesCount: 0 },
-      );
-    });
-  };
+  const q = doc(db, "pharmacyStats", pharmacyId);
+  return onSnapshot(q, (snap) => {
+    callback(
+      snap.exists() ? snap.data() : { totalRevenue: 0, totalSalesCount: 0 },
+    );
+  });
+};

@@ -7,6 +7,9 @@ import notificationRoutes from "./routes/notifications.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import staffRoutes from "./routes/staff.js";
 import medicinesRoutes from "./routes/medicines.js";
+import suppliersRoutes from "./routes/suppliers.js";
+import salesRoutes from "./routes/sales.js";
+import pharmaciesRoutes from "./routes/pharmacies.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 dotenv.config();
 
@@ -44,6 +47,9 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/staff", staffRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/medicines", medicinesRoutes);
+app.use("/api/suppliers", suppliersRoutes);
+app.use("/api/sales", salesRoutes);
+app.use("/api/pharmacies", pharmaciesRoutes);
 
 // 404 Not Found Handler (must be before error handler)
 app.use(notFoundHandler);

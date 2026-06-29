@@ -80,7 +80,7 @@ const Settings = () => {
       setNotifLoading(false);
     }
   };
-  // ── Profile Edit State ─────────────────────────────────────────────────────
+
   const [profileForm, setProfileForm] = useState({
     name: user?.name || "",
     phone: user?.phone || "",

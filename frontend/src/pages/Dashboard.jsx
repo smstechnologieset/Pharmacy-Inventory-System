@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useState, useMemo } from "react"; 
 import { DollarSign, Package, AlertCircle, CalendarX } from "lucide-react";
 import {
   Chart as ChartJS,
@@ -14,6 +14,8 @@ import {
   Filler,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
+import { useQuery } from "@tanstack/react-query"; 
+
 import { useSettings } from "../context/SettingsContext";
 import { useAuth } from "../context/AuthContext";
 import { getSystemSettings } from "../services/settings.js";
@@ -45,66 +47,55 @@ ChartJS.register(
 const Dashboard = () => {
   const { t } = useSettings();
   const { user } = useAuth();
-  const [settings, setSettings] = useState({
-    lowStockThreshold: 10,
-    expiryWarningDays: 60,
-  });
+  
   const [timeFilter, setTimeFilter] = useState("Week");
 
-  const [pharmacyStats, setPharmacyStats] = useState({
-    totalRevenue: 0,
-    totalSalesCount: 0,
+  // 1. Fetch Settings
+  const {
+    data: settingsData,
+    isLoading: isSettingsLoading,
+  } = useQuery({
+    queryKey: ["settings", user?.pharmacyId],
+    queryFn: () => getSystemSettings(user.pharmacyId),
+    enabled: !!user?.pharmacyId,
   });
-  const [dailyStats, setDailyStats] = useState([]);
-  const [stockStats, setStockStats] = useState({
+
+  const lowStockThreshold = settingsData?.lowStockThreshold || 10;
+
+  // 2. Fetch Dashboard Stats (Depends on settings being loaded)
+  const {
+    data: dashboardData = {},
+    isLoading: isDashboardLoading,
+  } = useQuery({
+    queryKey: ["dashboardStats", user?.pharmacyId, lowStockThreshold],
+    queryFn: () =>
+      fetchDashboardStats(user.pharmacyId, {
+        lowStockThreshold,
+        recentSalesLimit: 5,
+      }),
+    // Only fetch dashboard stats once settings have finished loading
+    enabled: !!user?.pharmacyId && !isSettingsLoading,
+    onError: (error) => {
+      console.error("Unable to load dashboard data:", error);
+    },
+  });
+
+  // Derive the variables used in the rest of the component from the React Query data
+  const pharmacyStats = dashboardData.pharmacyStats || { totalRevenue: 0, totalSalesCount: 0 };
+  const dailyStats = dashboardData.dailySalesStats || [];
+  const stockStats = dashboardData.stockStats || {
     inventoryStock: 0,
     totalBatches: 0,
     outOfStock: 0,
     lowStock: 0,
     expired: 0,
-  });
-  const [recentSales, setRecentSales] = useState([]);
-  const [loading, setLoading] = useState( true );
+  };
+  const recentSales = dashboardData.recentSales || [];
   
-  useEffect(() => {
-    if (user?.pharmacyId) getSystemSettings(user.pharmacyId).then(setSettings);
-  }, [user?.pharmacyId]);
+  // Combine loading states
+  const loading = isSettingsLoading || isDashboardLoading;
 
-  useEffect(() => {
-    if (!user?.pharmacyId) return;
-
-    const loadData = async () => {
-      try {
-        setLoading(true);
-
-        const response = await fetchDashboardStats(user.pharmacyId, {
-          lowStockThreshold: settings?.lowStockThreshold,
-          recentSalesLimit: 5,
-        });
-
-        setPharmacyStats(
-          response.pharmacyStats || { totalRevenue: 0, totalSalesCount: 0 },
-        );
-        setDailyStats(response.dailySalesStats || []);
-        setStockStats(
-          response.stockStats || {
-            inventoryStock: 0,
-            totalBatches: 0,
-            outOfStock: 0,
-            lowStock: 0,
-            expired: 0,
-          },
-        );
-        setRecentSales(response.recentSales || []);
-      } catch (error) {
-        console.error("Unable to load dashboard data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, [user?.pharmacyId, settings]);
+  // ── The rest of your component remains exactly the same ──
 
   const inventoryBreakdown = useMemo(() => {
     const total = stockStats.totalBatches;
@@ -347,7 +338,6 @@ const Dashboard = () => {
               {t("dashboard.salesOverview")}
             </h2>
             <div className="tabs">
-              {/* Fixed: Changed (t) to (filter) to avoid shadowing the translation function */}
               {["Day", "Week", "Month", "Year"].map((filter) => (
                 <div
                   key={filter}

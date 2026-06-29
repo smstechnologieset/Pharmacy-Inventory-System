@@ -1,27 +1,21 @@
-import {
-  doc,
-  addDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-  updateDoc,
-  serverTimestamp,
-} from "firebase/firestore";
-import { db } from "./firebase";
-import { SUPPLIERS_COLLECTION } from "./collections";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
+const handleResponse = async (response) => {
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Supplier service request failed");
+  }
+  return data;
+};
 
 export const createSupplier = async (supplier, pharmacyId) => {
   try {
-    const supplierRef = await addDoc(collection(db, SUPPLIERS_COLLECTION), {
-      ...supplier,
-      medicines: supplier.medicines || [],
-      pharmacyId,
-      isDeleted: false,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+    const response = await fetch(`${API_URL}/suppliers`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ supplier, pharmacyId }),
     });
-    return { id: supplierRef.id, ...supplier };
+    return await handleResponse(response);
   } catch (error) {
     console.error("Error creating supplier:", error);
     throw new Error(`Failed to create supplier: ${error.message}`);
@@ -30,11 +24,11 @@ export const createSupplier = async (supplier, pharmacyId) => {
 
 export const getAllSuppliers = async (pharmacyId) => {
   try {
-    const supplierQuery = pharmacyId
-      ? query(collection(db, SUPPLIERS_COLLECTION), where("pharmacyId", "==", pharmacyId), where("isDeleted", "==", false))
-      : query(collection(db, SUPPLIERS_COLLECTION), where("isDeleted", "==", false));
-    const snapshot = await getDocs(supplierQuery);
-    return snapshot.docs.map((docRef) => ({ id: docRef.id, ...docRef.data() }));
+    const url = new URL(`${API_URL}/suppliers`);
+    if (pharmacyId) url.searchParams.append("pharmacyId", pharmacyId);
+
+    const response = await fetch(url.toString());
+    return await handleResponse(response);
   } catch (error) {
     console.error("Error loading suppliers:", error);
     throw new Error(`Failed to load suppliers: ${error.message}`);
@@ -43,9 +37,12 @@ export const getAllSuppliers = async (pharmacyId) => {
 
 export const updateSupplier = async (supplierId, updates) => {
   try {
-    const supplierDocRef = doc(db, SUPPLIERS_COLLECTION, supplierId);
-    await updateDoc(supplierDocRef, { ...updates, updatedAt: serverTimestamp() });
-    return { id: supplierId, ...updates };
+    const response = await fetch(`${API_URL}/suppliers/${supplierId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+    return await handleResponse(response);
   } catch (error) {
     console.error("Error updating supplier:", error);
     throw new Error(`Failed to update supplier: ${error.message}`);
@@ -54,8 +51,10 @@ export const updateSupplier = async (supplierId, updates) => {
 
 export const deleteSupplier = async (supplierId) => {
   try {
-    const supplierRef = doc(db, SUPPLIERS_COLLECTION, supplierId);
-    await updateDoc(supplierRef, { isDeleted: true, deletedAt: serverTimestamp() });
+    const response = await fetch(`${API_URL}/suppliers/${supplierId}`, {
+      method: "DELETE",
+    });
+    await handleResponse(response);
     return supplierId;
   } catch (error) {
     console.error("Error deleting supplier:", error);
