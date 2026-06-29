@@ -5,8 +5,9 @@ import { initializeFirebase } from "./config/firebase.js";
 import { initializeWebPush } from "./config/webPush.js";
 import notificationRoutes from "./routes/notifications.js";
 import dashboardRoutes from "./routes/dashboard.js";
-import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import staffRoutes from "./routes/staff.js";
+import medicinesRoutes from "./routes/medicines.js";
+import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 dotenv.config();
 
 const app = express();
@@ -42,6 +43,7 @@ app.get("/health", (req, res) => {
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/staff", staffRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/medicines", medicinesRoutes);
 
 // 404 Not Found Handler (must be before error handler)
 app.use(notFoundHandler);
