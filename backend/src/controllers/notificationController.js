@@ -10,9 +10,10 @@ import {
 const SUBSCRIPTIONS_COLLECTION = "push_subscriptions";
 
 // Subscribe to push notifications
+
 export const subscribe = async (req, res, next) => {
   try {
-    const { subscription, userId } = req.body;
+    const { subscription, userId, pharmacyId } = req.body; // 👈 ADD pharmacyId
 
     if (!subscription || !subscription.endpoint) {
       throw new ValidationError("Invalid subscription object");
@@ -26,6 +27,7 @@ export const subscribe = async (req, res, next) => {
       .doc(subscriptionId)
       .set({
         userId: userId || "anonymous",
+        pharmacyId: pharmacyId || null, // 👈 ADD THIS
         subscription,
         createdAt: new Date().toISOString(),
         isActive: true,
@@ -210,12 +212,22 @@ export const sendNotification = async (req, res, next) => {
 //   }
 // };
 // Check stock levels and send notifications (push + email to pharmacy admin)
+// Check stock levels and send notifications (push + email to pharmacy admin)
 export const checkStockAndNotify = async (req, res) => {
   try {
-    const { medicineId, medicineName, quantity, minStock, expiryDate, batchNo, pharmacyId, pharmacyName } = req.body;
-    
+    const {
+      medicineId,
+      medicineName,
+      quantity,
+      minStock,
+      expiryDate,
+      batchNo,
+      pharmacyId,
+      pharmacyName,
+    } = req.body;
+
     if (!medicineId || !medicineName || quantity === undefined) {
-      return res.status(400).json({ error: 'Medicine details are required' });
+      return res.status(400).json({ error: "Medicine details are required" });
     }
 
     const alerts = [];
@@ -224,23 +236,27 @@ export const checkStockAndNotify = async (req, res) => {
     // Check if out of stock
     if (quantity === 0) {
       alerts.push({
-        type: 'out_of_stock',
+        type: "out_of_stock",
         medicineId,
         medicineName,
-        batchNo: batchNo || 'N/A',
+        batchNo: batchNo || "N/A",
         quantity,
-        expiryDate: expiryDate ? new Date(expiryDate).toLocaleDateString() : 'N/A',
+        expiryDate: expiryDate
+          ? new Date(expiryDate).toLocaleDateString()
+          : "N/A",
       });
     }
     // Check if low stock
     else if (minStock && quantity <= minStock) {
       alerts.push({
-        type: 'low_stock',
+        type: "low_stock",
         medicineId,
         medicineName,
-        batchNo: batchNo || 'N/A',
+        batchNo: batchNo || "N/A",
         quantity,
-        expiryDate: expiryDate ? new Date(expiryDate).toLocaleDateString() : 'N/A',
+        expiryDate: expiryDate
+          ? new Date(expiryDate).toLocaleDateString()
+          : "N/A",
       });
     }
 
@@ -249,10 +265,10 @@ export const checkStockAndNotify = async (req, res) => {
       const expiry = new Date(expiryDate);
       if (expiry <= today) {
         alerts.push({
-          type: 'expired',
+          type: "expired",
           medicineId,
           medicineName,
-          batchNo: batchNo || 'N/A',
+          batchNo: batchNo || "N/A",
           quantity,
           expiryDate: expiry.toLocaleDateString(),
         });
@@ -260,88 +276,119 @@ export const checkStockAndNotify = async (req, res) => {
     }
 
     if (alerts.length === 0) {
-      return res.json({ success: true, message: 'No notifications needed', alerts: [] });
+      return res.json({
+        success: true,
+        message: "No notifications needed",
+        alerts: [],
+      });
     }
 
     const db = getFirestore();
 
-    // ── 1. Send Push Notifications to all subscribed users ──
-    const pushSnapshot = await db.collection(SUBSCRIPTIONS_COLLECTION)
-      .where('isActive', '==', true)
-      .get();
+    // ── 1. Send Push Notifications ONLY to users from the SAME PHARMACY ──
+    // 👇 THIS IS THE FIX: Filter by pharmacyId
+    let pushQuery = db
+      .collection(SUBSCRIPTIONS_COLLECTION)
+      .where("isActive", "==", true);
+
+    if (pharmacyId) {
+      pushQuery = pushQuery.where("pharmacyId", "==", pharmacyId);
+    }
+
+    const pushSnapshot = await pushQuery.get();
 
     const pushPromises = [];
-    
+
     for (const alert of alerts) {
-      let title = '📉 Low Stock Alert';
+      let title = "📉 Low Stock Alert";
       let body = `${alert.medicineName} has only ${alert.quantity} units left`;
-      
-      if (alert.type === 'out_of_stock') {
-        title = '⚠️ Out of Stock';
+
+      if (alert.type === "out_of_stock") {
+        title = "⚠️ Out of Stock";
         body = `${alert.medicineName} is now out of stock`;
-      } else if (alert.type === 'expired') {
-        title = '🚨 Expired Medicine';
+      } else if (alert.type === "expired") {
+        title = "🚨 Expired Medicine";
         body = `${alert.medicineName} expired on ${alert.expiryDate}`;
       }
 
       const payload = JSON.stringify({
         title,
         body,
-        icon: '/icon-192x192.png',
+        icon: "/icon-192x192.png",
         url: `/inventory/medicine/${medicineId}`,
       });
 
       pushSnapshot.docs.forEach((doc) => {
         const subscription = doc.data().subscription;
         pushPromises.push(
-          webpush.sendNotification(subscription, payload).catch(async (error) => {
-            if (error.statusCode === 410) {
-              await db.collection(SUBSCRIPTIONS_COLLECTION).doc(doc.id).update({
-                isActive: false,
-              });
-            }
-          })
+          webpush
+            .sendNotification(subscription, payload)
+            .catch(async (error) => {
+              if (error.statusCode === 410) {
+                await db
+                  .collection(SUBSCRIPTIONS_COLLECTION)
+                  .doc(doc.id)
+                  .update({
+                    isActive: false,
+                  });
+              }
+            }),
         );
       });
     }
 
     await Promise.all(pushPromises);
 
-    // ── 2. 🆕 Send Email to the PHARMACY'S ADMIN(S) ──
-    let emailResult = { success: false, message: 'No pharmacy ID provided' };
-    
+    // ── 2. Send Email to the PHARMACY'S ADMIN(S) ──
+    let emailResult = { success: false, message: "No pharmacy ID provided" };
+
     if (pharmacyId) {
       try {
         // Query Firestore for all admins of this specific pharmacy
-        const adminSnapshot = await db.collection('users')
-          .where('pharmacyId', '==', pharmacyId)
-          .where('role', '==', 'admin')
-          .where('isDeleted', '==', false)
+        const adminSnapshot = await db
+          .collection("users")
+          .where("pharmacyId", "==", pharmacyId)
+          .where("role", "==", "admin")
+          .where("isDeleted", "==", false)
           .get();
 
-        const adminEmails = adminSnapshot.docs.map(doc => doc.data().email).filter(Boolean);
+        const adminEmails = adminSnapshot.docs
+          .map((doc) => doc.data().email)
+          .filter(Boolean);
 
         if (adminEmails.length > 0) {
-          emailResult = await sendStockAlertEmail(alerts, adminEmails, pharmacyName);
+          emailResult = await sendStockAlertEmail(
+            alerts,
+            adminEmails,
+            pharmacyName,
+          );
         } else {
-          console.warn(`⚠️ No admin found for pharmacy ${pharmacyId}. Email not sent.`);
-          emailResult = { success: false, message: 'No admin found for this pharmacy' };
+          console.warn(
+            `⚠️ No admin found for pharmacy ${pharmacyId}. Email not sent.`,
+          );
+          emailResult = {
+            success: false,
+            message: "No admin found for this pharmacy",
+          };
         }
       } catch (emailError) {
-        console.error('Email notification failed (push still sent):', emailError.message);
+        console.error(
+          "Email notification failed (push still sent):",
+          emailError.message,
+        );
         emailResult = { success: false, message: emailError.message };
       }
     }
 
     res.json({
       success: true,
-      message: `Sent ${alerts.length} alert(s) to ${pushSnapshot.size} push subscriber(s)`,
+      message: `Sent ${alerts.length} alert(s) to ${pushSnapshot.size} push subscriber(s) from pharmacy ${pharmacyName || pharmacyId}`,
       alerts,
       email: emailResult,
     });
   } catch (error) {
-    console.error('Check stock error:', error);
-    res.status(500).json({ error: 'Failed to check stock' });
+    console.error("Check stock error:", error);
+    res.status(500).json({ error: "Failed to check stock" });
   }
 };
 export const getVapidPublicKey = (req, res, next) => {

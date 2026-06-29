@@ -52,7 +52,8 @@ export const requestNotificationPermission = async () => {
 };
 
 // Subscribe to push notifications
-export const subscribeToPush = async (userId) => {
+// Subscribe to push notifications
+export const subscribeToPush = async (userId, pharmacyId) => {
   try {
     // Register service worker if not already registered
     const registration = await registerServiceWorker();
@@ -76,7 +77,7 @@ export const subscribeToPush = async (userId) => {
       applicationServerKey: urlBase64ToUint8Array(publicKey),
     });
 
-    // Send subscription to backend
+    // Send subscription to backend WITH PHARMACY ID
     const response = await fetch(`${API_URL}/notifications/subscribe`, {
       method: 'POST',
       headers: {
@@ -85,6 +86,7 @@ export const subscribeToPush = async (userId) => {
       body: JSON.stringify({
         subscription: subscription.toJSON(),
         userId: userId || 'anonymous',
+        pharmacyId: pharmacyId || null, // 👈 ADD THIS
       }),
     });
 
@@ -99,7 +101,6 @@ export const subscribeToPush = async (userId) => {
     throw error;
   }
 };
-
 // Unsubscribe from push notifications
 export const unsubscribeFromPush = async () => {
   try {

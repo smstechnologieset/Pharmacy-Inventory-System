@@ -66,7 +66,7 @@ const Settings = () => {
         setIsSubscribedState(false);
         setSuccessMsg("Notifications disabled successfully!");
       } else {
-        await subscribeToPush(user?.uid);
+        await subscribeToPush(user?.uid, user?.pharmacyId); // 👈 ADD pharmacyId
         setIsSubscribedState(true);
         setSuccessMsg("Notifications enabled successfully!");
       }

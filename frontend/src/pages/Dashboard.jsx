@@ -64,8 +64,8 @@ const Dashboard = () => {
     expired: 0,
   });
   const [recentSales, setRecentSales] = useState([]);
-  const [loading, setLoading] = useState(true);
-
+  const [loading, setLoading] = useState( true );
+  
   useEffect(() => {
     if (user?.pharmacyId) getSystemSettings(user.pharmacyId).then(setSettings);
   }, [user?.pharmacyId]);
