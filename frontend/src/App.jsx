@@ -25,8 +25,19 @@ import PendingPage from "./pages/PendingPage.jsx";
 import PharmacySuspendedMessage from "./components/PharmacySuspendedMessage.jsx";
 import PharmacyPendingMessage from "./components/PharmacyPendingMessage.jsx";
 import VerifyEmailPage from "./pages/VerifyEmailPage.jsx";
+import {
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
+import {ReactQueryDevtools} from '@tanstack/react-query-devtools'
+const queryClient = new QueryClient( {
+  defaultOptions: {
+    queries: {
+  staleTime: 60 * 1000,
+}}})
 
-// Basic Protected Route Component (Checks if logged in & handles special states)
+
+
 const ProtectedRoute = ({ children }) => {
   const { user, loading, pharmacyStatus } = useAuth();
 
@@ -54,7 +65,7 @@ const SuperAdminRoute = ({ children }) => {
 
   if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" />;
-  if ( user.role !== "superadmin" ) return <Navigate to="/" />;
+  if (user.role !== "superadmin") return <Navigate to="/" />;
   if (!authUser?.emailVerified) return <Navigate to="/verify-email" />;
   return children;
 };
@@ -78,119 +89,143 @@ const VerifyEmailRoute = ({ children }) => {
   return children;
 };
 
-function App() {
+function App () {
+
   return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/pending" element={<PharmacyPendingMessage />} />
-        <Route
-          path="/verify-email"
-          element={
-            <VerifyEmailRoute>
-              <VerifyEmailPage />
-            </VerifyEmailRoute>
-          }
-        />
-        {/* Super Admin Dashboard — completely separate layout */}
-        <Route
-          path="/super-admin"
-          element={
-            <SuperAdminRoute>
-              <SuperAdmin />
-            </SuperAdminRoute>
-          }
-        />
-
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <Layout />
-            </ProtectedRoute>
-          }>
-          {/* Dashboard is accessible to all authenticated, non-staff roles */}
-          <Route index element={<Dashboard />} />
-
-          {/* Core Operations - Accessible by Admin, Manager, Pharmacist */}
+    <QueryClientProvider client={ queryClient }>
+      <ReactQueryDevtools initialIsOpen={false} />
+      <Router>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/pending" element={<PharmacyPendingMessage />} />
           <Route
-            path="medicine"
+            path="/verify-email"
             element={
-              <RoleGuard
-                allowedRoles={["admin", "manager", "pharmacist", "superadmin"]}>
-                <Medicine />
-              </RoleGuard>
+              <VerifyEmailRoute>
+                <VerifyEmailPage />
+              </VerifyEmailRoute>
             }
           />
+          {/* Super Admin Dashboard — completely separate layout */}
           <Route
-            path="inventory"
+            path="/super-admin"
             element={
-              <RoleGuard
-                allowedRoles={["admin", "manager", "pharmacist", "superadmin"]}>
-                <Inventory />
-              </RoleGuard>
-            }
-          />
-          <Route
-            path="sales"
-            element={
-              <RoleGuard
-                allowedRoles={["admin", "manager", "pharmacist", "superadmin"]}>
-                <Sales />
-              </RoleGuard>
-            }
-          />
-          <Route
-            path="expiration"
-            element={
-              <RoleGuard
-                allowedRoles={["admin", "manager", "pharmacist", "superadmin"]}>
-                <Expiration />
-              </RoleGuard>
+              <SuperAdminRoute>
+                <SuperAdmin />
+              </SuperAdminRoute>
             }
           />
 
-          {/* Management & Reports - Accessible by Admin, Manager */}
           <Route
-            path="suppliers"
+            path="/"
             element={
-              <RoleGuard allowedRoles={["admin", "manager", "superadmin"]}>
-                <Suppliers />
-              </RoleGuard>
-            }
-          />
-          <Route
-            path="reports"
-            element={
-              <RoleGuard allowedRoles={["admin", "manager", "superadmin"]}>
-                <Reports />
-              </RoleGuard>
-            }
-          />
-          <Route
-            path="staff"
-            element={
-              <RoleGuard allowedRoles={["admin", "manager", "superadmin"]}>
-                <Staff />
-              </RoleGuard>
-            }
-          />
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }>
+            {/* Dashboard is accessible to all authenticated, non-staff roles */}
+            <Route index element={<Dashboard />} />
 
-          {/* System Settings - Admin Only */}
-          <Route
-            path="settings"
-            element={
-              <RoleGuard allowedRoles={["admin", "superadmin"]}>
-                <Settings />
-              </RoleGuard>
-            }
-          />
+            {/* Core Operations - Accessible by Admin, Manager, Pharmacist */}
+            <Route
+              path="medicine"
+              element={
+                <RoleGuard
+                  allowedRoles={[
+                    "admin",
+                    "manager",
+                    "pharmacist",
+                    "superadmin",
+                  ]}>
+                  <Medicine />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="inventory"
+              element={
+                <RoleGuard
+                  allowedRoles={[
+                    "admin",
+                    "manager",
+                    "pharmacist",
+                    "superadmin",
+                  ]}>
+                  <Inventory />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="sales"
+              element={
+                <RoleGuard
+                  allowedRoles={[
+                    "admin",
+                    "manager",
+                    "pharmacist",
+                    "superadmin",
+                  ]}>
+                  <Sales />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="expiration"
+              element={
+                <RoleGuard
+                  allowedRoles={[
+                    "admin",
+                    "manager",
+                    "pharmacist",
+                    "superadmin",
+                  ]}>
+                  <Expiration />
+                </RoleGuard>
+              }
+            />
 
-          <Route path="invoices" element={<Navigate to="/sales" />} />
-        </Route>
-      </Routes>
-    </Router>
+            {/* Management & Reports - Accessible by Admin, Manager */}
+            <Route
+              path="suppliers"
+              element={
+                <RoleGuard allowedRoles={["admin", "manager", "superadmin"]}>
+                  <Suppliers />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="reports"
+              element={
+                <RoleGuard allowedRoles={["admin", "manager", "superadmin"]}>
+                  <Reports />
+                </RoleGuard>
+              }
+            />
+            <Route
+              path="staff"
+              element={
+                <RoleGuard allowedRoles={["admin", "manager", "superadmin"]}>
+                  <Staff />
+                </RoleGuard>
+              }
+            />
+
+            {/* System Settings - Admin Only */}
+            <Route
+              path="settings"
+              element={
+                <RoleGuard allowedRoles={["admin", "superadmin"]}>
+                  <Settings />
+                </RoleGuard>
+              }
+            />
+
+            <Route path="invoices" element={<Navigate to="/sales" />} />
+          </Route>
+        </Routes>
+      </Router>
+    </QueryClientProvider>
   );
 }
 

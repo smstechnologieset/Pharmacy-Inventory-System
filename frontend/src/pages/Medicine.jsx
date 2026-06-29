@@ -13,12 +13,14 @@ import {
   deleteMedicine,
 } from "../services/medicines.js";
 import { getAllSuppliers } from "../services/suppliers.js";
+import MedicinesTable from "../components/MedicinesTable.jsx";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 const Medicine = () => {
   const { t } = useSettings();
   const { user } = useAuth();
-  const [productList, setProductList] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
+  const queryClient = useQueryClient();
+
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -30,7 +32,7 @@ const Medicine = () => {
     supplierId: "",
     supplierName: "",
   });
-  const [loading, setLoading] = useState(true);
+  // const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [sortBy, setSortBy] = useState("name-asc");
@@ -39,25 +41,69 @@ const Medicine = () => {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [medicineToDelete, setMedicineToDelete] = useState(null);
 
-  useEffect(() => {
-    if (!user?.pharmacyId) return;
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        const [medicines, suppliersList] = await Promise.all([
-          getAllMedicines(user.pharmacyId),
-          getAllSuppliers(user.pharmacyId).catch(() => []),
-        ]);
-        setProductList(medicines);
-        setSuppliers(suppliersList);
-      } catch (err) {
-        setError(err.message || "Failed to load medicines.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, [user?.pharmacyId]);
+  const {
+    data: productList = [],
+    isLoading: isMedicinesLoading,
+    error: medicinesError,
+  } = useQuery({
+    queryKey: ["medicines", user?.pharmacyId],
+    queryFn: () => getAllMedicines(user.pharmacyId),
+    enabled: !!user?.pharmacyId,
+  });
+
+  const {
+    data: suppliers = [],
+    isLoading: isSuppliersLoading,
+    error: suppliersError,
+  } = useQuery({
+    queryKey: ["suppliers", user?.pharmacyId],
+    queryFn: () => getAllSuppliers(user.pharmacyId).catch(() => []),
+    enabled: !!user?.pharmacyId,
+  });
+
+  const loading = isMedicinesLoading || isSuppliersLoading;
+
+  const queryError = medicinesError?.message || suppliersError?.message || "";
+
+  const createMutation = useMutation({
+    mutationFn: (payload) => createMedicine(payload, user.pharmacyId),
+    onSuccess: () => {
+      // Tells React Query to refetch the medicines list automatically
+      queryClient.invalidateQueries({
+        queryKey: ["medicines", user?.pharmacyId],
+      });
+      setIsModalOpen(false);
+      setError("");
+    },
+    onError: (err) => setError(err.message || "Failed to create medicine."),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }) => updateMedicine(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["medicines", user?.pharmacyId],
+      });
+      setIsModalOpen(false);
+      setError("");
+    },
+    onError: (err) => setError(err.message || "Failed to update medicine."),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => deleteMedicine(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["medicines", user?.pharmacyId],
+      });
+      setIsConfirmModalOpen(false);
+      setMedicineToDelete(null);
+      setError("");
+    },
+    onError: (err) => setError(err.message || "Failed to delete medicine."),
+  });
+
+  const isSaving = createMutation.isPending || updateMutation.isPending;
 
   const filteredProducts = productList
     .filter((p) => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -83,6 +129,7 @@ const Medicine = () => {
     });
 
   const handleOpenModal = (product = null) => {
+    setError("");
     if (product) {
       setEditingProduct(product);
       setFormData({
@@ -92,7 +139,7 @@ const Medicine = () => {
         description: product.description,
         supplierId: product.supplierId || "",
         supplierName: product.supplierName || "",
-      }); 
+      });
     } else {
       setEditingProduct(null);
       setFormData({
@@ -116,37 +163,25 @@ const Medicine = () => {
     });
   };
 
-  const handleSave = async (e) => {
+  const handleSave = (e) => {
     e.preventDefault();
     setError("");
-    setSaving(true);
-    try {
-      const payload = {
-        name: formData.name,
-        category: formData.category,
-        price: parseFloat(formData.price),
-        description: formData.description,
-        supplierId: formData.supplierId || "N/A",
-        supplierName: formData.supplierName || "N/A",
-      };
 
-      if (editingProduct) {
-        await updateMedicine(editingProduct.id, payload);
-        setProductList(
-          productList.map((p) =>
-            p.id === editingProduct.id ? { ...p, ...payload } : p,
-          ),
-        );
-      } else {
-        await createMedicine(payload, user.pharmacyId);
-        const medicines = await getAllMedicines(user.pharmacyId);
-        setProductList(medicines);
-      }
-      setIsModalOpen(false);
-    } catch (err) {
-      setError(err.message || "Failed to save medicine.");
-    } finally {
-      setSaving(false);
+    const payload = {
+      name: formData.name,
+      category: formData.category,
+      price: parseFloat(formData.price),
+      description: formData.description,
+      supplierId: formData.supplierId || "N/A",
+      supplierName: formData.supplierName || "N/A",
+    };
+
+    if (editingProduct) {
+      // Trigger update mutation with both ID and payload
+      updateMutation.mutate({ id: editingProduct.id, payload });
+    } else {
+      // Trigger create mutation with just the payload
+      createMutation.mutate(payload);
     }
   };
 
@@ -157,22 +192,9 @@ const Medicine = () => {
   };
 
   // 4. Execute the actual deletion when confirmed
-  const confirmDelete = async () => {
+  const confirmDelete = () => {
     if (!medicineToDelete) return;
-    const id = medicineToDelete;
-    setError("");
-    try {
-      await deleteMedicine(id);
-      setProductList(productList.filter((p) => p.id !== id));
-    } catch (err) {
-      setError(
-        err.message ||
-          t("medicine.failedToDelete") ||
-          "Failed to delete medicine.",
-      );
-    } finally {
-      setMedicineToDelete(null);
-    }
+    deleteMutation.mutate(medicineToDelete);
   };
 
   if (loading)
@@ -271,100 +293,11 @@ const Medicine = () => {
           </div>
         </div>
 
-        <div className="table-container">
-          <table style={{ borderSpacing: "0" }}>
-            <thead>
-              <tr style={{ background: "#F8FAFC" }}>
-                <th style={{ padding: "16px 32px" }}>
-                  {t("medicine.medicineInfo")}
-                </th>
-                <th>{t("medicine.category")}</th>
-                <th>{t("medicine.totalStock")}</th>
-                <th>{t("medicine.defaultPrice")}</th>
-                <th style={{ textAlign: "right", paddingRight: "32px" }}>
-                  {t("medicine.actions")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProducts.map((p) => (
-                <tr key={p.id} style={{ borderBottom: "1px solid #F1F5F9" }}>
-                  <td style={{ padding: "20px 32px" }}>
-                    <div
-                      style={{
-                        fontWeight: "700",
-                        fontSize: "0.95rem",
-                        color: "#1E293B",
-                      }}>
-                      {p.name}
-                    </div>
-                    {p.supplierName && (
-                      <div
-                        style={{
-                          fontSize: "0.7rem",
-                          color: "#0D9488",
-                          marginTop: "2px",
-                        }}>
-                        {t("medicine.supplier")}: {p.supplierName}
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    <span
-                      style={{
-                        padding: "6px 16px",
-                        background: "#F1F5F9",
-                        color: "#64748B",
-                        borderRadius: "12px",
-                        fontSize: "0.8rem",
-                        fontWeight: "600",
-                      }}>
-                      {p.category}
-                    </span>
-                  </td>
-                  <td>
-                    <div
-                      style={{
-                        fontWeight: "700",
-                        color: (p.totalStock || 0) < 10 ? "#EF4444" : "#1E293B",
-                      }}>
-                      {p.totalStock || 0} {t("medicine.units")}
-                    </div>
-                  </td>
-                  <td style={{ fontWeight: "700" }}>
-                    ETB {p.price ? parseFloat(p.price).toFixed(2) : "0.00"}
-                  </td>
-                  <td style={{ paddingRight: "32px" }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "12px",
-                        justifyContent: "flex-end",
-                      }}>
-                      <button
-                        className="icon-button"
-                        onClick={() => handleOpenModal(p)}
-                        style={{ width: "40px", height: "40px" }}>
-                        <Edit size={16} />
-                      </button>
-                      {/* 5. Update button to open the modal instead of using window.confirm */}
-                      <button
-                        className="icon-button"
-                        onClick={() => openDeleteModal(p.id)}
-                        style={{
-                          width: "40px",
-                          height: "40px",
-                          color: "#EF4444",
-                        }}>
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <MedicinesTable
+          filteredProducts={filteredProducts}
+          handleOpenModal={handleOpenModal}
+          openDeleteModal={openDeleteModal}
+        />
       </div>
 
       <FormModal
@@ -515,7 +448,7 @@ const Medicine = () => {
               }
             />
           </div>
-          {error && (
+          {(error || queryError) && (
             <div
               style={{
                 color: "#B91C1C",
@@ -534,10 +467,10 @@ const Medicine = () => {
               height: "52px",
               fontSize: "0.95rem",
               marginTop: "10px",
-              opacity: saving ? 0.7 : 1,
+              opacity: isSaving ? 0.7 : 1,
             }}
-            disabled={saving}>
-            {saving
+            disabled={isSaving}>
+            {isSaving
               ? t("settings.saving") || "Saving..."
               : editingProduct
                 ? t("medicine.updateProduct")
