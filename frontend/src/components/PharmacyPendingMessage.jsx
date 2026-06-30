@@ -6,12 +6,15 @@ import { useNavigate } from "react-router-dom";
 const PharmacyPendingMessage = () => {
   const { logout, user, pharmacyStatus } = useAuth();
   const navigate = useNavigate();
+
   // Auto-redirect when superadmin approves
   useEffect(() => {
-    if (user && user.status === "active" && pharmacyStatus === "active") {
+    // 🚨 FIX: Only check pharmacyStatus.
+    // If the pharmacy is active, they belong in the dashboard.
+    if (pharmacyStatus.toLowerCase() === "active") {
       navigate("/");
     }
-  }, [user, pharmacyStatus, navigate]);
+  }, [pharmacyStatus, navigate]);
 
   return (
     <div
@@ -98,6 +101,6 @@ const PharmacyPendingMessage = () => {
       </div>
     </div>
   );
-};
+};;
 
 export default PharmacyPendingMessage;
