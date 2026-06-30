@@ -14,7 +14,9 @@ import { useSettings } from "../context/SettingsContext";
 import FormModal from "../components/FormModal";
 import ConfirmModal from "../components/ConfirmModal";
 import { createPharmacy, getAllPharmacies, updatePharmacy, updateUserStatusByPharmacyId } from "../services/pharmacies.js";
-import { createStaffAccount, getAllUsers } from "../services/users.js";
+import { getAllUsers } from "../services/users.js";
+import { createStaffAccount } from "../services/staff.js";
+import { formatAddress } from "../utils/formatAddress.js";
 
 const SuperAdmin = () => {
   const { user, logout } = useAuth();
@@ -493,7 +495,8 @@ const confirmToggleSuspend = async () => {
                                 color: "#94A3B8",
                                 marginTop: "2px",
                               }}>
-                              {pharmacy.address || "No address provided"}
+                              {formatAddress(pharmacy.address) ||
+                                "No address provided"}
                             </div>
                             {pharmacy.phone && (
                               <div

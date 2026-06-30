@@ -24,6 +24,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { createPharmacy, getPharmacyById } from "../services/pharmacies.js";
 import { createUserProfile, getUserProfile } from "../services/users.js";
 import { memberDoc } from "../services/firestorePaths.js";
+import { getAuthHeaders } from "../services/apiHelper.js";
 
 const AuthContext = createContext();
 
@@ -201,6 +202,96 @@ export const AuthProvider = ({ children }) => {
     }
   };
   
+
+
+  // ... inside AuthProvider ...
+
+  // 🟢 STEP 1: Create Firebase Auth user and a "pending" Firestore profile
+  const createAccount = async (email, password, name, phone) => {
+    setLoading(true);
+    setError(null);
+    isSigningUp.current = true;
+    try {
+      const userCredential = await signUp(auth, email, password);
+      const firebaseUser = userCredential.user;
+
+      await sendEmailVerification(firebaseUser);
+
+      // Create a minimal user profile in Firestore (NO PHARMACY YET)
+      await createUserProfile(firebaseUser.uid, {
+        email,
+        name,
+        role: "admin",
+        phone: `+251${phone}`,
+        status: "pending_onboarding", // Custom status to track wizard progress
+        pharmacyId: null,
+      });
+
+      return firebaseUser;
+    } catch (err) {
+      setError(err.message || "Signup failed");
+      isSigningUp.current = false;
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🟢 STEP 6: Finalize registration with all the accumulated data
+  const finalizeRegistration = async (formData) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const API_URL =
+        import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      const headers = await getAuthHeaders();
+
+      const response = await fetch(`${API_URL}/auth/complete-registration`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
+      if (!response.ok)
+        throw new Error(result.error || "Failed to complete registration");
+
+      // 🚨 FORCE TOKEN REFRESH so the new Custom Claims are picked up immediately!
+      if (auth.currentUser) {
+        await auth.currentUser.getIdToken(true);
+      }
+
+      return result;
+    } catch (err) {
+      setError(err.message || "Registration failed");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ... keep your login, logout, etc. ...
+
+  // return (
+  //   <AuthContext.Provider
+  //     value={{
+  //       user,
+  //       authUser,
+  //       loading,
+  //       error,
+  //       login,
+  //       createAccount, // <--- EXPOSE THIS INSTEAD OF signup
+  //       finalizeRegistration, // <--- EXPOSE THIS
+  //       logout,
+  //       clearError,
+  //       isSuperAdmin,
+  //       pharmacyStatus,
+  //       resendVerificationEmail,
+  //     }}>
+  //     {children}
+  //   </AuthContext.Provider>
+  // );
+  
   const resendVerificationEmail = async () => {
     setError(null);
     try {
@@ -274,6 +365,8 @@ const login = async (email, password) => {
         authUser,
         loading,
         error,
+        createAccount, // <--- EXPOSE THIS INSTEAD OF signup
+             finalizeRegistration,
         login,
         signup,
         logout,

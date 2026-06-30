@@ -15,62 +15,130 @@ const toMillis = (value) => {
   return new Date(value).getTime();
 };
 
+// export const createSale = async (req, res) => {
+//   try {
+//     // 🔒 SECURITY: Get pharmacyId from verified token
+//     const pharmacyId = req.tenant.id;
+//     const { sale } = req.body; // Removed pharmacyId from body requirement
+
+//     if (!sale) {
+//       return res.status(400).json({ error: "Sale data is required" });
+//     }
+
+//     // 🛑 QUOTA CHECK: Verify they haven't hit their daily transaction limit
+//     const tier = req.tenant.subscription.tier;
+//     const limits = TIER_LIMITS[tier];
+//     const dailyTx = req.tenant.usageMetrics?.dailyTransactionsToday || 0;
+
+//     if (dailyTx >= limits.dailyTransactions) {
+//       return res.status(402).json({
+//         error: "Daily transaction limit reached",
+//         message: `Your plan allows ${limits.dailyTransactions} transactions per day. Please upgrade for unlimited sales.`,
+//       });
+//     }
+
+//     const payload = {
+//       ...sale,
+//       quantity: Number(sale.quantity),
+//       amount: Number(sale.amount),
+//       pharmacyId,
+//       createdBy: req.user.uid, // Track who made the sale
+//       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+//       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+//     };
+
+//     const db = getFirestore();
+//     const saleRef = await tenantCollection(
+//       db,
+//       pharmacyId,
+//       SALES_COLLECTION,
+//     ).add(payload);
+
+//     // 📈 INCREMENT QUOTA: Atomically increase daily transaction count
+//     await db
+//       .collection("pharmacies")
+//       .doc(pharmacyId)
+//       .update({
+//         "usageMetrics.dailyTransactionsToday":
+//           admin.firestore.FieldValue.increment(1),
+//         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+//       });
+
+//     res.status(201).json({ id: saleRef.id, ...payload });
+//   } catch (error) {
+//     console.error("Error creating sale:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
 export const createSale = async (req, res) => {
   try {
-    // 🔒 SECURITY: Get pharmacyId from verified token
+    // 🔒 SECURITY: Get pharmacyId from the verified token
     const pharmacyId = req.tenant.id;
-    const { sale } = req.body; // Removed pharmacyId from body requirement
+    const { sale } = req.body;
 
     if (!sale) {
       return res.status(400).json({ error: "Sale data is required" });
     }
 
-    // 🛑 QUOTA CHECK: Verify they haven't hit their daily transaction limit
-    const tier = req.tenant.subscription.tier;
-    const limits = TIER_LIMITS[tier];
-    const dailyTx = req.tenant.usageMetrics?.dailyTransactionsToday || 0;
-
-    if (dailyTx >= limits.dailyTransactions) {
-      return res.status(402).json({
-        error: "Daily transaction limit reached",
-        message: `Your plan allows ${limits.dailyTransactions} transactions per day. Please upgrade for unlimited sales.`,
-      });
-    }
-
-    const payload = {
-      ...sale,
-      quantity: Number(sale.quantity),
-      amount: Number(sale.amount),
-      pharmacyId,
-      createdBy: req.user.uid, // Track who made the sale
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    };
-
     const db = getFirestore();
-    const saleRef = await tenantCollection(
-      db,
-      pharmacyId,
-      SALES_COLLECTION,
-    ).add(payload);
+    const pharmacyRef = db.collection("pharmacies").doc(pharmacyId);
 
-    // 📈 INCREMENT QUOTA: Atomically increase daily transaction count
-    await db
-      .collection("pharmacies")
-      .doc(pharmacyId)
-      .update({
-        "usageMetrics.dailyTransactionsToday":
-          admin.firestore.FieldValue.increment(1),
+    // 🛡️ USE A TRANSACTION for sales to check daily limits safely
+    const result = await db.runTransaction(async (transaction) => {
+      const pharmacyDoc = await transaction.get(pharmacyRef);
+      if (!pharmacyDoc.exists) throw new Error("Pharmacy not found");
+
+      const pharmacyData = pharmacyDoc.data();
+      const dailyTx = pharmacyData.usageMetrics?.dailyTransactionsToday || 0;
+      const tier = pharmacyData.subscription?.tier || "starter_fikir";
+      const limits = TIER_LIMITS[tier];
+
+      // 1. CHECK DAILY QUOTA
+      if (dailyTx >= limits.dailyTransactions) {
+        throw new Error("DAILY_LIMIT_REACHED");
+      }
+
+      // 2. CREATE THE SALE
+      const salesRef = db
+        .collection("pharmacies")
+        .doc(pharmacyId)
+        .collection("sales");
+      const newSaleRef = salesRef.doc();
+
+      const payload = {
+        ...sale,
+        quantity: Number(sale.quantity),
+        amount: Number(sale.amount),
+        pharmacyId,
+        createdBy: req.user.uid,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+
+      transaction.set(newSaleRef, payload);
+
+      // 3. INCREMENT DAILY TRANSACTION COUNT
+      transaction.update(pharmacyRef, {
+        "usageMetrics.dailyTransactionsToday": dailyTx + 1,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-    res.status(201).json({ id: saleRef.id, ...payload });
+      return { id: newSaleRef.id, ...payload };
+    });
+
+    res.status(201).json(result);
   } catch (error) {
+    if (error.message === "DAILY_LIMIT_REACHED") {
+      return res.status(402).json({
+        error: "Daily sales limit reached",
+        message:
+          "You have reached your daily transaction limit. Please upgrade for unlimited sales.",
+      });
+    }
     console.error("Error creating sale:", error);
     res.status(500).json({ error: error.message });
   }
 };
-
 export const getAllSales = async (req, res) => {
   try {
     const db = getFirestore();

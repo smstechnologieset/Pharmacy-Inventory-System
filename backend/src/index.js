@@ -11,6 +11,7 @@ import suppliersRoutes from "./routes/suppliers.js";
 import salesRoutes from "./routes/sales.js";
 import pharmaciesRoutes from "./routes/pharmacies.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
+import authRoutes from "./routes/auth.js";
 dotenv.config();
 
 const app = express();
@@ -42,6 +43,8 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", message: "Pharmacy Inventory Backend is running" });
 });
 
+// ...
+app.use("/api/auth", authRoutes);
 // Routes
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/staff", staffRoutes);

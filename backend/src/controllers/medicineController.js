@@ -1,5 +1,6 @@
 import admin from "firebase-admin";
 import { getFirestore } from "../config/firebase.js";
+import { TIER_LIMITS } from "../config/subscriptionConfig.js";
 
 const MEDICINES_COLLECTION = "medicines";
 
@@ -105,39 +106,109 @@ export const searchMedicinesByPrefix = async (req, res) => {
   }
 };
 
+// export const createMedicine = async (req, res) => {
+//   try {
+//     const { medicine, pharmacyId } = req.body;
+//     if (!medicine || !pharmacyId) {
+//       return res
+//         .status(400)
+//         .json({ error: "Medicine data and pharmacyId are required" });
+//     }
+
+//     const payload = {
+//       ...medicine,
+//       stock: Number(medicine.stock || 0),
+//       price: Number(medicine.price || 0),
+//       pharmacyId,
+//       isDeleted: false,
+//       totalStock: Number(medicine.totalStock || 0),
+//       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+//       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+//     };
+
+//     const db = getFirestore();
+//     const medicineRef = await tenantCollection(
+//       db,
+//       pharmacyId,
+//       MEDICINES_COLLECTION,
+//     ).add(payload);
+//     res.status(201).json({ id: medicineRef.id, ...payload });
+//   } catch (error) {
+//     console.error("Error creating medicine:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
 export const createMedicine = async (req, res) => {
   try {
-    const { medicine, pharmacyId } = req.body;
-    if (!medicine || !pharmacyId) {
-      return res
-        .status(400)
-        .json({ error: "Medicine data and pharmacyId are required" });
+    // 🔒 SECURITY: Get pharmacyId from the verified token, NOT the request body
+    const pharmacyId = req.tenant.id;
+    const { medicine } = req.body;
+
+    if (!medicine) {
+      return res.status(400).json({ error: "Medicine data is required" });
     }
 
-    const payload = {
-      ...medicine,
-      stock: Number(medicine.stock || 0),
-      price: Number(medicine.price || 0),
-      pharmacyId,
-      isDeleted: false,
-      totalStock: Number(medicine.totalStock || 0),
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    };
-
     const db = getFirestore();
-    const medicineRef = await tenantCollection(
-      db,
-      pharmacyId,
-      MEDICINES_COLLECTION,
-    ).add(payload);
-    res.status(201).json({ id: medicineRef.id, ...payload });
+    const pharmacyRef = db.collection("pharmacies").doc(pharmacyId);
+    const medicinesRef = db
+      .collection("pharmacies")
+      .doc(pharmacyId)
+      .collection("medicines");
+
+    // 🛡️ USE A TRANSACTION to check quota and create medicine atomically
+    const result = await db.runTransaction(async (transaction) => {
+      const pharmacyDoc = await transaction.get(pharmacyRef);
+
+      if (!pharmacyDoc.exists) throw new Error("Pharmacy not found");
+
+      const pharmacyData = pharmacyDoc.data();
+      const currentSkuCount = pharmacyData.usageMetrics?.currentSkuCount || 0;
+      const tier = pharmacyData.subscription?.tier || "starter_fikir";
+      const limits = TIER_LIMITS[tier];
+
+      // 1. CHECK QUOTA INSIDE TRANSACTION
+      if (currentSkuCount >= limits.maxSkus) {
+        throw new Error("SKU_LIMIT_REACHED");
+      }
+
+      // 2. CREATE THE MEDICINE
+      const newMedicineRef = medicinesRef.doc();
+      const payload = {
+        ...medicine,
+        stock: Number(medicine.stock || 0),
+        price: Number(medicine.price || 0),
+        totalStock: Number(medicine.totalStock || 0),
+        pharmacyId, // Enforce tenant ID
+        isDeleted: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+
+      transaction.set(newMedicineRef, payload);
+
+      // 3. INCREMENT THE SKU COUNT
+      transaction.update(pharmacyRef, {
+        "usageMetrics.currentSkuCount": currentSkuCount + 1,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return { id: newMedicineRef.id, ...payload };
+    });
+
+    res.status(201).json(result);
   } catch (error) {
+    if (error.message === "SKU_LIMIT_REACHED") {
+      return res.status(402).json({
+        error: "Medicine limit reached",
+        message:
+          "Your current plan does not allow more medicines. Please upgrade to add more SKUs.",
+      });
+    }
     console.error("Error creating medicine:", error);
     res.status(500).json({ error: error.message });
   }
 };
-
 export const updateMedicine = async (req, res) => {
   try {
     const { medicineId } = req.params;

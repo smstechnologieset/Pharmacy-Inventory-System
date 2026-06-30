@@ -12,7 +12,7 @@ import {
 import { db } from "./firebase";
 import { USERS_COLLECTION } from "./collections";
 import { memberDoc, tenantCollection } from "./firestorePaths.js";
-import { getAuthHeaders } from "./apiHelper.js";
+
 
 export const createUserProfile = async (uid, userData) => {
   try {
