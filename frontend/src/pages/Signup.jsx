@@ -575,7 +575,7 @@ const StepFour = ({ formData, updateField, onNext, onBack }) => {
       name: "Starter",
       monthlyPrice: "1,500",
       yearlyPrice: "15,000", // 17% discount
-      features: ["Up to 500 SKUs", "1 Branch", "1 User"],
+      features: ["Up to 500 SKUs", "1 Branch", "3 User"],
     },
     {
       id: "growth_gizmo",
@@ -604,7 +604,7 @@ const StepFour = ({ formData, updateField, onNext, onBack }) => {
         Select the subscription that fits your pharmacy.
       </p>
 
-      {/* ... (Keep the Monthly/Yearly toggle buttons exactly as they are) ... */}
+
       <div style={{ display: "flex", gap: "12px" }}>
         {["monthly", "yearly"].map((cycle) => (
           <button

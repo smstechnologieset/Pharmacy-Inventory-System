@@ -60,13 +60,13 @@ export const createPharmacy = async (req, res) => {
       email: pharmacyData.email || "",
       adminUid: pharmacyData.adminUid || "",
       adminId: pharmacyData.adminId || "",
-      status: pharmacyData.status || "active",
+      status: pharmacyData.status || "pending",
 
       // 🆕 SUBSCRIPTION INITIALIZATION
       subscription: {
         tier: SUBSCRIPTION_TIERS.STARTER, // Default to Starter plan
         billingCycle: "monthly",
-        status: "active", // or "trialing" if you want a free trial period
+        status: "active", //
         currentPeriodStart: admin.firestore.FieldValue.serverTimestamp(),
         currentPeriodEnd: admin.firestore.Timestamp.fromDate(periodEnd),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -87,17 +87,15 @@ export const createPharmacy = async (req, res) => {
 
     const db = getFirestore();
 
-    
-      const pharmacyRef = await db.collection("pharmacies").add(payload);
+    const pharmacyRef = await db.collection("pharmacies").add(payload);
 
-
-      if (pharmacyData.adminUid) {
-        await admin.auth().setCustomUserClaims(pharmacyData.adminUid, {
-          pharmacyId: pharmacyRef.id,
-          role: "admin",
-        });
-      }
-      res.status(201).json({ id: pharmacyRef.id, ...payload });
+    if (pharmacyData.adminUid) {
+      await admin.auth().setCustomUserClaims(pharmacyData.adminUid, {
+        pharmacyId: pharmacyRef.id,
+        role: "admin",
+      });
+    }
+    res.status(201).json({ id: pharmacyRef.id, ...payload });
 
     res.status(201).json({ id: pharmacyRef.id, ...payload });
   } catch (error) {

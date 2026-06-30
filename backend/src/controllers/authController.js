@@ -73,7 +73,7 @@ export const completeRegistration = async (req, res) => {
          name: userDoc.data().name || "",
          role: "admin",
          pharmacyId: newPharmacyRef.id,
-         status: "Active",
+         status: "pending",
          isDeleted: false,
          createdAt: admin.firestore.FieldValue.serverTimestamp(),
          updatedAt: admin.firestore.FieldValue.serverTimestamp()

@@ -18,6 +18,7 @@ import { getAllUsers } from "../services/users.js";
 import { createStaffAccount } from "../services/staff.js";
 import { formatAddress } from "../utils/formatAddress.js";
 
+
 const SuperAdmin = () => {
   const { user, logout } = useAuth();
   const { t } = useSettings();
@@ -32,6 +33,8 @@ const SuperAdmin = () => {
 
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [pharmacyToToggle, setPharmacyToToggle] = useState(null);
+  // const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all"); // 🆕 ADD THIS LINE
 
   const [formData, setFormData] = useState({
     pharmacyName: "",
@@ -115,31 +118,32 @@ const SuperAdmin = () => {
     setIsConfirmModalOpen(true);
   };
 
-const confirmToggleSuspend = async () => {
-  if (!pharmacyToToggle) return;
-  const pharmacy = pharmacyToToggle;
-  const newPharmacyStatus =
-    pharmacy.status === "suspended" || pharmacy.status === "pending"
-      ? "active"
-      : "suspended";
+  const confirmToggleSuspend = async () => {
+    if (!pharmacyToToggle) return;
+    const pharmacy = pharmacyToToggle;
+    const newPharmacyStatus =
+      pharmacy.status === "suspended" || pharmacy.status === "pending"
+        ? "active"
+        : "suspended";
 
-  // Map pharmacy status to user status
-  const newUserStatus = newPharmacyStatus === "active" ? "active" : "suspended";
+    // Map pharmacy status to user status
+    const newUserStatus =
+      newPharmacyStatus === "active" ? "active" : "suspended";
 
-  try {
-    await updatePharmacy(pharmacy.id, { status: newPharmacyStatus });
-    await updateUserStatusByPharmacyId(pharmacy.id, newUserStatus);
-    setPharmacies(
-      pharmacies.map((p) =>
-        p.id === pharmacy.id ? { ...p, status: newPharmacyStatus } : p,
-      ),
-    );
-  } catch (err) {
-    setError(err.message || "Failed to update pharmacy.");
-  } finally {
-    setPharmacyToToggle(null);
-  }
-};
+    try {
+      await updatePharmacy(pharmacy.id, { status: newPharmacyStatus });
+      await updateUserStatusByPharmacyId(pharmacy.id, newUserStatus);
+      setPharmacies(
+        pharmacies.map((p) =>
+          p.id === pharmacy.id ? { ...p, status: newPharmacyStatus } : p,
+        ),
+      );
+    } catch (err) {
+      setError(err.message || "Failed to update pharmacy.");
+    } finally {
+      setPharmacyToToggle(null);
+    }
+  };
 
   const getPharmacyUserCount = (pharmacyId) =>
     allUsers.filter((u) => u.pharmacyId === pharmacyId).length;
@@ -147,11 +151,16 @@ const confirmToggleSuspend = async () => {
   const getPharmacyAdmin = (pharmacyId) =>
     allUsers.find((u) => u.pharmacyId === pharmacyId && u.role === "admin");
 
-  const filteredPharmacies = pharmacies.filter(
-    (p) =>
+  const filteredPharmacies = pharmacies.filter((p) => {
+    const matchesSearch =
       p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.email?.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+      p.email?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // 🆕 Check if the pharmacy matches the selected status filter
+    const matchesStatus = statusFilter === "all" || p.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
 
   const stats = {
     totalPharmacies: pharmacies.length,
@@ -319,24 +328,73 @@ const confirmToggleSuspend = async () => {
       </div>
 
       {/* Toolbar */}
+      {/* Toolbar */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           marginBottom: "24px",
+          gap: "16px",
+          flexWrap: "wrap", // Ensures it looks good on smaller screens
         }}>
         <div
-          className="search-bar"
-          style={{ maxWidth: "400px", width: "100%" }}>
-          <Search size={22} style={{ color: "#94A3B8" }} />
-          <input
-            type="text"
-            placeholder="Search pharmacies..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+          style={{
+            display: "flex",
+            gap: "16px",
+            alignItems: "center",
+            flex: 1,
+            minWidth: 0,
+          }}>
+          {/* Search Bar */}
+          <div
+            className="search-bar"
+            style={{ maxWidth: "300px", width: "100%" }}>
+            <Search size={22} style={{ color: "#94A3B8" }} />
+            <input
+              type="text"
+              placeholder="Search pharmacies..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          {/* 🆕 STATUS FILTER PILLS */}
+          <div
+            style={{
+              display: "flex",
+              gap: "6px",
+              background: "#F1F5F9",
+              padding: "6px",
+              borderRadius: "16px",
+            }}>
+            {["all", "active", "pending", "suspended"].map((status) => (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "12px",
+                  border: "none",
+                  background: statusFilter === status ? "white" : "transparent",
+                  color: statusFilter === status ? "#0D9488" : "#64748B",
+                  fontWeight: "600",
+                  fontSize: "0.85rem",
+                  cursor: "pointer",
+                  boxShadow:
+                    statusFilter === status
+                      ? "0 2px 4px rgba(0,0,0,0.05)"
+                      : "none",
+                  transition: "all 0.2s",
+                  textTransform: "capitalize",
+                }}>
+                {status}
+              </button>
+            ))}
+          </div>
         </div>
+
+        {/* Register Button */}
         <button
           className="btn btn-primary"
           onClick={() => {
