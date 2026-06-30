@@ -25,18 +25,15 @@ import PendingPage from "./pages/PendingPage.jsx";
 import PharmacySuspendedMessage from "./components/PharmacySuspendedMessage.jsx";
 import PharmacyPendingMessage from "./components/PharmacyPendingMessage.jsx";
 import VerifyEmailPage from "./pages/VerifyEmailPage.jsx";
-import {
-  QueryClient,
-  QueryClientProvider,
-} from "@tanstack/react-query";
-import {ReactQueryDevtools} from '@tanstack/react-query-devtools'
-const queryClient = new QueryClient( {
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-  staleTime: 60 * 1000,
-}}})
-
-
+      staleTime: 60 * 1000,
+    },
+  },
+});
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading, pharmacyStatus } = useAuth();
@@ -89,11 +86,12 @@ const VerifyEmailRoute = ({ children }) => {
   return children;
 };
 
-function App () {
-
+function App() {
   return (
-    <QueryClientProvider client={ queryClient }>
-      <ReactQueryDevtools initialIsOpen={false} />
+    <QueryClientProvider client={queryClient}>
+      {import.meta.env.VITE_ENV == "development" && (
+        <ReactQueryDevtools initialIsOpen={false} />
+      )}
       <Router>
         <Routes>
           <Route path="/login" element={<Login />} />

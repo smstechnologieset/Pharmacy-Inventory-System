@@ -12,6 +12,7 @@ import {
 import { db } from "./firebase";
 import { USERS_COLLECTION } from "./collections";
 import { memberDoc, tenantCollection } from "./firestorePaths.js";
+import { getAuthHeaders } from "./apiHelper.js";
 
 export const createUserProfile = async (uid, userData) => {
   try {
@@ -20,12 +21,12 @@ export const createUserProfile = async (uid, userData) => {
       uid,
       email: userData.email,
       name: userData.name || "",
-      role: userData.role || "staff", 
+      role: userData.role || "staff",
       pharmacyId: userData.pharmacyId || null,
       pharmacyName: userData.pharmacyName || "",
       createdBy: userData.createdBy || null,
       avatar: userData.avatar || null,
-      status: userData.status || "pending", 
+      status: userData.status || "pending",
       isDeleted: false,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -72,7 +73,10 @@ export const updateUserProfile = async (uid, updates) => {
 
 export const getUserByEmail = async (email) => {
   try {
-    const q = query(collection(db, USERS_COLLECTION), where("email", "==", email));
+    const q = query(
+      collection(db, USERS_COLLECTION),
+      where("email", "==", email),
+    );
     const querySnapshot = await getDocs(q);
     if (!querySnapshot.empty) return querySnapshot.docs[0].data();
     return null;
@@ -85,8 +89,14 @@ export const getUserByEmail = async (email) => {
 export const getAllUsers = async (pharmacyId) => {
   try {
     const q = pharmacyId
-      ? query(tenantCollection(pharmacyId, "members"), where("isDeleted", "==", false))
-      : query(collection(db, USERS_COLLECTION), where("isDeleted", "==", false));
+      ? query(
+          tenantCollection(pharmacyId, "members"),
+          where("isDeleted", "==", false),
+        )
+      : query(
+          collection(db, USERS_COLLECTION),
+          where("isDeleted", "==", false),
+        );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
   } catch (error) {
@@ -99,7 +109,11 @@ export const softDeleteUser = async (userId) => {
   try {
     const userRef = doc(db, USERS_COLLECTION, userId);
     const userSnap = await getDoc(userRef);
-    const updates = { isDeleted: true, deletedAt: serverTimestamp(), status: "Deleted" };
+    const updates = {
+      isDeleted: true,
+      deletedAt: serverTimestamp(),
+      status: "Deleted",
+    };
     await updateDoc(userRef, updates);
     const pharmacyId = userSnap.data()?.pharmacyId;
     if (pharmacyId) {
@@ -114,122 +128,14 @@ export const softDeleteUser = async (userId) => {
 
 export const getUsersByRole = async (role) => {
   try {
-    const q = query(collection(db, USERS_COLLECTION), where("role", "==", role));
+    const q = query(
+      collection(db, USERS_COLLECTION),
+      where("role", "==", role),
+    );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map((doc) => doc.data());
   } catch (error) {
     console.error("Error getting users by role:", error);
     throw new Error(`Failed to retrieve users by role: ${error.message}`);
-  }
-};
-
-export const generatePasswordFromEmail = (email) => {
-  const username = email.split("@")[0];
-  const digits = Math.floor(10000 + Math.random() * 90000);
-  return `${username}@${digits}`;
-};
-
-
-export const createStaffAccount = async (userData, pharmacyId, pharmacyName, createdBy) => {
-  // Get the API URL from environment variables (works for both localhost and Vercel)
-  const API_URL ='http://localhost:5000/api';
-  
-  try {
-    const response = await fetch(`${API_URL}/staff/create`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: userData.name,
-        email: userData.email,
-        role: userData.role,
-        pharmacyId,
-        pharmacyName,
-        createdBy
-      })
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      const error = new Error(result.error || 'Failed to create staff');
-      // Pass the specific error code so the frontend can show "Email already in use"
-      if (result.error === 'auth/email-already-in-use') {
-        error.code = 'auth/email-already-in-use';
-      }
-      throw error;
-    }
-
-    // Return the exact same format the frontend expects
-    return { uid: result.uid, password: result.password };
-    
-  } catch (error) {
-    console.error('Frontend service error creating staff:', error);
-    throw error;
-  }
-};
-
-// Disable staff (soft delete)
-export const disableStaff = async (userId) => {
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-  
-  try {
-    const response = await fetch(`${API_URL}/staff/disable/${userId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    if (!response.ok) {
-      const result = await response.json();
-      throw new Error(result.error || 'Failed to disable staff');
-    }
-
-    return userId;
-  } catch (error) {
-    console.error('Error disabling staff:', error);
-    throw error;
-  }
-};
-
-// Hard delete staff (permanent)
-export const hardDeleteStaff = async (userId) => {
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-  
-  try {
-    const response = await fetch(`${API_URL}/staff/hard-delete/${userId}`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    if (!response.ok) {
-      const result = await response.json();
-      throw new Error(result.error || 'Failed to delete staff');
-    }
-
-    return userId;
-  } catch (error) {
-    console.error('Error deleting staff:', error);
-    throw error;
-  }
-};
-
-// Re-enable staff
-export const enableStaff = async (userId) => {
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-  
-  try {
-    const response = await fetch(`${API_URL}/staff/enable/${userId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    if (!response.ok) {
-      const result = await response.json();
-      throw new Error(result.error || 'Failed to enable staff');
-    }
-
-    return userId;
-  } catch (error) {
-    console.error('Error enabling staff:', error);
-    throw error;
   }
 };

@@ -11,7 +11,7 @@ import {
   EyeOff,
   Copy,
   CheckCheck,
-  UserX, 
+  UserX,
   MoreVertical,
 } from "lucide-react";
 
@@ -21,15 +21,15 @@ import FormModal from "../components/FormModal";
 
 import CustomSelect from "../components/CustomSelect";
 import ConfirmModal from "../components/ConfirmModal.jsx";
+import { getAllUsers } from "../services/users.js";
+
 import {
+  updateStaffProfile,
   createStaffAccount,
   disableStaff,
   enableStaff,
-  getAllUsers,
   hardDeleteStaff,
-  softDeleteUser,
-  updateUserProfile,
-} from "../services/users.js";
+} from "../services/staff.js";
 
 const getRoleIcon = (role) =>
   role === "admin" ? <Shield size={14} /> : <UserCheck size={14} />;
@@ -146,7 +146,7 @@ const Staff = () => {
           role: formData.role,
           status: formData.status,
         };
-        await updateUserProfile(editingStaff.id, updates);
+        await updateStaffProfile(editingStaff.id, updates);
         setStaffList((prev) =>
           prev.map((s) =>
             s.id === editingStaff.id ? { ...s, ...updates } : s,
@@ -197,20 +197,6 @@ const Staff = () => {
     }
   };
 
-  // const handleDelete = async () => {
-  //   if (!deleteTarget) return;
-  //   try {
-  //     await softDeleteUser(deleteTarget.id);
-  //     setStaffList((prev) => prev.filter((s) => s.id !== deleteTarget.id));
-  //     setDeleteTarget(null);
-  //   } catch (err) {
-  //     console.error(err);
-  //     setPageError(
-  //       t("staff.failedToDelete") || "Failed to delete staff member.",
-  //     );
-  //     setDeleteTarget(null);
-  //   }
-  // };
   const handleDisable = async () => {
     if (!disableTarget) return;
     try {
@@ -900,8 +886,5 @@ const Staff = () => {
     </div>
   );
 };
-
-
-
 
 export default Staff;

@@ -1,17 +1,15 @@
 import express from "express";
-import { createSale, getAllSales, getRecentSales, getSalesByDateRange } from "../controllers/saleController.js";
+import { getSubscriptionStatus, upgradeSubscription } from "../controllers/subscriptionController.js";
 import { authenticate } from "../middleware/authMiddleware.js";
 import { loadTenantContext } from "../middleware/subscriptionMiddleware.js";
 
 const router = express.Router();
 
-// 🔒 PROTECT ALL ROUTES
+// All subscription routes require authentication and tenant context
 router.use(authenticate);
 router.use(loadTenantContext);
 
-router.post("/", createSale);
-router.get("/", getAllSales);
-router.get("/recent", getRecentSales);
-router.get("/date-range", getSalesByDateRange);
+router.get("/status", getSubscriptionStatus);
+router.post("/upgrade", upgradeSubscription);
 
 export default router;

@@ -1,5 +1,6 @@
 import admin from "firebase-admin";
 import { getFirestore } from "../config/firebase.js";
+import { TIER_LIMITS } from "../config/subscriptionConfig.js";
 
 const SALES_COLLECTION = "sales";
 
@@ -16,11 +17,24 @@ const toMillis = (value) => {
 
 export const createSale = async (req, res) => {
   try {
-    const { sale, pharmacyId } = req.body;
-    if (!sale || !pharmacyId) {
-      return res
-        .status(400)
-        .json({ error: "Sale data and pharmacyId are required" });
+    // 🔒 SECURITY: Get pharmacyId from verified token
+    const pharmacyId = req.tenant.id;
+    const { sale } = req.body; // Removed pharmacyId from body requirement
+
+    if (!sale) {
+      return res.status(400).json({ error: "Sale data is required" });
+    }
+
+    // 🛑 QUOTA CHECK: Verify they haven't hit their daily transaction limit
+    const tier = req.tenant.subscription.tier;
+    const limits = TIER_LIMITS[tier];
+    const dailyTx = req.tenant.usageMetrics?.dailyTransactionsToday || 0;
+
+    if (dailyTx >= limits.dailyTransactions) {
+      return res.status(402).json({
+        error: "Daily transaction limit reached",
+        message: `Your plan allows ${limits.dailyTransactions} transactions per day. Please upgrade for unlimited sales.`,
+      });
     }
 
     const payload = {
@@ -28,14 +42,28 @@ export const createSale = async (req, res) => {
       quantity: Number(sale.quantity),
       amount: Number(sale.amount),
       pharmacyId,
+      createdBy: req.user.uid, // Track who made the sale
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
     const db = getFirestore();
-    const saleRef = await tenantCollection(db, pharmacyId, SALES_COLLECTION).add(
-      payload,
-    );
+    const saleRef = await tenantCollection(
+      db,
+      pharmacyId,
+      SALES_COLLECTION,
+    ).add(payload);
+
+    // 📈 INCREMENT QUOTA: Atomically increase daily transaction count
+    await db
+      .collection("pharmacies")
+      .doc(pharmacyId)
+      .update({
+        "usageMetrics.dailyTransactionsToday":
+          admin.firestore.FieldValue.increment(1),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
     res.status(201).json({ id: saleRef.id, ...payload });
   } catch (error) {
     console.error("Error creating sale:", error);
@@ -45,12 +73,16 @@ export const createSale = async (req, res) => {
 
 export const getAllSales = async (req, res) => {
   try {
-    const { pharmacyId } = req.query;
     const db = getFirestore();
+    let salesQuery;
 
-    const salesQuery = pharmacyId
-      ? tenantCollection(db, pharmacyId, SALES_COLLECTION)
-      : db.collectionGroup(SALES_COLLECTION);
+    // 🔒 SECURITY: Super admins can see all, tenants only see their own
+    if (req.user.role === "super_admin") {
+      salesQuery = db.collectionGroup(SALES_COLLECTION);
+    } else {
+      const pharmacyId = req.tenant.id;
+      salesQuery = tenantCollection(db, pharmacyId, SALES_COLLECTION);
+    }
 
     const snapshot = await salesQuery.get();
     const sales = snapshot.docs
@@ -66,18 +98,12 @@ export const getAllSales = async (req, res) => {
 
 export const getRecentSales = async (req, res) => {
   try {
-    const { pharmacyId, limit } = req.query;
-    if (!pharmacyId) {
-      return res.status(400).json({ error: "pharmacyId is required" });
-    }
-
-    const limitCount = Number(limit) || 50;
+    // 🔒 SECURITY: Ignore pharmacyId from query, use token
+    const pharmacyId = req.tenant.id;
+    const limitCount = Number(req.query.limit) || 50;
     const db = getFirestore();
 
-    const snapshot = await db
-      .collection("pharmacies")
-      .doc(pharmacyId)
-      .collection(SALES_COLLECTION)
+    const snapshot = await tenantCollection(db, pharmacyId, SALES_COLLECTION)
       .orderBy("createdAt", "desc")
       .limit(limitCount)
       .get();
@@ -91,18 +117,18 @@ export const getRecentSales = async (req, res) => {
 
 export const getSalesByDateRange = async (req, res) => {
   try {
-    const { pharmacyId, start, end } = req.query;
-    if (!pharmacyId || !start || !end) {
+    // 🔒 SECURITY: Ignore pharmacyId from query, use token
+    const pharmacyId = req.tenant.id;
+    const { start, end } = req.query;
+
+    if (!start || !end) {
       return res
         .status(400)
-        .json({ error: "pharmacyId, start and end are required" });
+        .json({ error: "start and end dates are required" });
     }
 
     const db = getFirestore();
-    const snapshot = await db
-      .collection("pharmacies")
-      .doc(pharmacyId)
-      .collection(SALES_COLLECTION)
+    const snapshot = await tenantCollection(db, pharmacyId, SALES_COLLECTION)
       .where("createdAt", ">=", new Date(start))
       .where("createdAt", "<=", new Date(end))
       .orderBy("createdAt", "desc")

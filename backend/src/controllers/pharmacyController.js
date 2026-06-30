@@ -1,5 +1,6 @@
 import admin from "firebase-admin";
 import { getFirestore } from "../config/firebase.js";
+import { SUBSCRIPTION_TIERS } from "../config/subscriptionConfig.js";
 
 const PHARMACIES_COLLECTION = "pharmacies";
 const USERS_COLLECTION = "users";
@@ -48,6 +49,10 @@ export const createPharmacy = async (req, res) => {
       return res.status(400).json({ error: "Pharmacy name is required" });
     }
 
+    // Calculate subscription end date (e.g., 30 days from now for monthly)
+    const periodEnd = new Date();
+    periodEnd.setDate(periodEnd.getDate() + 30);
+
     const payload = {
       name: pharmacyData.name,
       address: pharmacyData.address || "",
@@ -56,16 +61,45 @@ export const createPharmacy = async (req, res) => {
       adminUid: pharmacyData.adminUid || "",
       adminId: pharmacyData.adminId || "",
       status: pharmacyData.status || "active",
+
+      // 🆕 SUBSCRIPTION INITIALIZATION
+      subscription: {
+        tier: SUBSCRIPTION_TIERS.STARTER, // Default to Starter plan
+        billingCycle: "monthly",
+        status: "active", // or "trialing" if you want a free trial period
+        currentPeriodStart: admin.firestore.FieldValue.serverTimestamp(),
+        currentPeriodEnd: admin.firestore.Timestamp.fromDate(periodEnd),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+
+      // 🆕 USAGE METRICS INITIALIZATION
+      usageMetrics: {
+        currentSkuCount: 0,
+        currentUserCount: 1, // Assuming the admin creating it counts as 1 user
+        currentBranchCount: 1, // Assuming they start with 1 main branch
+        dailyTransactionsToday: 0,
+        storageUsedMB: 0,
+      },
+
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
     const db = getFirestore();
-    const pharmacyRef = await db
-      .collection(PHARMACIES_COLLECTION)
-      .add(payload);
 
-    res.status(201).json({ id: pharmacyRef.id, ...pharmacyData });
+    
+      const pharmacyRef = await db.collection("pharmacies").add(payload);
+
+
+      if (pharmacyData.adminUid) {
+        await admin.auth().setCustomUserClaims(pharmacyData.adminUid, {
+          pharmacyId: pharmacyRef.id,
+          role: "admin",
+        });
+      }
+      res.status(201).json({ id: pharmacyRef.id, ...payload });
+
+    res.status(201).json({ id: pharmacyRef.id, ...payload });
   } catch (error) {
     console.error("Error creating pharmacy:", error);
     res.status(500).json({ error: error.message });
