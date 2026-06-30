@@ -187,7 +187,7 @@ const Inventory = () => {
 
     try {
       if (editingItem) {
-        await updateStockBatch(editingItem.id, payload);
+        await updateStockBatch(editingItem.id, payload, user.pharmacyId);
         setStockList((current) =>
           current.map((s) =>
             s.id === editingItem.id
@@ -254,7 +254,7 @@ const Inventory = () => {
     const id = batchToDelete;
     setError("");
     try {
-      await deleteStockBatch(id);
+      await deleteStockBatch(id, user.pharmacyId);
       setStockList((current) => current.filter((s) => s.id !== id));
     } catch (err) {
       setError(err.message || "Failed to delete inventory item");

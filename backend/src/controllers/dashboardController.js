@@ -14,6 +14,15 @@ const toUtcDateString = (value) => {
   return date.toISOString().slice(0, 10);
 };
 
+// Helper to convert Timestamps to full ISO strings for recent sales
+const toISOString = (value) => {
+  if (!value) return null;
+  if (value.toDate) value = value.toDate();
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+};
+
 export const getDashboardStats = asyncHandler(async (req, res) => {
   const { pharmacyId } = req.params;
   const lowStockThreshold = Number(req.query.lowStockThreshold || 10);
@@ -25,25 +34,40 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
 
   const db = getFirestore();
   const todayKey = toUtcDateString(new Date());
+  const tenantRoot = db.collection("pharmacies").doc(pharmacyId);
 
-  const pharmacyStatsDoc = await db
-    .collection("pharmacyStats")
-    .doc(pharmacyId)
+  // 1. Pharmacy Stats
+  const pharmacyStatsDoc = await tenantRoot
+    .collection("stats")
+    .doc("pharmacy")
     .get();
   const pharmacyStats = pharmacyStatsDoc.exists
     ? pharmacyStatsDoc.data()
     : { totalRevenue: 0, totalSalesCount: 0 };
 
-  const dailySalesSnapshot = await db
-    .collection("dailySalesStats")
-    .where("pharmacyId", "==", pharmacyId)
-    .orderBy("date", "asc")
+  // 2. Daily Sales Stats (Removed orderBy to avoid Firestore composite index errors)
+  const dailySalesSnapshot = await tenantRoot
+    .collection("stats")
+    .where("kind", "==", "daily")
     .get();
-  const dailySalesStats = dailySalesSnapshot.docs.map((doc) => doc.data());
 
-  const stockBatchSnapshot = await db
+  const dailySalesStats = dailySalesSnapshot.docs
+    .map((doc) => {
+      const data = doc.data();
+      return {
+        ...data,
+        date: toUtcDateString(data.date), // Convert Timestamp to "YYYY-MM-DD" string
+      };
+    })
+    .sort((a, b) => {
+      if (!a.date) return -1;
+      if (!b.date) return 1;
+      return a.date.localeCompare(b.date); // Sort in memory instead
+    });
+
+  // 3. Stock Stats
+  const stockBatchSnapshot = await tenantRoot
     .collection("stockBatches")
-    .where("pharmacyId", "==", pharmacyId)
     .where("isDeleted", "==", false)
     .get();
 
@@ -72,17 +96,21 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     }
   });
 
-  const recentSalesSnapshot = await db
+  // 4. Recent Sales
+  const recentSalesSnapshot = await tenantRoot
     .collection("sales")
-    .where("pharmacyId", "==", pharmacyId)
     .orderBy("createdAt", "desc")
     .limit(recentSalesLimit)
     .get();
 
-  const recentSales = recentSalesSnapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  }));
+  const recentSales = recentSalesSnapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      createdAt: toISOString(data.createdAt), // Convert Timestamp to ISO string
+    };
+  });
 
   res.json({
     pharmacyStats,

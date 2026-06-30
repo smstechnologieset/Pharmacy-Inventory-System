@@ -9,14 +9,9 @@ import {
   getDocs,
   serverTimestamp,
 } from "firebase/firestore";
-import {
-  getAuth,
-  createUserWithEmailAndPassword,
-  signOut as firebaseSignOut,
-} from "firebase/auth";
-import { getApps, initializeApp } from "firebase/app";
-import { db, firebaseConfig } from "./firebase";
+import { db } from "./firebase";
 import { USERS_COLLECTION } from "./collections";
+import { memberDoc, tenantCollection } from "./firestorePaths.js";
 
 export const createUserProfile = async (uid, userData) => {
   try {
@@ -36,6 +31,9 @@ export const createUserProfile = async (uid, userData) => {
       updatedAt: serverTimestamp(),
     };
     await setDoc(userDocRef, profileData);
+    if (profileData.pharmacyId) {
+      await setDoc(memberDoc(profileData.pharmacyId, uid), profileData);
+    }
     return profileData;
   } catch (error) {
     console.error("Error creating user profile:", error);
@@ -58,8 +56,13 @@ export const getUserProfile = async (uid) => {
 export const updateUserProfile = async (uid, updates) => {
   try {
     const userDocRef = doc(db, USERS_COLLECTION, uid);
+    const existing = await getDoc(userDocRef);
     const updateData = { ...updates, updatedAt: serverTimestamp() };
     await updateDoc(userDocRef, updateData);
+    const pharmacyId = updates.pharmacyId || existing.data()?.pharmacyId;
+    if (pharmacyId) {
+      await updateDoc(memberDoc(pharmacyId, uid), updateData);
+    }
     return updateData;
   } catch (error) {
     console.error("Error updating user profile:", error);
@@ -82,7 +85,7 @@ export const getUserByEmail = async (email) => {
 export const getAllUsers = async (pharmacyId) => {
   try {
     const q = pharmacyId
-      ? query(collection(db, USERS_COLLECTION), where("pharmacyId", "==", pharmacyId), where("isDeleted", "==", false))
+      ? query(tenantCollection(pharmacyId, "members"), where("isDeleted", "==", false))
       : query(collection(db, USERS_COLLECTION), where("isDeleted", "==", false));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
@@ -95,7 +98,13 @@ export const getAllUsers = async (pharmacyId) => {
 export const softDeleteUser = async (userId) => {
   try {
     const userRef = doc(db, USERS_COLLECTION, userId);
-    await updateDoc(userRef, { isDeleted: true, deletedAt: serverTimestamp(), status: "Deleted" });
+    const userSnap = await getDoc(userRef);
+    const updates = { isDeleted: true, deletedAt: serverTimestamp(), status: "Deleted" };
+    await updateDoc(userRef, updates);
+    const pharmacyId = userSnap.data()?.pharmacyId;
+    if (pharmacyId) {
+      await updateDoc(memberDoc(pharmacyId, userId), updates);
+    }
     return userId;
   } catch (error) {
     console.error("Error soft-deleting user:", error);

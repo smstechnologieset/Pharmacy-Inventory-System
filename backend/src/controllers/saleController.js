@@ -5,6 +5,9 @@ const SALES_COLLECTION = "sales";
 
 const serializeSale = (docRef) => ({ id: docRef.id, ...docRef.data() });
 
+const tenantCollection = (db, pharmacyId, collectionName) =>
+  db.collection("pharmacies").doc(pharmacyId).collection(collectionName);
+
 const toMillis = (value) => {
   if (!value) return 0;
   if (typeof value.toMillis === "function") return value.toMillis();
@@ -30,7 +33,9 @@ export const createSale = async (req, res) => {
     };
 
     const db = getFirestore();
-    const saleRef = await db.collection(SALES_COLLECTION).add(payload);
+    const saleRef = await tenantCollection(db, pharmacyId, SALES_COLLECTION).add(
+      payload,
+    );
     res.status(201).json({ id: saleRef.id, ...payload });
   } catch (error) {
     console.error("Error creating sale:", error);
@@ -43,10 +48,9 @@ export const getAllSales = async (req, res) => {
     const { pharmacyId } = req.query;
     const db = getFirestore();
 
-    let salesQuery = db.collection(SALES_COLLECTION);
-    if (pharmacyId) {
-      salesQuery = salesQuery.where("pharmacyId", "==", pharmacyId);
-    }
+    const salesQuery = pharmacyId
+      ? tenantCollection(db, pharmacyId, SALES_COLLECTION)
+      : db.collectionGroup(SALES_COLLECTION);
 
     const snapshot = await salesQuery.get();
     const sales = snapshot.docs
@@ -71,8 +75,9 @@ export const getRecentSales = async (req, res) => {
     const db = getFirestore();
 
     const snapshot = await db
+      .collection("pharmacies")
+      .doc(pharmacyId)
       .collection(SALES_COLLECTION)
-      .where("pharmacyId", "==", pharmacyId)
       .orderBy("createdAt", "desc")
       .limit(limitCount)
       .get();
@@ -95,8 +100,9 @@ export const getSalesByDateRange = async (req, res) => {
 
     const db = getFirestore();
     const snapshot = await db
+      .collection("pharmacies")
+      .doc(pharmacyId)
       .collection(SALES_COLLECTION)
-      .where("pharmacyId", "==", pharmacyId)
       .where("createdAt", ">=", new Date(start))
       .where("createdAt", "<=", new Date(end))
       .orderBy("createdAt", "desc")

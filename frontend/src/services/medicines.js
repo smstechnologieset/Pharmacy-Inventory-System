@@ -1,6 +1,6 @@
-import { collection, query, where, onSnapshot } from "firebase/firestore";
-import { db } from "./firebase";
+import { query, where, onSnapshot } from "firebase/firestore";
 import { MEDICINES_COLLECTION } from "./collections";
+import { tenantCollection } from "./firestorePaths.js";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
@@ -65,9 +65,12 @@ export const searchMedicinesByPrefix = async (pharmacyId, prefix) => {
   }
 };
 
-export const updateMedicine = async (medicineId, updates) => {
+export const updateMedicine = async (medicineId, updates, pharmacyId) => {
   try {
-    const response = await fetch(`${API_URL}/medicines/${medicineId}`, {
+    const url = new URL(`${API_URL}/medicines/${medicineId}`);
+    if (pharmacyId) url.searchParams.append("pharmacyId", pharmacyId);
+
+    const response = await fetch(url.toString(), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),
@@ -79,9 +82,12 @@ export const updateMedicine = async (medicineId, updates) => {
   }
 };
 
-export const deleteMedicine = async (medicineId) => {
+export const deleteMedicine = async (medicineId, pharmacyId) => {
   try {
-    const response = await fetch(`${API_URL}/medicines/${medicineId}`, {
+    const url = new URL(`${API_URL}/medicines/${medicineId}`);
+    if (pharmacyId) url.searchParams.append("pharmacyId", pharmacyId);
+
+    const response = await fetch(url.toString(), {
       method: "DELETE",
     });
     return await handleResponse(response);
@@ -92,16 +98,16 @@ export const deleteMedicine = async (medicineId) => {
 };
 
 export const subscribeToMedicines = (pharmacyId, callback) => {
-  const q = pharmacyId
-    ? query(
-        collection(db, MEDICINES_COLLECTION),
-        where("pharmacyId", "==", pharmacyId),
-        where("isDeleted", "==", false),
-      )
-    : query(
-        collection(db, MEDICINES_COLLECTION),
-        where("isDeleted", "==", false),
-      );
+  if (!pharmacyId) {
+    console.warn("subscribeToMedicines skipped: pharmacyId is required");
+    callback([]);
+    return () => {};
+  }
+
+  const q = query(
+    tenantCollection(pharmacyId, MEDICINES_COLLECTION),
+    where("isDeleted", "==", false),
+  );
 
   return onSnapshot(
     q,

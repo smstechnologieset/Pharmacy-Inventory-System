@@ -1,23 +1,26 @@
 import {
   doc,
-
-  collection,
   serverTimestamp,
   runTransaction,
   increment,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { SALES_COLLECTION, MEDICINES_COLLECTION } from "./collections";
+import { tenantCollection, tenantDoc } from "./firestorePaths.js";
 
 export const processCheckoutTransaction = async (cart, paymentMethod, userId, pharmacyId) => {
-  const saleDocRef = doc(collection(db, SALES_COLLECTION));
-  const counterDocRef = doc(db, "counters", `${pharmacyId}_invoiceNumber`);
+  const saleDocRef = doc(tenantCollection(pharmacyId, SALES_COLLECTION));
+  const counterDocRef = tenantDoc(pharmacyId, "counters", "invoiceNumber");
 
   const result = await runTransaction(db, async (transaction) => {
     const counterSnap = await transaction.get(counterDocRef);
-    const batchRefs = cart.map((item) => doc(db, "stockBatches", item.batchId));
+    const batchRefs = cart.map((item) =>
+      tenantDoc(pharmacyId, "stockBatches", item.batchId),
+    );
     const batchSnaps = await Promise.all(batchRefs.map((ref) => transaction.get(ref)));
-    const medicineRefs = cart.map((item) => doc(db, MEDICINES_COLLECTION, item.medicineId));
+    const medicineRefs = cart.map((item) =>
+      tenantDoc(pharmacyId, MEDICINES_COLLECTION, item.medicineId),
+    );
 
     let nextInvoice = 1001;
     if (counterSnap.exists()) nextInvoice = (counterSnap.data().sequence || 1000) + 1;
@@ -64,29 +67,33 @@ export const processCheckoutTransaction = async (cart, paymentMethod, userId, ph
     };
     transaction.set(saleDocRef, salePayload);
 
-    const pharmacyStatsRef = doc(db, "pharmacyStats", pharmacyId);
-    transaction.set(pharmacyStatsRef, { totalRevenue: increment(totalSale), totalSalesCount: increment(1), updatedAt: serverTimestamp(), pharmacyId }, { merge: true });
+    const pharmacyStatsRef = tenantDoc(pharmacyId, "stats", "pharmacy");
+    transaction.set(pharmacyStatsRef, { kind: "pharmacy", totalRevenue: increment(totalSale), totalSalesCount: increment(1), updatedAt: serverTimestamp(), pharmacyId }, { merge: true });
 
     const dateStr = now.toISOString().slice(0, 10);
-    const dailySalesStatsRef = doc(db, "dailySalesStats", `${pharmacyId}_${dateStr}`);
-    transaction.set(dailySalesStatsRef, { revenue: increment(totalSale), salesCount: increment(1), date: dateStr, pharmacyId, updatedAt: serverTimestamp() }, { merge: true });
+    const dailySalesStatsRef = tenantDoc(pharmacyId, "stats", `daily_${dateStr}`);
+    transaction.set(dailySalesStatsRef, { kind: "daily", revenue: increment(totalSale), salesCount: increment(1), date: dateStr, pharmacyId, updatedAt: serverTimestamp() }, { merge: true });
 
     return { saleId: saleDocRef.id, invoiceNumber: `INV-${nextInvoice}`, salePayload };
   });
   return result;
 };
 
-export const processRefundTransaction = async (saleId, saleItems, userId) => {
-  const saleDocRef = doc(db, SALES_COLLECTION, saleId);
+export const processRefundTransaction = async (saleId, saleItems, userId, pharmacyId) => {
+  const saleDocRef = tenantDoc(pharmacyId, SALES_COLLECTION, saleId);
 
   await runTransaction(db, async (transaction) => {
     const saleSnap = await transaction.get(saleDocRef);
     if (!saleSnap.exists()) throw new Error("Sale record not found.");
     if (saleSnap.data().status === "Refunded") throw new Error("This sale has already been refunded.");
 
-    const batchRefs = saleItems.map((item) => doc(db, "stockBatches", item.batchId));
+    const batchRefs = saleItems.map((item) =>
+      tenantDoc(pharmacyId, "stockBatches", item.batchId),
+    );
     const batchSnaps = await Promise.all(batchRefs.map((ref) => transaction.get(ref)));
-    const medicineRefs = saleItems.map((item) => doc(db, MEDICINES_COLLECTION, item.medicineId));
+    const medicineRefs = saleItems.map((item) =>
+      tenantDoc(pharmacyId, MEDICINES_COLLECTION, item.medicineId),
+    );
 
     for (let i = 0; i < saleItems.length; i++) {
       const item = saleItems[i];
@@ -99,17 +106,17 @@ export const processRefundTransaction = async (saleId, saleItems, userId) => {
 
     transaction.update(saleDocRef, { status: "Refunded", refundedAt: serverTimestamp(), refundedBy: userId || "Unknown" });
 
-    const pharmacyId = saleSnap.data().pharmacyId;
+    const salePharmacyId = saleSnap.data().pharmacyId || pharmacyId;
     const totalSale = saleSnap.data().total || 0;
     let dateStr;
     const saleDate = saleSnap.data().createdAt?.toDate ? saleSnap.data().createdAt.toDate() : new Date();
     dateStr = !isNaN(saleDate) ? saleDate.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
 
-    if (pharmacyId) {
-      const pharmacyStatsRef = doc(db, "pharmacyStats", pharmacyId);
+    if (salePharmacyId) {
+      const pharmacyStatsRef = tenantDoc(salePharmacyId, "stats", "pharmacy");
       transaction.set(pharmacyStatsRef, { totalRevenue: increment(-totalSale), totalSalesCount: increment(-1), updatedAt: serverTimestamp() }, { merge: true });
 
-      const dailySalesStatsRef = doc(db, "dailySalesStats", `${pharmacyId}_${dateStr}`);
+      const dailySalesStatsRef = tenantDoc(salePharmacyId, "stats", `daily_${dateStr}`);
       transaction.set(dailySalesStatsRef, { revenue: increment(-totalSale), salesCount: increment(-1), updatedAt: serverTimestamp() }, { merge: true });
     }
   });

@@ -153,7 +153,7 @@ const Suppliers = () => {
       };
 
       if (editingSupplier) {
-        await updateSupplier(editingSupplier.id, payload);
+        await updateSupplier(editingSupplier.id, payload, user.pharmacyId);
 
         const originalMedIds = (editingSupplier.currentMedicines || []).map(
           (m) => m.id,
@@ -169,16 +169,24 @@ const Suppliers = () => {
 
         removedIds.forEach((medId) => {
           updatePromises.push(
-            updateMedicine(medId, { supplierId: "", supplierName: "" }),
+            updateMedicine(
+              medId,
+              { supplierId: "", supplierName: "" },
+              user.pharmacyId,
+            ),
           );
         });
 
         addedIds.forEach((medId) => {
           updatePromises.push(
-            updateMedicine(medId, {
-              supplierId: editingSupplier.id,
-              supplierName: editingSupplier.name,
-            }),
+            updateMedicine(
+              medId,
+              {
+                supplierId: editingSupplier.id,
+                supplierName: editingSupplier.name,
+              },
+              user.pharmacyId,
+            ),
           );
         });
 
@@ -220,7 +228,7 @@ const Suppliers = () => {
     const id = supplierToDelete;
     setError("");
     try {
-      await deleteSupplier(id);
+      await deleteSupplier(id, user.pharmacyId);
       setSupplierList((current) => current.filter((s) => s.id !== id));
     } catch (err) {
       setError(

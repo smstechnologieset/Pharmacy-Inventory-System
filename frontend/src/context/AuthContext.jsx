@@ -23,6 +23,7 @@ import { auth, db } from "../services/firebase";
 import { doc, onSnapshot } from "firebase/firestore";
 import { createPharmacy, getPharmacyById } from "../services/pharmacies.js";
 import { createUserProfile, getUserProfile } from "../services/users.js";
+import { memberDoc } from "../services/firestorePaths.js";
 
 const AuthContext = createContext();
 
@@ -37,11 +38,16 @@ export const AuthProvider = ({ children }) => {
   // Listen for auth state changes (persistent login)
   useEffect(() => {
     let unsubscribeSnapshot = null;
+    let unsubscribeMemberSnapshot = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       if (unsubscribeSnapshot) {
         unsubscribeSnapshot();
         unsubscribeSnapshot = null;
+      }
+      if (unsubscribeMemberSnapshot) {
+        unsubscribeMemberSnapshot();
+        unsubscribeMemberSnapshot = null;
       }
 
       if (firebaseUser) {
@@ -57,25 +63,59 @@ export const AuthProvider = ({ children }) => {
               isSigningUp.current = false;
               const profileData = docSnap.data();
 
-              if (profileData.role !== "superadmin" && profileData.pharmacyId) {
-                try {
-                  const pharmacy = await getPharmacyById(
-                    profileData.pharmacyId,
-                  );
-                  setPharmacyStatus(pharmacy.status || "active");
-                } catch {
+              const setProfile = async (memberData = {}) => {
+                const effectiveProfile = {
+                  ...profileData,
+                  ...memberData,
+                  pharmacyId: memberData.pharmacyId || profileData.pharmacyId,
+                };
+
+                if (
+                  effectiveProfile.role !== "superadmin" &&
+                  effectiveProfile.pharmacyId
+                ) {
+                  try {
+                    const pharmacy = await getPharmacyById(
+                      effectiveProfile.pharmacyId,
+                    );
+                    setPharmacyStatus(pharmacy.status || "active");
+                  } catch {
+                    setPharmacyStatus("active");
+                  }
+                } else {
                   setPharmacyStatus("active");
                 }
+
+                setUser({
+                  uid: firebaseUser.uid,
+                  email: firebaseUser.email,
+                  ...effectiveProfile,
+                });
+                setError(null);
+                setLoading(false);
+              };
+
+              if (profileData.role !== "superadmin" && profileData.pharmacyId) {
+                if (unsubscribeMemberSnapshot) unsubscribeMemberSnapshot();
+
+                unsubscribeMemberSnapshot = onSnapshot(
+                  memberDoc(profileData.pharmacyId, firebaseUser.uid),
+                  (memberSnap) => {
+                    if (memberSnap.exists()) {
+                      setProfile(memberSnap.data());
+                    } else {
+                      setProfile();
+                    }
+                  },
+                  (err) => {
+                    console.error("Error listening to member profile:", err);
+                    setProfile();
+                  },
+                );
               } else {
-                setPharmacyStatus("active");
+                setProfile();
               }
 
-              setUser({
-                uid: firebaseUser.uid,
-                email: firebaseUser.email,
-                ...profileData,
-              });
-              setError(null);
             } else {
               // Doc doesn't exist — skip logout if we're mid-signup
               if (!isSigningUp.current) {
@@ -89,7 +129,7 @@ export const AuthProvider = ({ children }) => {
                 );
               }
             }
-            setLoading(false);
+            if (!docSnap.exists()) setLoading(false);
           },
           (err) => {
             console.error("Error listening to user profile:", err);
@@ -109,6 +149,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       unsubscribeAuth();
       if (unsubscribeSnapshot) unsubscribeSnapshot();
+      if (unsubscribeMemberSnapshot) unsubscribeMemberSnapshot();
     };
   }, []);
 

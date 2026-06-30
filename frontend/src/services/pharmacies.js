@@ -1,5 +1,5 @@
-import { doc, onSnapshot } from "firebase/firestore";
-import { db } from "./firebase";
+import { onSnapshot } from "firebase/firestore";
+import { tenantDoc } from "./firestorePaths.js";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
@@ -78,7 +78,7 @@ export const updateUserStatusByPharmacyId = async (pharmacyId, status) => {
 
 // Real-time subscription remains on the client via a Firestore listener.
 export const subscribeToPharmacyStats = (pharmacyId, callback) => {
-  const q = doc(db, "pharmacyStats", pharmacyId);
+  const q = tenantDoc(pharmacyId, "stats", "pharmacy");
   return onSnapshot(q, (snap) => {
     callback(
       snap.exists() ? snap.data() : { totalRevenue: 0, totalSalesCount: 0 },

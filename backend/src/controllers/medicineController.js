@@ -5,18 +5,37 @@ const MEDICINES_COLLECTION = "medicines";
 
 const serializeMedicine = (docRef) => ({ id: docRef.id, ...docRef.data() });
 
+const tenantCollection = (db, pharmacyId, collectionName) =>
+  db.collection("pharmacies").doc(pharmacyId).collection(collectionName);
+
+const findTenantDocById = async (db, collectionName, docId, pharmacyId) => {
+  if (pharmacyId) {
+    const tenantDoc = await tenantCollection(db, pharmacyId, collectionName)
+      .doc(docId)
+      .get();
+    return tenantDoc.exists ? tenantDoc : null;
+  }
+
+  const snapshot = await db
+    .collectionGroup(collectionName)
+    .where(admin.firestore.FieldPath.documentId(), "==", docId)
+    .limit(1)
+    .get();
+  return snapshot.empty ? null : snapshot.docs[0];
+};
+
 export const getAllMedicines = async (req, res) => {
   try {
     const { pharmacyId } = req.query;
     const db = getFirestore();
 
-    let medicinesQuery = db
-      .collection(MEDICINES_COLLECTION)
-      .where("isDeleted", "==", false);
-
-    if (pharmacyId) {
-      medicinesQuery = medicinesQuery.where("pharmacyId", "==", pharmacyId);
-    }
+    const medicinesQuery = pharmacyId
+      ? tenantCollection(db, pharmacyId, MEDICINES_COLLECTION).where(
+          "isDeleted",
+          "==",
+          false,
+        )
+      : db.collectionGroup(MEDICINES_COLLECTION).where("isDeleted", "==", false);
 
     const snapshot = await medicinesQuery.get();
     const medicines = snapshot.docs.map(serializeMedicine);
@@ -30,17 +49,20 @@ export const getAllMedicines = async (req, res) => {
 export const getMedicineById = async (req, res) => {
   try {
     const { medicineId } = req.params;
+    const { pharmacyId } = req.query;
     if (!medicineId) {
       return res.status(400).json({ error: "Medicine ID is required" });
     }
 
     const db = getFirestore();
-    const medicineDoc = await db
-      .collection(MEDICINES_COLLECTION)
-      .doc(medicineId)
-      .get();
+    const medicineDoc = await findTenantDocById(
+      db,
+      MEDICINES_COLLECTION,
+      medicineId,
+      pharmacyId,
+    );
 
-    if (!medicineDoc.exists) {
+    if (!medicineDoc?.exists) {
       return res.status(404).json({ error: "Medicine not found" });
     }
 
@@ -66,16 +88,13 @@ export const searchMedicinesByPrefix = async (req, res) => {
     const endPrefix = `${normalizedPrefix}\uf8ff`;
     const db = getFirestore();
 
-    let medicineQuery = db
-      .collection(MEDICINES_COLLECTION)
+    let medicineQuery = (pharmacyId
+      ? tenantCollection(db, pharmacyId, MEDICINES_COLLECTION)
+      : db.collectionGroup(MEDICINES_COLLECTION))
       .where("isDeleted", "==", false)
       .where("name", ">=", normalizedPrefix)
       .where("name", "<=", endPrefix)
       .limit(20);
-
-    if (pharmacyId) {
-      medicineQuery = medicineQuery.where("pharmacyId", "==", pharmacyId);
-    }
 
     const snapshot = await medicineQuery.get();
     const medicines = snapshot.docs.map(serializeMedicine);
@@ -107,7 +126,11 @@ export const createMedicine = async (req, res) => {
     };
 
     const db = getFirestore();
-    const medicineRef = await db.collection(MEDICINES_COLLECTION).add(payload);
+    const medicineRef = await tenantCollection(
+      db,
+      pharmacyId,
+      MEDICINES_COLLECTION,
+    ).add(payload);
     res.status(201).json({ id: medicineRef.id, ...payload });
   } catch (error) {
     console.error("Error creating medicine:", error);
@@ -118,6 +141,7 @@ export const createMedicine = async (req, res) => {
 export const updateMedicine = async (req, res) => {
   try {
     const { medicineId } = req.params;
+    const { pharmacyId } = req.query;
     const updates = req.body;
 
     if (!medicineId) {
@@ -152,10 +176,18 @@ export const updateMedicine = async (req, res) => {
       updatePayload.totalStock = Number(updates.totalStock);
 
     const db = getFirestore();
-    await db
-      .collection(MEDICINES_COLLECTION)
-      .doc(medicineId)
-      .update(updatePayload);
+    const medicineDoc = await findTenantDocById(
+      db,
+      MEDICINES_COLLECTION,
+      medicineId,
+      pharmacyId,
+    );
+
+    if (!medicineDoc?.exists) {
+      return res.status(404).json({ error: "Medicine not found" });
+    }
+
+    await medicineDoc.ref.update(updatePayload);
 
     res.json({ id: medicineId, ...updatePayload });
   } catch (error) {
@@ -167,12 +199,24 @@ export const updateMedicine = async (req, res) => {
 export const deleteMedicine = async (req, res) => {
   try {
     const { medicineId } = req.params;
+    const { pharmacyId } = req.query;
     if (!medicineId) {
       return res.status(400).json({ error: "Medicine ID is required" });
     }
 
     const db = getFirestore();
-    await db.collection(MEDICINES_COLLECTION).doc(medicineId).update({
+    const medicineDoc = await findTenantDocById(
+      db,
+      MEDICINES_COLLECTION,
+      medicineId,
+      pharmacyId,
+    );
+
+    if (!medicineDoc?.exists) {
+      return res.status(404).json({ error: "Medicine not found" });
+    }
+
+    await medicineDoc.ref.update({
       isDeleted: true,
       deletedAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),

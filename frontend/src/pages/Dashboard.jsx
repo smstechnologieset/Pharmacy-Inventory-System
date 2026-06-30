@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react"; 
+import React, { useState, useMemo } from "react";
 import { DollarSign, Package, AlertCircle, CalendarX } from "lucide-react";
 import {
   Chart as ChartJS,
@@ -14,7 +14,7 @@ import {
   Filler,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
-import { useQuery } from "@tanstack/react-query"; 
+import { useQuery } from "@tanstack/react-query";
 
 import { useSettings } from "../context/SettingsContext";
 import { useAuth } from "../context/AuthContext";
@@ -22,13 +22,12 @@ import { getSystemSettings } from "../services/settings.js";
 import { fetchDashboardStats } from "../services/dashboard.js";
 
 const getSaleDate = (sale) => {
-  if (sale.createdAt?.toDate) return sale.createdAt.toDate();
-  if (sale.createdAt instanceof Date) return sale.createdAt;
-  if (sale.date) {
-    const parsed = new Date(sale.date);
-    if (!Number.isNaN(parsed.getTime())) return parsed;
-  }
-  return new Date();
+  const rawDate = sale.createdAt || sale.date;
+  if (!rawDate) return new Date();
+  if (rawDate.toDate) return rawDate.toDate();
+  if (rawDate instanceof Date) return rawDate;
+  const parsed = new Date(rawDate);
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 };
 
 ChartJS.register(
@@ -47,14 +46,11 @@ ChartJS.register(
 const Dashboard = () => {
   const { t } = useSettings();
   const { user } = useAuth();
-  
+
   const [timeFilter, setTimeFilter] = useState("Week");
 
   // 1. Fetch Settings
-  const {
-    data: settingsData,
-    isLoading: isSettingsLoading,
-  } = useQuery({
+  const { data: settingsData, isLoading: isSettingsLoading } = useQuery({
     queryKey: ["settings", user?.pharmacyId],
     queryFn: () => getSystemSettings(user.pharmacyId),
     enabled: !!user?.pharmacyId,
@@ -63,10 +59,7 @@ const Dashboard = () => {
   const lowStockThreshold = settingsData?.lowStockThreshold || 10;
 
   // 2. Fetch Dashboard Stats (Depends on settings being loaded)
-  const {
-    data: dashboardData = {},
-    isLoading: isDashboardLoading,
-  } = useQuery({
+  const { data: dashboardData = {}, isLoading: isDashboardLoading } = useQuery({
     queryKey: ["dashboardStats", user?.pharmacyId, lowStockThreshold],
     queryFn: () =>
       fetchDashboardStats(user.pharmacyId, {
@@ -81,7 +74,10 @@ const Dashboard = () => {
   });
 
   // Derive the variables used in the rest of the component from the React Query data
-  const pharmacyStats = dashboardData.pharmacyStats || { totalRevenue: 0, totalSalesCount: 0 };
+  const pharmacyStats = dashboardData.pharmacyStats || {
+    totalRevenue: 0,
+    totalSalesCount: 0,
+  };
   const dailyStats = dashboardData.dailySalesStats || [];
   const stockStats = dashboardData.stockStats || {
     inventoryStock: 0,
@@ -91,7 +87,7 @@ const Dashboard = () => {
     expired: 0,
   };
   const recentSales = dashboardData.recentSales || [];
-  
+
   // Combine loading states
   const loading = isSettingsLoading || isDashboardLoading;
 

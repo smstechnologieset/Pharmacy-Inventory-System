@@ -25,7 +25,12 @@ initializeApp({
 
 const db = getFirestore();
 
-const COLLECTIONS_TO_PATCH = ["medicines", "stockBatches", "suppliers", "users"];
+const COLLECTIONS_TO_PATCH = ["medicines", "stockBatches", "suppliers", "members"];
+
+const getTenantId = (docSnap) => {
+  const segments = docSnap.ref.path.split("/");
+  return segments[0] === "pharmacies" ? segments[1] : docSnap.data().pharmacyId;
+};
 
 async function addIsDeletedField() {
   console.log("═══════════════════════════════════════════════════");
@@ -33,7 +38,7 @@ async function addIsDeletedField() {
   console.log("═══════════════════════════════════════════════════");
 
   for (const collectionName of COLLECTIONS_TO_PATCH) {
-    const snapshot = await db.collection(collectionName).get();
+    const snapshot = await db.collectionGroup(collectionName).get();
     let updatedCount = 0;
 
     // Firestore batch writes max 500 ops. Use chunking.
@@ -75,10 +80,10 @@ async function aggregateTotalStock() {
   console.log("  Phase 2: Aggregating totalStock on medicines");
   console.log("═══════════════════════════════════════════════════");
 
-  const medicinesSnap = await db.collection("medicines").get();
-  const batchesSnap = await db.collection("stockBatches").get();
+  const medicinesSnap = await db.collectionGroup("medicines").get();
+  const batchesSnap = await db.collectionGroup("stockBatches").get();
 
-  // Build a map: medicineId -> total quantity from non-deleted batches
+  // Build a map: pharmacyId:medicineId -> total quantity from non-deleted batches
   const stockMap = new Map();
 
   for (const batchDoc of batchesSnap.docs) {
@@ -87,9 +92,12 @@ async function aggregateTotalStock() {
 
     const medId = data.medicineId;
     if (!medId) continue;
+    const pharmacyId = getTenantId(batchDoc);
+    if (!pharmacyId) continue;
 
     const qty = Number(data.quantity || 0);
-    stockMap.set(medId, (stockMap.get(medId) || 0) + qty);
+    const stockKey = `${pharmacyId}:${medId}`;
+    stockMap.set(stockKey, (stockMap.get(stockKey) || 0) + qty);
   }
 
   let updatedCount = 0;
@@ -98,7 +106,8 @@ async function aggregateTotalStock() {
   let opsInBatch = 0;
 
   for (const medDoc of medicinesSnap.docs) {
-    const totalStock = stockMap.get(medDoc.id) || 0;
+    const pharmacyId = getTenantId(medDoc);
+    const totalStock = stockMap.get(`${pharmacyId}:${medDoc.id}`) || 0;
     const currentTotalStock = medDoc.data().totalStock;
 
     // Only update if needed
@@ -128,8 +137,11 @@ async function aggregateTotalStock() {
   // Log a summary
   console.log("");
   console.log("  Stock Summary:");
-  for (const [medId, total] of stockMap.entries()) {
-    const medDoc = medicinesSnap.docs.find(d => d.id === medId);
+  for (const [stockKey, total] of stockMap.entries()) {
+    const [pharmacyId, medId] = stockKey.split(":");
+    const medDoc = medicinesSnap.docs.find(
+      (d) => d.id === medId && getTenantId(d) === pharmacyId,
+    );
     const name = medDoc?.data()?.name || medId;
     console.log(`    ${name}: ${total} units`);
   }

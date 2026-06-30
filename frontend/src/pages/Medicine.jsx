@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Search, Plus, Edit, Trash2 } from "lucide-react";
 import FormModal from "../components/FormModal";
 import ConfirmModal from "../components/ConfirmModal"; // 1. Import the ConfirmModal
@@ -33,7 +33,6 @@ const Medicine = () => {
     supplierName: "",
   });
   // const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [sortBy, setSortBy] = useState("name-asc");
 
@@ -79,7 +78,8 @@ const Medicine = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }) => updateMedicine(id, payload),
+    mutationFn: ({ id, payload }) =>
+      updateMedicine(id, payload, user.pharmacyId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["medicines", user?.pharmacyId],
@@ -91,7 +91,7 @@ const Medicine = () => {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => deleteMedicine(id),
+    mutationFn: (id) => deleteMedicine(id, user.pharmacyId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["medicines", user?.pharmacyId],

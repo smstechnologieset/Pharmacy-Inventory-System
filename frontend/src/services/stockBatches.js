@@ -1,7 +1,6 @@
 import {
   doc,
   addDoc,
-  collection,
   query,
   where,
   getDocs,
@@ -15,10 +14,11 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { STOCK_BATCHES_COLLECTION, MEDICINES_COLLECTION } from "./collections";
+import { tenantCollection, tenantDoc } from "./firestorePaths.js";
 
 export const createStockMovement = async (movement, pharmacyId) => {
   try {
-    await addDoc(collection(db, "stockMovements"), {
+    await addDoc(tenantCollection(pharmacyId, "stockMovements"), {
       ...movement,
       pharmacyId: pharmacyId || null,
       timestamp: serverTimestamp(),
@@ -32,9 +32,11 @@ export const createStockMovement = async (movement, pharmacyId) => {
 
 export const getAllStockBatches = async (pharmacyId) => {
   try {
-    const q = pharmacyId
-      ? query(collection(db, STOCK_BATCHES_COLLECTION), where("pharmacyId", "==", pharmacyId), where("isDeleted", "==", false))
-      : query(collection(db, STOCK_BATCHES_COLLECTION), where("isDeleted", "==", false));
+    if (!pharmacyId) throw new Error("pharmacyId is required");
+    const q = query(
+      tenantCollection(pharmacyId, STOCK_BATCHES_COLLECTION),
+      where("isDeleted", "==", false),
+    );
     const snapshot = await getDocs(q);
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
   } catch (error) {
@@ -45,8 +47,8 @@ export const getAllStockBatches = async (pharmacyId) => {
 
 export const createStockBatch = async (batchData, pharmacyId) => {
   try {
-    const batchRef = doc(collection(db, STOCK_BATCHES_COLLECTION));
-    const medicineRef = doc(db, MEDICINES_COLLECTION, batchData.medicineId);
+    const batchRef = doc(tenantCollection(pharmacyId, STOCK_BATCHES_COLLECTION));
+    const medicineRef = tenantDoc(pharmacyId, MEDICINES_COLLECTION, batchData.medicineId);
 
     await runTransaction(db, async (transaction) => {
       const payload = {
@@ -70,9 +72,10 @@ export const createStockBatch = async (batchData, pharmacyId) => {
   }
 };
 
-export const updateStockBatch = async (batchId, updates) => {
+export const updateStockBatch = async (batchId, updates, pharmacyId) => {
   try {
-    const batchRef = doc(db, STOCK_BATCHES_COLLECTION, batchId);
+    if (!pharmacyId) throw new Error("pharmacyId is required");
+    const batchRef = tenantDoc(pharmacyId, STOCK_BATCHES_COLLECTION, batchId);
     await runTransaction(db, async (transaction) => {
       const batchSnap = await transaction.get(batchRef);
       if (!batchSnap.exists()) throw new Error("Batch not found");
@@ -88,7 +91,7 @@ export const updateStockBatch = async (batchId, updates) => {
       transaction.update(batchRef, updatePayload);
 
       if (quantityDiff !== 0) {
-        const medicineRef = doc(db, MEDICINES_COLLECTION, oldData.medicineId);
+        const medicineRef = tenantDoc(pharmacyId, MEDICINES_COLLECTION, oldData.medicineId);
         transaction.update(medicineRef, { totalStock: increment(quantityDiff), updatedAt: serverTimestamp() });
       }
     });
@@ -99,9 +102,10 @@ export const updateStockBatch = async (batchId, updates) => {
   }
 };
 
-export const deleteStockBatch = async (batchId) => {
+export const deleteStockBatch = async (batchId, pharmacyId) => {
   try {
-    const batchRef = doc(db, STOCK_BATCHES_COLLECTION, batchId);
+    if (!pharmacyId) throw new Error("pharmacyId is required");
+    const batchRef = tenantDoc(pharmacyId, STOCK_BATCHES_COLLECTION, batchId);
     await runTransaction(db, async (transaction) => {
       const batchSnap = await transaction.get(batchRef);
       if (!batchSnap.exists()) throw new Error("Batch not found");
@@ -110,7 +114,7 @@ export const deleteStockBatch = async (batchId) => {
       if (data.isDeleted) return;
 
       transaction.update(batchRef, { isDeleted: true, deletedAt: serverTimestamp() });
-      const medicineRef = doc(db, MEDICINES_COLLECTION, data.medicineId);
+      const medicineRef = tenantDoc(pharmacyId, MEDICINES_COLLECTION, data.medicineId);
       transaction.update(medicineRef, { totalStock: increment(-Number(data.quantity || 0)), updatedAt: serverTimestamp() });
     });
     return batchId;
@@ -167,10 +171,9 @@ export const deleteStockBatch = async (batchId) => {
 //   };
 
 export const getDashboardStockStats = async (pharmacyId, settings) => {
-  const batchesRef = collection(db, STOCK_BATCHES_COLLECTION);
+  const batchesRef = tenantCollection(pharmacyId, STOCK_BATCHES_COLLECTION);
   const qBase = query(
     batchesRef,
-    where("pharmacyId", "==", pharmacyId),
     where("isDeleted", "==", false),
   );
 
@@ -234,9 +237,10 @@ export const getDashboardStockStats = async (pharmacyId, settings) => {
 
 
 export const subscribeToStockBatches = (pharmacyId, callback) => {
-  const q = pharmacyId
-    ? query(collection(db, STOCK_BATCHES_COLLECTION), where("pharmacyId", "==", pharmacyId), where("isDeleted", "==", false))
-    : query(collection(db, STOCK_BATCHES_COLLECTION), where("isDeleted", "==", false));
+  const q = query(
+    tenantCollection(pharmacyId, STOCK_BATCHES_COLLECTION),
+    where("isDeleted", "==", false),
+  );
 
   return onSnapshot(
     q,

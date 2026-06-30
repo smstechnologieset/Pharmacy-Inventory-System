@@ -27,23 +27,30 @@ export const createStaff = async (req, res) => {
 
     // 3. Save profile to Firestore
     const db = getFirestore();
-    await db
-      .collection("users")
-      .doc(uid)
-      .set({
-        uid,
-        email,
-        name,
-        role: role || "staff",
-        pharmacyId: pharmacyId || null,
-        pharmacyName: pharmacyName || "",
-        createdBy: createdBy || null,
-        avatar: `https://i.pravatar.cc/150?u=${uid}`,
-        status: "Active",
-        isDeleted: false,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+    const profile = {
+      uid,
+      email,
+      name,
+      role: role || "staff",
+      pharmacyId: pharmacyId || null,
+      pharmacyName: pharmacyName || "",
+      createdBy: createdBy || null,
+      avatar: `https://i.pravatar.cc/150?u=${uid}`,
+      status: "Active",
+      isDeleted: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    await db.collection("users").doc(uid).set(profile);
+    if (pharmacyId) {
+      await db
+        .collection("pharmacies")
+        .doc(pharmacyId)
+        .collection("members")
+        .doc(uid)
+        .set(profile);
+    }
 
     // 4. Return the credentials to the frontend
     res.status(201).json({ success: true, uid, password });
@@ -81,12 +88,24 @@ export const disableStaff = async (req, res) => {
 
     // 2. Update status in Firestore (for UI display)
     const db = getFirestore();
-    await db.collection("users").doc(userId).update({
+    const profileSnap = await db.collection("users").doc(userId).get();
+    const pharmacyId = profileSnap.data()?.pharmacyId;
+    const updates = {
       status: "Disabled",
       isDeleted: true,
       disabledAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    };
+
+    await db.collection("users").doc(userId).update(updates);
+    if (pharmacyId) {
+      await db
+        .collection("pharmacies")
+        .doc(pharmacyId)
+        .collection("members")
+        .doc(userId)
+        .update(updates);
+    }
 
     res.json({ success: true, message: "Staff member disabled successfully" });
   } catch (error) {
@@ -118,12 +137,24 @@ export const enableStaff = async (req, res) => {
 
     // 2. Update status in Firestore
     const db = getFirestore();
-    await db.collection('users').doc(userId).update({
+    const profileSnap = await db.collection("users").doc(userId).get();
+    const pharmacyId = profileSnap.data()?.pharmacyId;
+    const updates = {
       status: 'Active',
       isDeleted: false,
       disabledAt: null,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    };
+
+    await db.collection('users').doc(userId).update(updates);
+    if (pharmacyId) {
+      await db
+        .collection("pharmacies")
+        .doc(pharmacyId)
+        .collection("members")
+        .doc(userId)
+        .update(updates);
+    }
 
     res.json({ success: true, message: 'Staff member re-enabled successfully' });
   } catch (error) {
@@ -154,7 +185,18 @@ export const hardDeleteStaff = async (req, res) => {
 
     // 2. Delete from Firestore
     const db = getFirestore();
+    const profileSnap = await db.collection("users").doc(userId).get();
+    const pharmacyId = profileSnap.data()?.pharmacyId;
+
     await db.collection("users").doc(userId).delete();
+    if (pharmacyId) {
+      await db
+        .collection("pharmacies")
+        .doc(pharmacyId)
+        .collection("members")
+        .doc(userId)
+        .delete();
+    }
 
     res.json({ success: true, message: "Staff member permanently deleted" });
   } catch (error) {

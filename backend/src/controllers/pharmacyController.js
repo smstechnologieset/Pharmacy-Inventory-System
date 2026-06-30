@@ -127,7 +127,21 @@ export const updateUserStatusByPharmacyId = async (req, res) => {
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       }),
     );
-    await Promise.all(updates);
+
+    const memberSnapshot = await db
+      .collection(PHARMACIES_COLLECTION)
+      .doc(pharmacyId)
+      .collection("members")
+      .where("role", "==", "admin")
+      .get();
+
+    const memberUpdates = memberSnapshot.docs.map((d) =>
+      d.ref.update({
+        status,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }),
+    );
+    await Promise.all([...updates, ...memberUpdates]);
 
     res.json({ success: true, updated: snapshot.size });
   } catch (error) {

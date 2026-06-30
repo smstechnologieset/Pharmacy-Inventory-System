@@ -107,7 +107,7 @@ const Expiration = () => {
 
     if (action === "remove") {
       try {
-        await deleteStockBatch(batchId);
+        await deleteStockBatch(batchId, user?.pharmacyId);
 
         await createStockMovement(
           {
@@ -138,11 +138,15 @@ const Expiration = () => {
       }
     } else if (action === "dispose") {
       try {
-        await updateStockBatch(batchId, {
-          quantity: 0,
-          status: "Disposed",
-          disposedAt: new Date().toISOString(),
-        });
+        await updateStockBatch(
+          batchId,
+          {
+            quantity: 0,
+            status: "Disposed",
+            disposedAt: new Date().toISOString(),
+          },
+          user?.pharmacyId,
+        );
 
         await createStockMovement(
           {

@@ -1,15 +1,13 @@
 import {
-  doc,
   setDoc,
   updateDoc,
-  collection,
   query,
   where,
   onSnapshot,
   serverTimestamp,
 } from "firebase/firestore";
-import { db } from "./firebase";
 import { NOTIFICATIONS_COLLECTION } from "./collections.js";
+import { tenantCollection, tenantDoc } from "./firestorePaths.js";
 
 
 
@@ -19,7 +17,7 @@ const buildNotifId = (pharmacyId, medicineId, type) =>
 
 export const upsertNotification = async (pharmacyId, medicineId, type, data) => {
   const id = buildNotifId(pharmacyId, medicineId, type);
-  const ref = doc(db, NOTIFICATIONS_COLLECTION, id);
+  const ref = tenantDoc(pharmacyId, NOTIFICATIONS_COLLECTION, id);
   await setDoc(
     ref,
     {
@@ -36,19 +34,19 @@ export const upsertNotification = async (pharmacyId, medicineId, type, data) => 
 
 export const resolveNotification = async (pharmacyId, medicineId, type) => {
   const id = buildNotifId(pharmacyId, medicineId, type);
-  const ref = doc(db, NOTIFICATIONS_COLLECTION, id);
+  const ref = tenantDoc(pharmacyId, NOTIFICATIONS_COLLECTION, id);
   await updateDoc(ref, { isResolved: true, updatedAt: serverTimestamp() }).catch(() => {});
 };
 
-export const markNotificationRead = async (notificationId) => {
-  const ref = doc(db, NOTIFICATIONS_COLLECTION, notificationId);
+export const markNotificationRead = async (pharmacyId, notificationId) => {
+  const ref = tenantDoc(pharmacyId, NOTIFICATIONS_COLLECTION, notificationId);
   await updateDoc(ref, { isRead: true, readAt: serverTimestamp() });
 };
 
-export const markAllNotificationsRead = async (notificationIds) => {
+export const markAllNotificationsRead = async (pharmacyId, notificationIds) => {
   await Promise.all(
     notificationIds.map((id) =>
-      updateDoc(doc(db, NOTIFICATIONS_COLLECTION, id), {
+      updateDoc(tenantDoc(pharmacyId, NOTIFICATIONS_COLLECTION, id), {
         isRead: true,
         readAt: serverTimestamp(),
       }),
@@ -58,8 +56,7 @@ export const markAllNotificationsRead = async (notificationIds) => {
 
 export const subscribeToNotifications = (pharmacyId, callback) => {
   const q = query(
-    collection(db, NOTIFICATIONS_COLLECTION),
-    where("pharmacyId", "==", pharmacyId),
+    tenantCollection(pharmacyId, NOTIFICATIONS_COLLECTION),
     where("isResolved", "==", false),
   );
   return onSnapshot(

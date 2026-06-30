@@ -1,10 +1,12 @@
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
+import { settingsDoc } from "./firestorePaths.js";
 
 export const getSystemSettings = async (pharmacyId) => {
   try {
-    const settingsId = pharmacyId || "global";
-    const docRef = doc(db, "settings", settingsId);
+    const docRef = pharmacyId
+      ? settingsDoc(pharmacyId)
+      : doc(db, "settings", "global");
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) return docSnap.data();
 
@@ -25,8 +27,9 @@ export const getSystemSettings = async (pharmacyId) => {
 
 export const updateSystemSettings = async (updates, pharmacyId) => {
   try {
-    const settingsId = pharmacyId || "global";
-    const docRef = doc(db, "settings", settingsId);
+    const docRef = pharmacyId
+      ? settingsDoc(pharmacyId)
+      : doc(db, "settings", "global");
     await setDoc(
       docRef,
       { ...updates, updatedAt: serverTimestamp() },

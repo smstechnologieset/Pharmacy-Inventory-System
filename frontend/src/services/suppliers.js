@@ -35,9 +35,12 @@ export const getAllSuppliers = async (pharmacyId) => {
   }
 };
 
-export const updateSupplier = async (supplierId, updates) => {
+export const updateSupplier = async (supplierId, updates, pharmacyId) => {
   try {
-    const response = await fetch(`${API_URL}/suppliers/${supplierId}`, {
+    const url = new URL(`${API_URL}/suppliers/${supplierId}`);
+    if (pharmacyId) url.searchParams.append("pharmacyId", pharmacyId);
+
+    const response = await fetch(url.toString(), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),
@@ -49,9 +52,12 @@ export const updateSupplier = async (supplierId, updates) => {
   }
 };
 
-export const deleteSupplier = async (supplierId) => {
+export const deleteSupplier = async (supplierId, pharmacyId) => {
   try {
-    const response = await fetch(`${API_URL}/suppliers/${supplierId}`, {
+    const url = new URL(`${API_URL}/suppliers/${supplierId}`);
+    if (pharmacyId) url.searchParams.append("pharmacyId", pharmacyId);
+
+    const response = await fetch(url.toString(), {
       method: "DELETE",
     });
     await handleResponse(response);

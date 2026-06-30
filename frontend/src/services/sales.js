@@ -1,13 +1,12 @@
 import {
-  collection,
   query,
   where,
   orderBy,
   onSnapshot,
   limit,
 } from "firebase/firestore";
-import { db } from "./firebase";
 import { SALES_COLLECTION } from "./collections";
+import { tenantCollection } from "./firestorePaths.js";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
@@ -78,8 +77,8 @@ export const getSalesByDateRange = async (pharmacyId, start, end) => {
 // Real-time subscriptions remain on the client via Firestore listeners.
 export const subscribeToDailySalesStats = (pharmacyId, callback) => {
   const q = query(
-    collection(db, "dailySalesStats"),
-    where("pharmacyId", "==", pharmacyId),
+    tenantCollection(pharmacyId, "stats"),
+    where("kind", "==", "daily"),
     orderBy("date", "asc"),
   );
   return onSnapshot(q, (snapshot) => {
@@ -90,8 +89,7 @@ export const subscribeToDailySalesStats = (pharmacyId, callback) => {
 
 export const subscribeToRecentSales = (pharmacyId, limitCount, callback) => {
   const q = query(
-    collection(db, SALES_COLLECTION),
-    where("pharmacyId", "==", pharmacyId),
+    tenantCollection(pharmacyId, SALES_COLLECTION),
     orderBy("createdAt", "desc"),
     limit(limitCount),
   );

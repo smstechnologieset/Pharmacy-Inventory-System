@@ -52,6 +52,223 @@ Benefits:
   document path.
 - Tenant lifecycle events are easier to reason about.
 
+## Migrating to Namespaced Tenant Subcollections
+
+Option A is the preferred migration target. Use the following approach to move
+slowly and safely from the current top-level tenant-keyed model.
+
+### Migration principles
+
+- Keep the existing top-level collections readable during cutover.
+- Write new records to both old and new paths until the migration is complete.
+- Move reads one collection at a time, starting with the least risky queries.
+- Deploy Firestore rule changes last, after the new tenant paths are populated.
+- Preserve document IDs when possible for audit continuity and easier rollback.
+
+### Core tenant path conventions
+
+Use these paths for tenant-scoped data:
+
+- `pharmacies/{pharmacyId}/members/{userId}`
+- `pharmacies/{pharmacyId}/medicines/{medicineId}`
+- `pharmacies/{pharmacyId}/stockBatches/{stockBatchId}`
+- `pharmacies/{pharmacyId}/sales/{saleId}`
+- `pharmacies/{pharmacyId}/suppliers/{supplierId}`
+- `pharmacies/{pharmacyId}/notifications/{notificationId}`
+- `pharmacies/{pharmacyId}/settings/{settingsId}`
+- `pharmacies/{pharmacyId}/stats/{statId}`
+
+Keep top-level `pharmacies/{pharmacyId}` for tenant metadata and possibly a
+small `users/{userId}` collection only for platform-level identity and
+superadmin accounts. Tenant membership and tenant-specific data should be
+anchored under the tenant document.
+
+### Strategy for current app code
+
+1. Create a path helper in the frontend and backend:
+
+```js
+export const tenantCollection = (pharmacyId, subcol) =>
+  collection(db, "pharmacies", pharmacyId, subcol);
+
+export const tenantDoc = (pharmacyId, subcol, docId) =>
+  doc(db, "pharmacies", pharmacyId, subcol, docId);
+```
+
+2. Update `AuthContext` and tenant membership checks to use
+   `pharmacies/{pharmacyId}/members/{userId}`.
+   - Keep the existing `users/{uid}` profile as a migration read cache.
+   - Use `members` as the authoritative tenant membership source.
+
+3. Replace each collection access in services with tenant-scoped paths:
+   - `medicines` → `pharmacies/{pharmacyId}/medicines`
+   - `stockBatches` → `pharmacies/{pharmacyId}/stockBatches`
+   - `sales` → `pharmacies/{pharmacyId}/sales`
+   - `suppliers` → `pharmacies/{pharmacyId}/suppliers`
+   - `notifications` → `pharmacies/{pharmacyId}/notifications`
+   - `settings` → `pharmacies/{pharmacyId}/settings/{settingsId}`
+
+4. Add compatibility query helpers for read fallback:
+
+```js
+const getTenantMedicines = async (pharmacyId) => {
+  const newPathQuery = query(
+    tenantCollection(pharmacyId, "medicines"),
+    where("isDeleted", "==", false),
+  );
+  const snapshot = await getDocs(newPathQuery);
+  if (!snapshot.empty)
+    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+  const legacyQuery = query(
+    collection(db, "medicines"),
+    where("pharmacyId", "==", pharmacyId),
+    where("isDeleted", "==", false),
+  );
+  const legacySnapshot = await getDocs(legacyQuery);
+  return legacySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+};
+```
+
+5. Migrate settings to tenant-scoped docs:
+   - `pharmacies/{pharmacyId}/settings/{settingsId}`
+   - keep `settings/global` for defaults
+   - avoid `settings` top-level writes after migration
+
+### Phased migration checklist
+
+#### Phase 1: Tenant root and membership
+
+- Create tenant root documents in `pharmacies/{pharmacyId}`.
+- Add existing admin/staff into `pharmacies/{pharmacyId}/members/{userId}`.
+- Keep `users/{uid}` documents for backward compatibility.
+- Update security rules so tenant membership is validated from the new path.
+
+#### Phase 2: Read migration
+
+- Switch frontend and backend read paths for `medicines`, `stockBatches`,
+  `sales`, `suppliers`, and `notifications` to tenant subcollections.
+- Use a fallback to the old top-level collection until the tenant document is
+  fully migrated.
+- Keep code that writes legacy root collections in sync during this phase.
+
+#### Phase 3: Write migration
+
+- Update frontend and backend create/update/delete flows to write both paths.
+- Prefer the new tenant path in code while retaining duplicate writes.
+- Use migration tooling to copy existing root-level documents into the tenant
+  subcollections.
+
+#### Phase 4: Cutover and cleanup
+
+- After tenant subcollections are verified, stop writing legacy top-level
+  collections.
+- Migrate remaining documents and decommission old root-level collections.
+- Harden Firestore rules to disallow most direct writes to legacy top-level
+  collections.
+- Keep legacy reads only while the final cleanup runs.
+
+### Example tenant rules for Option A
+
+```js
+match /pharmacies/{pharmacyId} {
+  allow read: if isSuperAdmin() || isTenantMember(pharmacyId);
+  allow write: if isSuperAdmin();
+
+  match /members/{userId} {
+    allow read: if isSuperAdmin() || request.auth.uid == userId || isTenantAdmin(pharmacyId);
+    allow write: if isSuperAdmin() || isTenantAdmin(pharmacyId);
+  }
+
+  match /medicines/{medicineId} {
+    allow read: if isSuperAdmin() || isTenantMember(pharmacyId);
+    allow write: if isSuperAdmin() || isTenantAdmin(pharmacyId);
+  }
+
+  match /stockBatches/{stockBatchId} {
+    allow read, write: if isSuperAdmin() || isTenantMember(pharmacyId);
+  }
+
+  match /sales/{saleId} {
+    allow read, write: if isSuperAdmin() || isTenantMember(pharmacyId);
+  }
+
+  match /suppliers/{supplierId} {
+    allow read, write: if isSuperAdmin() || isTenantMember(pharmacyId);
+  }
+
+  match /notifications/{notificationId} {
+    allow read, write: if isSuperAdmin() || isTenantMember(pharmacyId);
+  }
+
+  match /settings/{settingsId} {
+    allow read, write: if isSuperAdmin() || isTenantMember(pharmacyId);
+  }
+}
+```
+
+### Migration tooling
+
+Use a dedicated migration script or Cloud Function that:
+
+- enumerates all current `pharmacies` and their `pharmacyId`
+- copies `medicines`, `stockBatches`, `sales`, `suppliers`, and `notifications`
+  into `pharmacies/{pharmacyId}/{subcollection}`
+- creates a `members/{userId}` document for each current user with the same
+  tenant metadata
+- creates `settings/{settingsId}` documents from legacy `settings` documents
+- optionally creates tenant `stats` documents from current aggregated counters
+
+### Recommended migration order for this repo
+
+1. `pharmacies` and `members`
+2. `settings`
+3. `medicines`
+4. `stockBatches`
+5. `suppliers`
+6. `sales`
+7. `notifications`
+8. `stats` / `dailySalesStats`
+9. `counters` / invoice numbering if you choose to tenant-namespace them
+
+### Notes on `users/{uid}`
+
+- Keep top-level `users` for auth identity if the app still needs it.
+- Move `pharmacyId`, `role`, and `status` authoritatively into the tenant
+  `members` docs.
+- Use `users/{uid}` only for non-tenant platform roles and fallback login
+  metadata during migration.
+
+## Why this migration works for your app
+
+- It preserves the existing tenant concept while enforcing it at the path level.
+- It makes `pharmacyId` implicit for most tenant CRUD operations.
+- It supports safer rules and simpler indexes.
+- It allows the backend to become the authoritative gateway for writes over
+  time.
+
+### Recommended next step
+
+Add a small `frontend/src/services/firestorePaths.js` helper and a backend
+migration script in `backend/scripts/` or `frontend/scripts/` to start the
+migration with careful dual-read/dual-write support.
+
+### Important caution
+
+Do not turn off legacy collection access until you can verify tenant data exists
+in the new `pharmacies/{pharmacyId}` subcollections for every tenant.
+
+### Quick adoption pattern
+
+- Build one service helper for `tenantCollection(pharmacyId, subcol)`
+- Convert one page at a time to new tenant paths
+- Validate with one pharmacy tenant end-to-end
+- Then migrate the remaining tenants and remove legacy reads
+
+### If you want, I can also generate the actual helper file and a migration
+
+script stub for this repo.
+
 ### Option B: Top-level collections with strong tenant keys
 
 Collection structure:

@@ -291,7 +291,8 @@ const Header = () => {
     const unreadIds = realNotifications
       .filter((n) => !n.isRead)
       .map((n) => n.id);
-    if (unreadIds.length > 0) await markAllNotificationsRead(unreadIds);
+    if (unreadIds.length > 0)
+      await markAllNotificationsRead(user?.pharmacyId, unreadIds);
   };
 
   const handleLogout = async () => {
@@ -555,7 +556,8 @@ const Header = () => {
                       key={n.id}
                       className="notif-item"
                       onClick={() => {
-                        if (!n.isRead) markAllNotificationsRead([n.id]);
+                        if (!n.isRead)
+                          markAllNotificationsRead(user?.pharmacyId, [n.id]);
                         navigate("/inventory");
                         setShowNotifs(false);
                       }}
