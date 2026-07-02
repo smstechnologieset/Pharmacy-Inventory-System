@@ -1,10 +1,13 @@
-
-import { auth } from "./firebase"; 
-
+import { auth } from "./firebase";
 
 export const getAuthHeaders = async (timeoutMs = 15000) => {
   console.log("🔍 [API HELPER] Checking auth state...");
   console.log("🔍 [API HELPER] auth.currentUser:", auth.currentUser?.uid || "NULL");
+
+  // Fail fast with a clear message if the browser knows it's offline
+  if (!navigator.onLine) {
+    throw new Error("You appear to be offline. Please check your connection and try again.");
+  }
 
   // 1. If user is already loaded, return immediately
   if (auth.currentUser) {
@@ -23,21 +26,33 @@ export const getAuthHeaders = async (timeoutMs = 15000) => {
 
   // 2. Otherwise, wait for Firebase to restore the session
   console.warn("⚠️ [API HELPER] currentUser is NULL. Waiting for onAuthStateChanged...");
-  
+
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
+    const cleanup = () => {
+      clearTimeout(timeout);
       unsubscribe();
-      console.error("❌ [API HELPER] TIMEOUT: User still not logged in after 5 seconds.");
-      reject(new Error("User is not logged in. Cannot make authenticated API requests."));
+      window.removeEventListener("offline", handleOffline);
+    };
+
+    const handleOffline = () => {
+      console.error("❌ [API HELPER] Connection dropped while waiting for auth.");
+      cleanup();
+      reject(new Error("Connection lost while signing in. Please check your network and try again."));
+    };
+
+    const timeout = setTimeout(() => {
+      console.error(`❌ [API HELPER] TIMEOUT: User still not logged in after ${timeoutMs / 1000}s.`);
+      cleanup();
+      reject(new Error("This is taking longer than expected. Your connection may be unstable — please try again."));
     }, timeoutMs);
 
-    // 🚨 Use the exact same auth instance
+    window.addEventListener("offline", handleOffline);
+
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       console.log("🔔 [API HELPER] onAuthStateChanged fired. User:", user?.uid || "NULL");
-      
+
       if (user) {
-        clearTimeout(timeout);
-        unsubscribe();
+        cleanup();
         try {
           console.log("✅ [API HELPER] User restored! Fetching token...");
           const token = await user.getIdToken();
