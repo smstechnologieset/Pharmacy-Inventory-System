@@ -26,10 +26,16 @@ initializeFirebase();
 initializeWebPush();
 
 // Middleware
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: [
+      process.env.NODE_ENV == "development" && "http://localhost:5173",
+      "https://pharma-inventory.vercel.app",
+    ],
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
 app.use(express.json());
@@ -55,7 +61,6 @@ app.use("/api/medicines", medicinesRoutes);
 app.use("/api/suppliers", suppliersRoutes);
 app.use("/api/sales", salesRoutes);
 app.use("/api/pharmacies", pharmaciesRoutes);
-
 
 app.use("/api/payments", paymentRoutes);
 // 404 Not Found Handler (must be before error handler)
