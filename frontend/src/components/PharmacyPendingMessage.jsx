@@ -1,20 +1,27 @@
 import React, { useEffect } from "react";
 import { Clock, LogOut } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { useNavigate } from "react-router-dom";
 
 const PharmacyPendingMessage = () => {
-  const { logout, user, pharmacyStatus } = useAuth();
-  const navigate = useNavigate();
+  // 🆕 Pull subscriptionStatus from AuthContext
+  const { logout, user, pharmacyStatus, subscriptionStatus } = useAuth();
 
-  // Auto-redirect when superadmin approves
   useEffect(() => {
-    // 🚨 FIX: Only check pharmacyStatus.
-    // If the pharmacy is active, they belong in the dashboard.
-    if (pharmacyStatus.toLowerCase() === "active") {
-      navigate("/");
+    // Wait for state to load
+    if (!pharmacyStatus || !subscriptionStatus) return;
+
+    // 1. If they haven't paid yet, send them to the payment page
+    if (subscriptionStatus === "pending_payment") {
+      const txRef = sessionStorage.getItem("pending_payment_txRef");
+      if (txRef) {
+        window.location.replace("/payment/verify");
+      }
     }
-  }, [pharmacyStatus, navigate]);
+    // 2. If they paid AND admin approved, send them to the dashboard
+    else if (pharmacyStatus === "active" && subscriptionStatus === "active") {
+      window.location.replace("/");
+    }
+  }, [pharmacyStatus, subscriptionStatus]);
 
   return (
     <div
@@ -68,8 +75,7 @@ const PharmacyPendingMessage = () => {
           }}>
           Thanks for signing up, <strong>{user?.name || user?.email}</strong>.
           Your pharmacy registration is under review. Please wait while our team
-          verifies your request; we will contact you using the phone number you
-          provided.
+          verifies your request.
         </p>
         {user?.pharmacyName && (
           <p
@@ -101,6 +107,6 @@ const PharmacyPendingMessage = () => {
       </div>
     </div>
   );
-};;
+};
 
 export default PharmacyPendingMessage;

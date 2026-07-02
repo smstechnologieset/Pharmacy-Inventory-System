@@ -23,6 +23,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { useNavigate } from "react-router-dom";
+import { initializePayment } from "../services/payment.js";
 
 // ─── SHARED UI COMPONENTS ─────────────────────────────────────────────────────
 const InputField = ({
@@ -1029,6 +1030,10 @@ const Signup = () => {
       setLocalLoading(false);
     }
   };
+  
+
+
+
 
   const handleFinalSubmit = async () => {
     setLocalError("");
@@ -1059,22 +1064,79 @@ const Signup = () => {
         },
         documents: {
           pharmacyLicense: formData.documents.pharmacyLicense
-            ? "mock_url_license"
+            ? "pending_upload"
             : null,
           pharmacistLicense: formData.documents.pharmacistLicense
-            ? "mock_url_pharmacist"
+            ? "pending_upload"
             : null,
         },
       };
 
+      // Step 6: Create pharmacy (status: pending, subscription.status: pending_payment)
       await finalizeRegistration(payload);
-      navigate("/verify-email");
+
+      // Step 7: Initialize payment with Chapa
+      const { checkoutUrl, txRef } = await initializePayment(
+        formData.billingCycle,
+      );
+
+      // Store txRef for verification after redirect
+      sessionStorage.setItem("pending_payment_txRef", txRef);
+
+      // Redirect to Chapa payment page
+      window.location.href = checkoutUrl;
     } catch (error) {
       setLocalError(error.message || "Registration failed");
     } finally {
       setLocalLoading(false);
     }
   };
+
+  // const handleFinalSubmit = async () => {
+  //   setLocalError("");
+  //   setLocalLoading(true);
+  //   try {
+  //     if (!formData.acceptTerms) {
+  //       throw new Error("You must accept the Terms of Service to continue");
+  //     }
+
+  //     const payload = {
+  //       pharmacyData: {
+  //         pharmacyName: formData.pharmacyName,
+  //         phone: `+251${formData.phone}`,
+  //         email: formData.email,
+  //         licenseNumber: formData.licenseNumber,
+  //         taxId: formData.taxId,
+  //         pharmacyType: formData.pharmacyType,
+  //         address: formData.address,
+  //         businessEmail: formData.businessEmail,
+  //         businessPhone: formData.businessPhone
+  //           ? `+251${formData.businessPhone}`
+  //           : "",
+  //         website: formData.website,
+  //       },
+  //       subscriptionData: {
+  //         selectedTier: formData.selectedTier,
+  //         billingCycle: formData.billingCycle,
+  //       },
+  //       documents: {
+  //         pharmacyLicense: formData.documents.pharmacyLicense
+  //           ? "mock_url_license"
+  //           : null,
+  //         pharmacistLicense: formData.documents.pharmacistLicense
+  //           ? "mock_url_pharmacist"
+  //           : null,
+  //       },
+  //     };
+
+  //     await finalizeRegistration(payload);
+  //     navigate("/verify-email");
+  //   } catch (error) {
+  //     setLocalError(error.message || "Registration failed");
+  //   } finally {
+  //     setLocalLoading(false);
+  //   }
+  // };
 
   const displayError = localError || authError;
   const isLoading = localLoading || authLoading;

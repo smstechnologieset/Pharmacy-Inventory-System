@@ -18,15 +18,17 @@ import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import SuperAdmin from "./pages/SuperAdmin";
 
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { useAuth } from "./context/AuthContext";
 import LoadingScreen from "./components/LoadingScreen.jsx";
 import Signup from "./pages/Signup.jsx";
-import PendingPage from "./pages/PendingPage.jsx";
 import PharmacySuspendedMessage from "./components/PharmacySuspendedMessage.jsx";
 import PharmacyPendingMessage from "./components/PharmacyPendingMessage.jsx";
 import VerifyEmailPage from "./pages/VerifyEmailPage.jsx";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import PaymentVerify from "./pages/PaymentVerify.jsx";
+import PaymentSuccess from "./pages/PaymentSuccess.jsx";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -35,24 +37,32 @@ const queryClient = new QueryClient({
   },
 });
 
+// 🚨 THE MASTER GATEKEEPER: Handles all status blocking cleanly
 const ProtectedRoute = ({ children }) => {
-  const { user, loading, pharmacyStatus } = useAuth();
+  const { user, loading, pharmacyStatus, subscriptionStatus } = useAuth();
 
-  if (loading) {
-    return <LoadingScreen />;
-  }
+  if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" />;
 
-  // Super admin gets redirected to the super admin dashboard
+  // Super admin bypasses tenant checks
   if (user.role === "superadmin") return <Navigate to="/super-admin" />;
 
-  // Pharmacy suspended
-  if (pharmacyStatus === "suspended") return <PharmacySuspendedMessage />;
-  if (pharmacyStatus === "pending") return <PharmacyPendingMessage />;
+  // 1. Check Subscription Status (Payment)
+  if (subscriptionStatus === "pending_payment") {
+    return <PaymentVerify />;
+  }
 
-  if (user.role === "staff") return <StaffWaitingMessage user={user} />;
-  if (user.status === "pending") return <Navigate to="/pending" />;
-  if (user.status === "rejected") return <Navigate to="/login" />;
+  // 2. Check Pharmacy Status (Admin Approval)
+  if (pharmacyStatus === "pending") {
+    return <PharmacyPendingMessage />;
+  }
+
+  // 3. Check Suspended Status
+  if (pharmacyStatus === "suspended") {
+    return <PharmacySuspendedMessage />;
+  }
+
+  // If all clear, render the children (Layout)
   return children;
 };
 
@@ -70,8 +80,6 @@ const SuperAdminRoute = ({ children }) => {
 // Role Guard Component (Restricts access based on specific user roles)
 const RoleGuard = ({ allowedRoles, children }) => {
   const { user } = useAuth();
-
-  // If allowedRoles is provided, and the user's role is NOT in the list, redirect to dashboard
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />;
   }
@@ -82,7 +90,8 @@ const VerifyEmailRoute = ({ children }) => {
   const { authUser, loading } = useAuth();
   if (loading) return <LoadingScreen />;
   if (!authUser) return <Navigate to="/login" />;
-  if (authUser.emailVerified) return <Navigate to="/pending" />;
+  // If verified, send them to the main app (ProtectedRoute will handle the rest)
+  if (authUser.emailVerified) return <Navigate to="/" />;
   return children;
 };
 
@@ -94,9 +103,12 @@ function App() {
       )}
       <Router>
         <Routes>
+          {/* Public Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-          <Route path="/pending" element={<PharmacyPendingMessage />} />
+          <Route path="/payment/verify" element={<PaymentVerify />} />
+          <Route path="/payment/success" element={<PaymentSuccess />} />
+
           <Route
             path="/verify-email"
             element={
@@ -105,6 +117,7 @@ function App() {
               </VerifyEmailRoute>
             }
           />
+
           {/* Super Admin Dashboard — completely separate layout */}
           <Route
             path="/super-admin"
@@ -115,6 +128,7 @@ function App() {
             }
           />
 
+          {/* Main App Layout (Protected by the Master Gatekeeper) */}
           <Route
             path="/"
             element={
@@ -129,13 +143,7 @@ function App() {
             <Route
               path="medicine"
               element={
-                <RoleGuard
-                  allowedRoles={[
-                    "admin",
-                    "manager",
-                    "pharmacist",
-                    "superadmin",
-                  ]}>
+                <RoleGuard allowedRoles={["admin", "manager", "pharmacist"]}>
                   <Medicine />
                 </RoleGuard>
               }
@@ -143,13 +151,7 @@ function App() {
             <Route
               path="inventory"
               element={
-                <RoleGuard
-                  allowedRoles={[
-                    "admin",
-                    "manager",
-                    "pharmacist",
-                    "superadmin",
-                  ]}>
+                <RoleGuard allowedRoles={["admin", "manager", "pharmacist"]}>
                   <Inventory />
                 </RoleGuard>
               }
@@ -157,13 +159,7 @@ function App() {
             <Route
               path="sales"
               element={
-                <RoleGuard
-                  allowedRoles={[
-                    "admin",
-                    "manager",
-                    "pharmacist",
-                    "superadmin",
-                  ]}>
+                <RoleGuard allowedRoles={["admin", "manager", "pharmacist"]}>
                   <Sales />
                 </RoleGuard>
               }
@@ -171,13 +167,7 @@ function App() {
             <Route
               path="expiration"
               element={
-                <RoleGuard
-                  allowedRoles={[
-                    "admin",
-                    "manager",
-                    "pharmacist",
-                    "superadmin",
-                  ]}>
+                <RoleGuard allowedRoles={["admin", "manager", "pharmacist"]}>
                   <Expiration />
                 </RoleGuard>
               }
@@ -187,7 +177,7 @@ function App() {
             <Route
               path="suppliers"
               element={
-                <RoleGuard allowedRoles={["admin", "manager", "superadmin"]}>
+                <RoleGuard allowedRoles={["admin", "manager"]}>
                   <Suppliers />
                 </RoleGuard>
               }
@@ -195,7 +185,7 @@ function App() {
             <Route
               path="reports"
               element={
-                <RoleGuard allowedRoles={["admin", "manager", "superadmin"]}>
+                <RoleGuard allowedRoles={["admin", "manager"]}>
                   <Reports />
                 </RoleGuard>
               }
@@ -203,17 +193,16 @@ function App() {
             <Route
               path="staff"
               element={
-                <RoleGuard allowedRoles={["admin", "manager", "superadmin"]}>
+                <RoleGuard allowedRoles={["admin", "manager"]}>
                   <Staff />
                 </RoleGuard>
               }
             />
-
             {/* System Settings - Admin Only */}
             <Route
               path="settings"
               element={
-                <RoleGuard allowedRoles={["admin", "superadmin"]}>
+                <RoleGuard allowedRoles={["admin"]}>
                   <Settings />
                 </RoleGuard>
               }
@@ -221,6 +210,9 @@ function App() {
 
             <Route path="invoices" element={<Navigate to="/sales" />} />
           </Route>
+
+          {/* Fallback for unknown routes */}
+          <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>
     </QueryClientProvider>

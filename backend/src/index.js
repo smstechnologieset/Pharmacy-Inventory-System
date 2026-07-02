@@ -12,6 +12,8 @@ import salesRoutes from "./routes/sales.js";
 import pharmaciesRoutes from "./routes/pharmacies.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import authRoutes from "./routes/auth.js";
+import paymentRoutes from "./routes/payments.js";
+// ... other imports ..
 dotenv.config();
 
 const app = express();
@@ -54,6 +56,8 @@ app.use("/api/suppliers", suppliersRoutes);
 app.use("/api/sales", salesRoutes);
 app.use("/api/pharmacies", pharmaciesRoutes);
 
+
+app.use("/api/payments", paymentRoutes);
 // 404 Not Found Handler (must be before error handler)
 app.use(notFoundHandler);
 

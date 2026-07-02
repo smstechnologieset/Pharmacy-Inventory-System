@@ -42,14 +42,30 @@ export const authenticate = async (req, res, next) => {
       }
     }
 
-    // Attach user data to the request object
     req.user = {
       uid: decodedToken.uid,
       role: role || "pharmacist",
       pharmacyId: pharmacyId,
     };
 
-    // 🔒 SECURITY CHECK:
+    // In the exception block, add payment routes:
+    if (!req.user.pharmacyId && req.user.role !== "super_admin") {
+      const allowedPaths = [
+        "/auth/complete-registration",
+        "/payments/initialize",
+        "/payments/verify",
+        "/payments/retry",
+      ];
+
+      if (allowedPaths.some((path) => req.originalUrl.includes(path))) {
+        return next();
+      }
+
+      return res
+        .status(403)
+        .json({ error: "User is not assigned to a pharmacy" });
+    }
+    // SECURITY CHECK:
     // If they still don't have a pharmacyId, they shouldn't be accessing tenant routes.
     if (!req.user.pharmacyId && req.user.role !== "super_admin") {
       // 🚨 EXCEPTION: Allow access if they are trying to complete their registration (Step 6)
@@ -57,12 +73,10 @@ export const authenticate = async (req, res, next) => {
         return next();
       }
 
-      return res
-        .status(403)
-        .json({
-          error:
-            "User is not assigned to a pharmacy. Please complete registration.",
-        });
+      return res.status(403).json({
+        error:
+          "User is not assigned to a pharmacy. Please complete registration.",
+      });
     }
 
     next();

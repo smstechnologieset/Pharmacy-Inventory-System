@@ -53,6 +53,9 @@ export const createPharmacy = async (req, res) => {
     const periodEnd = new Date();
     periodEnd.setDate(periodEnd.getDate() + 30);
 
+    // In backend/src/controllers/pharmacyController.js
+    // Update the createPharmacy function (for Super Admin creating pharmacies):
+
     const payload = {
       name: pharmacyData.name,
       address: pharmacyData.address || "",
@@ -60,23 +63,23 @@ export const createPharmacy = async (req, res) => {
       email: pharmacyData.email || "",
       adminUid: pharmacyData.adminUid || "",
       adminId: pharmacyData.adminId || "",
-      status: pharmacyData.status || "pending",
 
-      // 🆕 SUBSCRIPTION INITIALIZATION
+      // 🆕 SEPARATE STATUS FIELDS
+      status: pharmacyData.status || "pending", // Admin approval
+
       subscription: {
-        tier: SUBSCRIPTION_TIERS.STARTER, // Default to Starter plan
+        tier: SUBSCRIPTION_TIERS.STARTER,
         billingCycle: "monthly",
-        status: "active", //
+        status: "trialing", // 🆕 Super Admin created pharmacies get free trial
         currentPeriodStart: admin.firestore.FieldValue.serverTimestamp(),
         currentPeriodEnd: admin.firestore.Timestamp.fromDate(periodEnd),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
 
-      // 🆕 USAGE METRICS INITIALIZATION
       usageMetrics: {
         currentSkuCount: 0,
-        currentUserCount: 1, // Assuming the admin creating it counts as 1 user
-        currentBranchCount: 1, // Assuming they start with 1 main branch
+        currentUserCount: 1,
+        currentBranchCount: 1,
         dailyTransactionsToday: 0,
         storageUsedMB: 0,
       },

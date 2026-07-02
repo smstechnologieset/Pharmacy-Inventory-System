@@ -569,6 +569,62 @@ const SuperAdmin = () => {
                           </div>
                         </div>
                       </td>
+                      
+                      <td>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "4px",
+                          }}>
+                          {/* Pharmacy Status */}
+                          <span
+                            style={{
+                              padding: "4px 10px",
+                              borderRadius: "8px",
+                              fontSize: "0.7rem",
+                              fontWeight: "700",
+                              background:
+                                pharmacy.status === "active"
+                                  ? "#ECFDF5"
+                                  : pharmacy.status === "suspended"
+                                    ? "#FEE2E2"
+                                    : "#FEF3C7",
+                              color:
+                                pharmacy.status === "active"
+                                  ? "#059669"
+                                  : pharmacy.status === "suspended"
+                                    ? "#EF4444"
+                                    : "#D97706",
+                            }}>
+                            {pharmacy.status.toUpperCase()}
+                          </span>
+
+                          {/* Subscription Status */}
+                          <span
+                            style={{
+                              padding: "4px 10px",
+                              borderRadius: "8px",
+                              fontSize: "0.7rem",
+                              fontWeight: "700",
+                              background:
+                                pharmacy.subscription?.status === "active"
+                                  ? "#ECFDF5"
+                                  : pharmacy.subscription?.status === "past_due"
+                                    ? "#FEE2E2"
+                                    : "#FEF3C7",
+                              color:
+                                pharmacy.subscription?.status === "active"
+                                  ? "#059669"
+                                  : pharmacy.subscription?.status === "past_due"
+                                    ? "#EF4444"
+                                    : "#D97706",
+                            }}>
+                            {pharmacy.subscription?.status.toUpperCase() ||
+                              "N/A"}
+                          </span>
+                        </div>
+                      </td>
                       <td>
                         <span
                           style={{

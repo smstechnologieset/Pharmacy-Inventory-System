@@ -14,14 +14,8 @@ import {
   onAuthStateChanged,
 } from "firebase/auth";
 import { auth, db } from "../services/firebase";
-// import {
-//   createUserProfile,
-//   getUserProfile,
-//   getPharmacyById,
-//   createPharmacy,
-// } from "../services/firestoreService";
 import { doc, onSnapshot } from "firebase/firestore";
-import { createPharmacy, getPharmacyById } from "../services/pharmacies.js";
+import { getPharmacyById } from "../services/pharmacies.js";
 import { createUserProfile, getUserProfile } from "../services/users.js";
 import { memberDoc } from "../services/firestorePaths.js";
 import { getAuthHeaders } from "../services/apiHelper.js";
@@ -34,27 +28,20 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [authUser, setAuthUser] = useState(null);
   const [pharmacyStatus, setPharmacyStatus] = useState(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState(null); // 🆕 NEW STATE
   const isSigningUp = useRef(false);
 
-  // Listen for auth state changes (persistent login)
   useEffect(() => {
     let unsubscribeSnapshot = null;
     let unsubscribeMemberSnapshot = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
-      if (unsubscribeSnapshot) {
-        unsubscribeSnapshot();
-        unsubscribeSnapshot = null;
-      }
-      if (unsubscribeMemberSnapshot) {
-        unsubscribeMemberSnapshot();
-        unsubscribeMemberSnapshot = null;
-      }
+      if (unsubscribeSnapshot) unsubscribeSnapshot();
+      if (unsubscribeMemberSnapshot) unsubscribeMemberSnapshot();
 
       if (firebaseUser) {
         setAuthUser(firebaseUser);
         setLoading(true);
-
         const userDocRef = doc(db, "users", firebaseUser.uid);
 
         unsubscribeSnapshot = onSnapshot(
@@ -79,12 +66,20 @@ export const AuthProvider = ({ children }) => {
                     const pharmacy = await getPharmacyById(
                       effectiveProfile.pharmacyId,
                     );
-                    setPharmacyStatus(pharmacy.status || "active");
-                  } catch {
-                    setPharmacyStatus("active");
+
+                    // 🆕 EXTRACT BOTH STATUSES
+                    setPharmacyStatus(pharmacy.status || "pending");
+                    setSubscriptionStatus(
+                      pharmacy.subscription?.status || "pending_payment",
+                    );
+                  } catch (err) {
+                    console.error("Error fetching pharmacy:", err);
+                    setPharmacyStatus("pending");
+                    setSubscriptionStatus("pending_payment");
                   }
                 } else {
                   setPharmacyStatus("active");
+                  setSubscriptionStatus("active");
                 }
 
                 setUser({
@@ -98,15 +93,11 @@ export const AuthProvider = ({ children }) => {
 
               if (profileData.role !== "superadmin" && profileData.pharmacyId) {
                 if (unsubscribeMemberSnapshot) unsubscribeMemberSnapshot();
-
                 unsubscribeMemberSnapshot = onSnapshot(
                   memberDoc(profileData.pharmacyId, firebaseUser.uid),
                   (memberSnap) => {
-                    if (memberSnap.exists()) {
-                      setProfile(memberSnap.data());
-                    } else {
-                      setProfile();
-                    }
+                    if (memberSnap.exists()) setProfile(memberSnap.data());
+                    else setProfile();
                   },
                   (err) => {
                     console.error("Error listening to member profile:", err);
@@ -116,18 +107,13 @@ export const AuthProvider = ({ children }) => {
               } else {
                 setProfile();
               }
-
             } else {
-              // Doc doesn't exist — skip logout if we're mid-signup
               if (!isSigningUp.current) {
-                console.warn(
-                  "User profile missing or deleted. Forcing logout.",
-                );
                 signOut(auth).catch(console.error);
                 setUser(null);
-                setError(
-                  "Your account has been removed or disabled by an administrator.",
-                );
+                setPharmacyStatus(null);
+                setSubscriptionStatus(null);
+                setError("Your account has been removed or disabled.");
               }
             }
             if (!docSnap.exists()) setLoading(false);
@@ -142,6 +128,7 @@ export const AuthProvider = ({ children }) => {
         setAuthUser(null);
         setUser(null);
         setPharmacyStatus(null);
+        setSubscriptionStatus(null); // 🆕 RESET
         setError(null);
         setLoading(false);
       }
@@ -154,59 +141,6 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  const signup = async (
-    email,
-    password,
-    name = "",
-    role = "admin",
-    phone = "",
-    pharmacyName = "",
-  ) => {
-    setLoading(true);
-    setError(null);
-    isSigningUp.current = true;
-    try {
-      const userCredential = await signUp(auth, email, password);
-      const firebaseUser = userCredential.user;
-      console.log("user profile url:",userCredential.user)
- await sendEmailVerification(firebaseUser);
-      // 1. Create pharmacy doc first to get the pharmacyId
-      const pharmacy = await createPharmacy({
-        name: pharmacyName,
-        phone,
-        email,
-        adminUid: firebaseUser.uid,
-        adminId: firebaseUser.uid,
-        status: "pending",
-      });
-      // console.log("pharmacy created:", pharmacy.id);
-
-      // 2. Create user profile with the pharmacyId linked
-      await createUserProfile(firebaseUser.uid, {
-        email,
-        name,
-        role,
-        phone,
-        pharmacyName,
-        pharmacyId: pharmacy.id,
-        status: "pending",
-      });
-
-      return firebaseUser;
-    } catch (err) {
-      setError(err.message || "Signup failed");
-      isSigningUp.current = false;
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-
-
-  // ... inside AuthProvider ...
-
-  // 🟢 STEP 1: Create Firebase Auth user and a "pending" Firestore profile
   const createAccount = async (email, password, name, phone) => {
     setLoading(true);
     setError(null);
@@ -214,19 +148,15 @@ export const AuthProvider = ({ children }) => {
     try {
       const userCredential = await signUp(auth, email, password);
       const firebaseUser = userCredential.user;
-
       await sendEmailVerification(firebaseUser);
-
-      // Create a minimal user profile in Firestore (NO PHARMACY YET)
       await createUserProfile(firebaseUser.uid, {
         email,
         name,
         role: "admin",
         phone: `+251${phone}`,
-        status: "pending_onboarding", // Custom status to track wizard progress
+        status: "pending_onboarding",
         pharmacyId: null,
       });
-
       return firebaseUser;
     } catch (err) {
       setError(err.message || "Signup failed");
@@ -237,7 +167,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 🟢 STEP 6: Finalize registration with all the accumulated data
   const finalizeRegistration = async (formData) => {
     setLoading(true);
     setError(null);
@@ -245,22 +174,15 @@ export const AuthProvider = ({ children }) => {
       const API_URL =
         import.meta.env.VITE_API_URL || "http://localhost:5000/api";
       const headers = await getAuthHeaders();
-
       const response = await fetch(`${API_URL}/auth/complete-registration`, {
         method: "POST",
         headers,
         body: JSON.stringify(formData),
       });
-
       const result = await response.json();
       if (!response.ok)
         throw new Error(result.error || "Failed to complete registration");
-
-      // 🚨 FORCE TOKEN REFRESH so the new Custom Claims are picked up immediately!
-      if (auth.currentUser) {
-        await auth.currentUser.getIdToken(true);
-      }
-
+      if (auth.currentUser) await auth.currentUser.getIdToken(true);
       return result;
     } catch (err) {
       setError(err.message || "Registration failed");
@@ -270,73 +192,32 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // ... keep your login, logout, etc. ...
-
-  // return (
-  //   <AuthContext.Provider
-  //     value={{
-  //       user,
-  //       authUser,
-  //       loading,
-  //       error,
-  //       login,
-  //       createAccount, // <--- EXPOSE THIS INSTEAD OF signup
-  //       finalizeRegistration, // <--- EXPOSE THIS
-  //       logout,
-  //       clearError,
-  //       isSuperAdmin,
-  //       pharmacyStatus,
-  //       resendVerificationEmail,
-  //     }}>
-  //     {children}
-  //   </AuthContext.Provider>
-  // );
-  
-  const resendVerificationEmail = async () => {
+  const login = async (email, password) => {
+    setLoading(true);
     setError(null);
     try {
-      if (!authUser) throw new Error("No authenticated user found.");
-      if (authUser.emailVerified) throw new Error("Email is already verified.");
-      await sendEmailVerification(authUser);
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
+      const firebaseUser = userCredential.user;
+      if (!firebaseUser.emailVerified) throw new Error("__unverified__");
+      const userProfile = await getUserProfile(firebaseUser.uid);
+      setAuthUser(firebaseUser);
+      setUser({
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        ...userProfile,
+      });
+      return firebaseUser;
     } catch (err) {
-      setError(err.message || "Failed to resend verification email.");
+      setError(err.message || "Login failed");
       throw err;
+    } finally {
+      setLoading(false);
     }
   };
-
-const login = async (email, password) => {
-  setLoading(true);
-  setError(null);
-  try {
-    const userCredential = await signInWithEmailAndPassword(
-      auth,
-      email,
-      password,
-    );
-    const firebaseUser = userCredential.user;
-
-    // Block unverified users from logging in
-    if ( !firebaseUser.emailVerified ) {
-      
-      // await signOut(auth);
-      throw new Error("__unverified__");
-    }
-
-    const userProfile = await getUserProfile(firebaseUser.uid);
-    setAuthUser(firebaseUser);
-    setUser({
-      uid: firebaseUser.uid,
-      email: firebaseUser.email,
-      ...userProfile,
-    });
-    return firebaseUser;
-  } catch (err) {
-    setError(err.message || "Login failed");
-    throw err;
-  } finally {
-    setLoading(false);
-  }
-};
 
   const logout = async () => {
     setLoading(true);
@@ -346,6 +227,7 @@ const login = async (email, password) => {
       setAuthUser(null);
       setUser(null);
       setPharmacyStatus(null);
+      setSubscriptionStatus(null); // 🆕 RESET
     } catch (err) {
       setError(err.message || "Logout failed");
       throw err;
@@ -354,10 +236,6 @@ const login = async (email, password) => {
     }
   };
 
-  const clearError = () => setError(null);
-
-  const isSuperAdmin = user?.role === "superadmin";
-
   return (
     <AuthContext.Provider
       value={{
@@ -365,15 +243,18 @@ const login = async (email, password) => {
         authUser,
         loading,
         error,
-        createAccount, // <--- EXPOSE THIS INSTEAD OF signup
-             finalizeRegistration,
+        createAccount,
+        finalizeRegistration,
         login,
-        signup,
         logout,
-        clearError,
-        isSuperAdmin,
+        clearError: () => setError(null),
+        isSuperAdmin: user?.role === "superadmin",
         pharmacyStatus,
-        resendVerificationEmail,
+        subscriptionStatus, // 🆕 EXPOSE THIS
+        resendVerificationEmail: async () => {
+          if (authUser && !authUser.emailVerified)
+            await sendEmailVerification(authUser);
+        },
       }}>
       {children}
     </AuthContext.Provider>
@@ -382,14 +263,6 @@ const login = async (email, password) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
+  if (!context) throw new Error("useAuth must be used within an AuthProvider");
   return context;
-};
-
-export const RoleGuard = ({ allowedRoles, children }) => {
-  const { user } = useAuth();
-  if (!user || !allowedRoles.includes(user.role)) return null;
-  return children;
 };

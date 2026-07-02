@@ -1,8 +1,10 @@
+// backend/src/config/subscriptionConfig.js
+
 export const SUBSCRIPTION_TIERS = {
-  STARTER: "starter",
-  GROWTH: "growth",
-  BUSINESS: "business",
-  ENTERPRISE: "enterprise",
+  STARTER: 'starter_fikir',
+  GROWTH: 'growth_gizmo',
+  BUSINESS: 'business_medipro',
+  ENTERPRISE: 'enterprise_govtech'
 };
 
 export const TIER_LIMITS = {
@@ -16,8 +18,8 @@ export const TIER_LIMITS = {
       multiBranch: false,
       advancedReports: false,
       coldChain: false,
-      apiAccess: false,
-    },
+      apiAccess: false
+    }
   },
   [SUBSCRIPTION_TIERS.GROWTH]: {
     maxSkus: 2000,
@@ -29,11 +31,11 @@ export const TIER_LIMITS = {
       multiBranch: true,
       advancedReports: true,
       coldChain: false,
-      apiAccess: false,
-    },
+      apiAccess: false
+    }
   },
   [SUBSCRIPTION_TIERS.BUSINESS]: {
-    maxSkus: Infinity, 
+    maxSkus: Infinity,
     maxUsers: Infinity,
     maxBranches: Infinity,
     dailyTransactions: Infinity,
@@ -42,8 +44,8 @@ export const TIER_LIMITS = {
       multiBranch: true,
       advancedReports: true,
       coldChain: true,
-      apiAccess: true,
-    },
+      apiAccess: true
+    }
   },
   [SUBSCRIPTION_TIERS.ENTERPRISE]: {
     maxSkus: Infinity,
@@ -56,7 +58,27 @@ export const TIER_LIMITS = {
       advancedReports: true,
       coldChain: true,
       apiAccess: true,
-      whiteLabel: true,
-    },
+      whiteLabel: true
+    }
+  }
+};
+
+// 🚨 PRICING CONFIGURATION FOR CHAPA
+export const TIER_PRICING = {
+  [SUBSCRIPTION_TIERS.STARTER]: {
+    monthly: { amount: 1500, currency: 'ETB' },
+    yearly: { amount: 15000, currency: 'ETB' }
   },
+  [SUBSCRIPTION_TIERS.GROWTH]: {
+    monthly: { amount: 3000, currency: 'ETB' },
+    yearly: { amount: 28000, currency: 'ETB' }
+  },
+  [SUBSCRIPTION_TIERS.BUSINESS]: {
+    monthly: { amount: 5000, currency: 'ETB' },
+    yearly: { amount: 42000, currency: 'ETB' }
+  },
+  [SUBSCRIPTION_TIERS.ENTERPRISE]: {
+    monthly: { amount: 7000, currency: 'ETB' },
+    yearly: { amount: 70000, currency: 'ETB' }
+  }
 };
