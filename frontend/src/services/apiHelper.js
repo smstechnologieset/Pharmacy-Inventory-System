@@ -1,11 +1,8 @@
-// 🚨 CRITICAL: Import the EXACT same auth instance used by AuthContext
+
 import { auth } from "./firebase"; 
 
-/**
- * Gets the Firebase ID token and formats it for backend API requests.
- * Now uses the exact same auth instance as the rest of your app.
- */
-export const getAuthHeaders = async (timeoutMs = 5000) => {
+
+export const getAuthHeaders = async (timeoutMs = 15000) => {
   console.log("🔍 [API HELPER] Checking auth state...");
   console.log("🔍 [API HELPER] auth.currentUser:", auth.currentUser?.uid || "NULL");
 
