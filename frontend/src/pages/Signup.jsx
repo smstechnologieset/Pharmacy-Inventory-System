@@ -1038,6 +1038,7 @@ const Signup = () => {
   const handleFinalSubmit = async () => {
     setLocalError("");
     setLocalLoading(true);
+
     try {
       if (!formData.acceptTerms) {
         throw new Error("You must accept the Terms of Service to continue");
@@ -1072,13 +1073,60 @@ const Signup = () => {
         },
       };
 
-      // Step 6: Create pharmacy (status: pending, subscription.status: pending_payment)
-      await finalizeRegistration(payload);
+      // 🚨 FIX: Wait a moment for Firebase Auth to fully stabilize
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Step 7: Initialize payment with Chapa
-      const { checkoutUrl, txRef } = await initializePayment(
-        formData.billingCycle,
-      );
+      // Step 6: Create pharmacy with retry logic
+      let registrationSuccess = false;
+      let attempts = 0;
+      const maxAttempts = 3;
+
+      while (!registrationSuccess && attempts < maxAttempts) {
+        try {
+          await finalizeRegistration(payload);
+          registrationSuccess = true;
+        } catch (error) {
+          attempts++;
+          console.warn(
+            `⚠️ Registration attempt ${attempts} failed:`,
+            error.message,
+          );
+
+          if (attempts >= maxAttempts) {
+            throw error; // Throw on final attempt
+          }
+
+          // Wait before retry (exponential backoff)
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempts));
+        }
+      }
+
+      // Step 7: Initialize payment with retry logic
+      let paymentInitialized = false;
+      attempts = 0;
+      let checkoutData;
+
+      while (!paymentInitialized && attempts < maxAttempts) {
+        try {
+          checkoutData = await initializePayment(formData.billingCycle);
+          paymentInitialized = true;
+        } catch (error) {
+          attempts++;
+          console.warn(
+            `⚠️ Payment initialization attempt ${attempts} failed:`,
+            error.message,
+          );
+
+          if (attempts >= maxAttempts) {
+            throw error; // Throw on final attempt
+          }
+
+          // Wait before retry
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempts));
+        }
+      }
+
+      const { checkoutUrl, txRef } = checkoutData;
 
       // Store txRef for verification after redirect
       sessionStorage.setItem("pending_payment_txRef", txRef);
@@ -1086,57 +1134,12 @@ const Signup = () => {
       // Redirect to Chapa payment page
       window.location.href = checkoutUrl;
     } catch (error) {
+      console.error("❌ Final submission error:", error);
       setLocalError(error.message || "Registration failed");
     } finally {
       setLocalLoading(false);
     }
   };
-
-  // const handleFinalSubmit = async () => {
-  //   setLocalError("");
-  //   setLocalLoading(true);
-  //   try {
-  //     if (!formData.acceptTerms) {
-  //       throw new Error("You must accept the Terms of Service to continue");
-  //     }
-
-  //     const payload = {
-  //       pharmacyData: {
-  //         pharmacyName: formData.pharmacyName,
-  //         phone: `+251${formData.phone}`,
-  //         email: formData.email,
-  //         licenseNumber: formData.licenseNumber,
-  //         taxId: formData.taxId,
-  //         pharmacyType: formData.pharmacyType,
-  //         address: formData.address,
-  //         businessEmail: formData.businessEmail,
-  //         businessPhone: formData.businessPhone
-  //           ? `+251${formData.businessPhone}`
-  //           : "",
-  //         website: formData.website,
-  //       },
-  //       subscriptionData: {
-  //         selectedTier: formData.selectedTier,
-  //         billingCycle: formData.billingCycle,
-  //       },
-  //       documents: {
-  //         pharmacyLicense: formData.documents.pharmacyLicense
-  //           ? "mock_url_license"
-  //           : null,
-  //         pharmacistLicense: formData.documents.pharmacistLicense
-  //           ? "mock_url_pharmacist"
-  //           : null,
-  //       },
-  //     };
-
-  //     await finalizeRegistration(payload);
-  //     navigate("/verify-email");
-  //   } catch (error) {
-  //     setLocalError(error.message || "Registration failed");
-  //   } finally {
-  //     setLocalLoading(false);
-  //   }
-  // };
 
   const displayError = localError || authError;
   const isLoading = localLoading || authLoading;
