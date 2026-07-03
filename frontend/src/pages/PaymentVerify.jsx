@@ -54,7 +54,7 @@ const PaymentVerify = () => {
             // 🚨 FIX: Instead of getting stuck on a "timeout" screen,
             // redirect to the dashboard. The dashboard will check their subscription status.
             // If the webhook already fired, they will have access. If not, they will see a "Pending" state.
-            navigate("/", { state: { paymentPending: true, txRef } });
+            // navigate("/", { state: { paymentPending: true, txRef } });
           }
         };
 
