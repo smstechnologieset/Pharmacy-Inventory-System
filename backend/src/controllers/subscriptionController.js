@@ -7,7 +7,7 @@ const CHAPA_SECRET = process.env.CHAPA_SECRET_KEY;
 
 // Map frontend tier IDs to actual numeric prices (in ETB)
 const PRICING_MAP = {
-  starter_fikir: { monthly: 1500, yearly: 15000 },
+  starter: { monthly: 1500, yearly: 15000 },
   growth_gizmo: { monthly: 3000, yearly: 28000 },
   business_medipro: { monthly: 5000, yearly: 42000 },
 };

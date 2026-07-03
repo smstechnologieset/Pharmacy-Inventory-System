@@ -1,10 +1,10 @@
 import express from "express";
 import { completeRegistration } from "../controllers/authController.js";
-import { authenticate } from "../middleware/authMiddleware.js";
+import { verifyToken } from "../middleware/authMiddleware.js"; // <--- Change this
 
 const router = express.Router();
 
-// This route requires the user to be logged in (Step 1), but bypasses the pharmacyId check
-router.post("/complete-registration", authenticate, completeRegistration);
+// Use verifyToken because the user doesn't have claims yet during signup
+router.post("/complete-registration", verifyToken, completeRegistration);
 
 export default router;

@@ -43,7 +43,7 @@ const PaymentSuccess = () => {
   const { amount, tier, billingCycle, chapaResponse, pharmacyInfo } = receipt;
 
   // Format date nicely
-  const paymentDate = chapaResponse.created_at
+  const paymentDate = chapaResponse?.created_at
     ? new Date(chapaResponse.created_at).toLocaleDateString("en-US", {
         year: "numeric",
         month: "long",

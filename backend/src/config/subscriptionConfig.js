@@ -1,10 +1,10 @@
 // backend/src/config/subscriptionConfig.js
 
 export const SUBSCRIPTION_TIERS = {
-  STARTER: 'starter_fikir',
-  GROWTH: 'growth_gizmo',
-  BUSINESS: 'business_medipro',
-  ENTERPRISE: 'enterprise_govtech'
+  STARTER: 'starter',
+  GROWTH: 'growth',
+  BUSINESS: 'business',
+  ENTERPRISE: 'enterprise'
 };
 
 export const TIER_LIMITS = {
@@ -14,11 +14,11 @@ export const TIER_LIMITS = {
     maxBranches: 1,
     dailyTransactions: 50,
     features: {
-      purchaseOrders: false,
+      
       multiBranch: false,
       advancedReports: false,
       coldChain: false,
-      apiAccess: false
+      
     }
   },
   [SUBSCRIPTION_TIERS.GROWTH]: {
@@ -27,11 +27,11 @@ export const TIER_LIMITS = {
     maxBranches: 2,
     dailyTransactions: 200,
     features: {
-      purchaseOrders: true,
+      
       multiBranch: true,
       advancedReports: true,
       coldChain: false,
-      apiAccess: false
+     
     }
   },
   [SUBSCRIPTION_TIERS.BUSINESS]: {
@@ -40,11 +40,10 @@ export const TIER_LIMITS = {
     maxBranches: Infinity,
     dailyTransactions: Infinity,
     features: {
-      purchaseOrders: true,
+      
       multiBranch: true,
       advancedReports: true,
-      coldChain: true,
-      apiAccess: true
+      closedChain: true,
     }
   },
   [SUBSCRIPTION_TIERS.ENTERPRISE]: {
@@ -56,8 +55,7 @@ export const TIER_LIMITS = {
       purchaseOrders: true,
       multiBranch: true,
       advancedReports: true,
-      coldChain: true,
-      apiAccess: true,
+
       whiteLabel: true
     }
   }

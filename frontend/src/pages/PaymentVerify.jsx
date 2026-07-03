@@ -36,7 +36,6 @@ const PaymentVerify = () => {
       try {
         let attempts = 0;
         const maxAttempts = 15;
-
         const poll = async () => {
           const result = await verifyPaymentStatus(txRef);
           setPaymentDetails(result);
@@ -44,24 +43,22 @@ const PaymentVerify = () => {
           if (result.status === "completed") {
             setStatus("success");
             sessionStorage.removeItem("pending_payment_txRef");
-
-            // Force token refresh using the raw Firebase Auth object
-            if (authUser) {
-              await authUser.getIdToken(true);
-            }
-
-            // 🚨 FIX: Navigate to success page and pass the receipt data via state
-            // No more setTimeout or window.location.replace!
+            if (authUser) await authUser.getIdToken(true);
             navigate("/payment/success", { state: { receipt: result } });
           } else if (result.status === "failed") {
             setStatus("failed");
           } else if (attempts < maxAttempts) {
             attempts++;
-            setTimeout(poll, 2000);
+            setTimeout(poll, 3000); // 🚨 Increased to 3 seconds (Total 60 seconds now)
           } else {
-            setStatus("timeout");
+            // 🚨 FIX: Instead of getting stuck on a "timeout" screen,
+            // redirect to the dashboard. The dashboard will check their subscription status.
+            // If the webhook already fired, they will have access. If not, they will see a "Pending" state.
+            navigate("/", { state: { paymentPending: true, txRef } });
           }
         };
+
+
 
         await poll();
       } catch (error) {
@@ -186,11 +183,19 @@ const PaymentVerify = () => {
                   textAlign: "left",
                 }}>
                 <p style={{ fontSize: "0.85rem", color: "#0D9488", margin: 0 }}>
-                  <strong>Plan:</strong> {paymentDetails.tier.replace("_", " ")}
+                 
+                  <strong>Plan:</strong>{" "}
+                  {paymentDetails.tier
+                    ? paymentDetails.tier.replace("_", " ")
+                    : "N/A"}
                   <br />
-                  <strong>Billing:</strong> {paymentDetails.billingCycle}
+                  <strong>Billing:</strong>{" "}
+                  {paymentDetails.billingCycle || "N/A"}
                   <br />
-                  <strong>Amount:</strong> {paymentDetails.amount} ETB
+                  <strong>Amount:</strong>{" "}
+                  {paymentDetails.amount
+                    ? `${paymentDetails.amount} ETB`
+                    : "N/A"}
                 </p>
               </div>
             )}

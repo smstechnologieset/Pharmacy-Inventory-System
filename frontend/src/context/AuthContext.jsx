@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import React, {
   createContext,
   useContext,
@@ -26,14 +25,14 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [authUser, setAuthUser] = useState(null);
-  
+
   // 🆕 distinct from "button loading". This is only true while checking session on app start.
-  const [isInitializing, setIsInitializing] = useState(true); 
-  
+  const [isInitializing, setIsInitializing] = useState(true);
+
   const [error, setError] = useState(null);
   const [pharmacyStatus, setPharmacyStatus] = useState(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
-  
+  const [needsVerification, setNeedsVerification] = useState(false);
   const isSigningUp = useRef(false);
 
   // ---------------------------------------------------------
@@ -47,9 +46,10 @@ export const AuthProvider = ({ children }) => {
         setAuthUser(null);
         setUser(null); // Clear user if logged out
         setPharmacyStatus(null);
-        setSubscriptionStatus(null);      }
+        setSubscriptionStatus(null);
+      }
       // App initialization is done once we know if a user exists or not
-      if (isInitializing) setIsInitializing(false); 
+      if (isInitializing) setIsInitializing(false);
     });
 
     return () => unsubscribeAuth();
@@ -62,14 +62,14 @@ export const AuthProvider = ({ children }) => {
     if (!authUser?.uid) return;
 
     const userDocRef = doc(db, "users", authUser.uid);
-    
+
     const unsubscribeSnapshot = onSnapshot(
       userDocRef,
       async (docSnap) => {
         if (docSnap.exists()) {
           isSigningUp.current = false;
           const profileData = docSnap.data();
-          
+
           // Construct the base user object immediately
           const baseUser = {
             uid: authUser.uid,
@@ -96,8 +96,9 @@ export const AuthProvider = ({ children }) => {
               (err) => {
                 console.error("Member sync error:", err);
                 setUser(baseUser); // Fallback to base profile
-              }            );
-            
+              },
+            );
+
             // Return cleanup for the inner listener
             return () => unsubMember();
           } else {
@@ -117,7 +118,7 @@ export const AuthProvider = ({ children }) => {
       (err) => {
         console.error("Profile listener error:", err);
         setError("Failed to load account details.");
-      }
+      },
     );
 
     return () => unsubscribeSnapshot();
@@ -133,19 +134,22 @@ export const AuthProvider = ({ children }) => {
 
     const fetchStatus = async () => {
       try {
-        // Note: Ideally use onSnapshot here too, but kept getPharmacyById 
+        // Note: Ideally use onSnapshot here too, but kept getPharmacyById
         // to maintain your existing architecture pattern.
         const pharmacy = await getPharmacyById(user.pharmacyId);
-        
+
         if (isMounted) {
           setPharmacyStatus(pharmacy?.status || "pending");
-          setSubscriptionStatus(pharmacy?.subscription?.status || "pending_payment");
+          setSubscriptionStatus(
+            pharmacy?.subscription?.status || "pending_payment",
+          );
         }
       } catch (err) {
         if (isMounted) {
           console.error("Pharmacy fetch error:", err);
           setPharmacyStatus("pending");
-          setSubscriptionStatus("pending_payment");        }
+          setSubscriptionStatus("pending_payment");
+        }
       }
     };
 
@@ -166,7 +170,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const userCredential = await signUp(auth, email, password);
       await sendEmailVerification(userCredential.user);
-      
+
       // We don't set the user here. The onAuthStateChanged + onSnapshot
       // will fire automatically after this line completes.
       await createUserProfile(userCredential.user.uid, {
@@ -177,7 +181,7 @@ export const AuthProvider = ({ children }) => {
         status: "pending_onboarding",
         pharmacyId: null,
       });
-      
+
       return userCredential.user;
     } catch (err) {
       isSigningUp.current = false;
@@ -189,42 +193,73 @@ export const AuthProvider = ({ children }) => {
   const finalizeRegistration = async (formData) => {
     setError(null);
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      const API_URL =
+        import.meta.env.VITE_API_URL || "http://localhost:5000/api";
       const headers = await getAuthHeaders();
+
       const response = await fetch(`${API_URL}/auth/complete-registration`, {
         method: "POST",
         headers,
-        body: JSON.stringify(formData),      });
+        body: JSON.stringify(formData),
+      });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Failed to complete registration");
-      
+      if (!response.ok)
+        throw new Error(result.error || "Failed to complete registration");
+
       // Force refresh to ensure custom claims (if any) are updated immediately
       if (auth.currentUser) await auth.currentUser.getIdToken(true);
-      
+
       return result;
     } catch (err) {
       setError(err.message || "Registration failed");
       throw err;
     }
   };
-
+  
   const login = async (email, password) => {
     setError(null);
+    setNeedsVerification(false);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
+
+      // 🚨 FIX: Do NOT sign out. Just flag them.
       if (!userCredential.user.emailVerified) {
-        await signOut(auth); // Ensure we don't stay in a limbo state
-        throw new Error("Please verify your email before logging in.");
+        setNeedsVerification(true);
+        // We let the frontend router handle the redirect to the VerifyEmailPage
       }
-      
-      // We don't set user here. onAuthStateChanged handles it.
+
       return userCredential.user;
     } catch (err) {
       setError(err.message || "Login failed");
       throw err;
     }
   };
+
+  // const login = async (email, password) => {
+  //   setError(null);
+  //   try {
+  //     const userCredential = await signInWithEmailAndPassword(
+  //       auth,
+  //       email,
+  //       password,
+  //     );
+
+  //     if (!userCredential.user.emailVerified) {
+  //       await signOut(auth); // Ensure we don't stay in a limbo state
+  //       throw new Error("Please verify your email before logging in.");
+  //     }
+
+  //     // We don't set user here. onAuthStateChanged handles it.
+  //     return userCredential.user;
+  //   } catch (err) {
+  //     setError(err.message || "Login failed");
+  //     throw err;
+  //   }
+  // };
 
   const logout = async () => {
     setError(null);
@@ -240,24 +275,29 @@ export const AuthProvider = ({ children }) => {
   // ---------------------------------------------------------
   // PROVIDER (Memoized)
   // ---------------------------------------------------------
-  const value = useMemo(() => ({
-    user,
-    authUser,
-    loading: isInitializing, // Kept as 'loading' for backward compatibility with your UI    error,
-    createAccount,
-    finalizeRegistration,
-    login,
-    logout,
-    clearError: () => setError(null),
-    isSuperAdmin: user?.role === "superadmin",
-    pharmacyStatus,
-    subscriptionStatus,
-    resendVerificationEmail: async () => {
-      if (authUser && !authUser.emailVerified) {
-        await sendEmailVerification(authUser);
-      }
-    },
-  }), [user, authUser, isInitializing, error, pharmacyStatus, subscriptionStatus]);
+  const value = useMemo(
+    () => ({
+      user,
+      authUser,
+      loading: isInitializing,
+      error,
+      needsVerification, 
+      createAccount,
+      finalizeRegistration,
+      login,
+      logout,
+      clearError: () => setError(null),
+      isSuperAdmin: user?.role === "superadmin",
+      pharmacyStatus,
+      subscriptionStatus,
+      resendVerificationEmail: async () => {
+        if (authUser && !authUser.emailVerified) {
+          await sendEmailVerification(authUser);
+        }
+      },
+    }),
+    [user, authUser, isInitializing, error, pharmacyStatus, subscriptionStatus],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

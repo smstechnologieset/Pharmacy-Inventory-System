@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "checkJs": true,
     "noImplicitAny": false
   },
   "exclude": ["node_modules", "dist", "build"]

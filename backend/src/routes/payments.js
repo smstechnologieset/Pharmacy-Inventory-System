@@ -1,18 +1,12 @@
 import express from 'express';
-import { 
-  initializeSignupPayment, 
-  verifyPaymentStatus,
-  retryPayment
-} from '../controllers/paymentController.js';
-import { authenticate } from '../middleware/authMiddleware.js';
+import { initializeSignupPayment, verifyPaymentStatus, retryPayment } from '../controllers/paymentController.js';
+import { verifyToken } from '../middleware/authMiddleware.js'; // <--- Change this
 
 const router = express.Router();
 
-router.post('/initialize', authenticate, initializeSignupPayment);
-
-
-
-router.get('/verify', authenticate, verifyPaymentStatus);
-router.post('/retry', authenticate, retryPayment);
+// Apply verifyToken to payment routes
+router.post('/initialize', verifyToken, initializeSignupPayment);
+router.get('/verify', verifyToken, verifyPaymentStatus);
+router.post('/retry', verifyToken, retryPayment);
 
 export default router;

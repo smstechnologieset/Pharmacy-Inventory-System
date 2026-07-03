@@ -20,7 +20,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import InputField from "../components/InputField.jsx";
-const SubscriptionSelectionForm = ( {
+const SubscriptionSelectionForm = ({
   formData,
   updateField,
   onNext,
@@ -28,14 +28,14 @@ const SubscriptionSelectionForm = ( {
 }) => {
   const tiers = [
     {
-      id: "starter_fikir",
+      id: "starter", // Changed from "starter_fikir"
       name: "Starter",
       monthlyPrice: "1,500",
       yearlyPrice: "15,000",
-      features: ["Up to 500 SKUs", "1 Branch", "3 User"],
+      features: ["Up to 500 SKUs", "1 Branch", "3 Users"],
     },
     {
-      id: "growth_gizmo",
+      id: "growth", // Changed from "growth_gizmo"
       name: "Growth",
       monthlyPrice: "3,000",
       yearlyPrice: "28,000",
@@ -43,7 +43,7 @@ const SubscriptionSelectionForm = ( {
       popular: true,
     },
     {
-      id: "business_medipro",
+      id: "business", // Changed from "business_medipro"
       name: "Business",
       monthlyPrice: "5,000",
       yearlyPrice: "42,000",

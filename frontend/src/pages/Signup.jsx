@@ -54,7 +54,7 @@ const Signup = () => {
     businessEmail: "",
     businessPhone: "",
     website: "",
-    selectedTier: "starter_fikir",
+    selectedTier: "starter",
     billingCycle: "monthly",
     documents: { pharmacyLicense: null, pharmacistLicense: null },
     acceptTerms: false,
@@ -129,7 +129,8 @@ const Signup = () => {
       setLocalLoading(false);
     }
   };
-
+  
+  
   const handleFinalSubmit = async () => {
     setLocalError("");
     setLocalLoading(true);
@@ -139,53 +140,94 @@ const Signup = () => {
       }
 
       const payload = {
-        pharmacyData: {
-          pharmacyName: formData.pharmacyName,
-          phone: `+251${formData.phone}`,
-          email: formData.email,
-          licenseNumber: formData.licenseNumber,
-          taxId: formData.taxId,
-          pharmacyType: formData.pharmacyType,
-          address: formData.address,
-          businessEmail: formData.businessEmail,
-          businessPhone: formData.businessPhone
-            ? `+251${formData.businessPhone}`
-            : "",
-          website: formData.website,
-        },
-        subscriptionData: {
-          selectedTier: formData.selectedTier,
-          billingCycle: formData.billingCycle,
-        },
-        documents: {
-          pharmacyLicense: formData.documents.pharmacyLicense
-            ? "pending_upload"
-            : null,
-          pharmacistLicense: formData.documents.pharmacistLicense
-            ? "pending_upload"
-            : null,
-        },
+        pharmacyData: { ...formData }, // Adjust as needed for your backend
+        subscriptionData: { ...formData },
+        documents: { ...formData.documents },
       };
 
-      // Step 6: Create pharmacy (status: pending, subscription.status: pending_payment)
-      await finalizeRegistration(payload);
+      // 1. Finalize Registration (Creates Pharmacy in DB)
+      // The backend now uses 'verifyToken' so this won't 403.
+      const result = await finalizeRegistration(payload);
+      const newPharmacyId = result.pharmacyId;
 
-      // Step 7: Initialize payment with Chapa
+      // 2. Initialize Payment (Creates Chapa Transaction)
       const { checkoutUrl, txRef } = await initializePayment(
         formData.billingCycle,
       );
 
-      // Store txRef for verification after redirect
+      // 3. Store ref and Redirect
       sessionStorage.setItem("pending_payment_txRef", txRef);
 
-      // Redirect to Chapa payment page
+      // 🚨 EXPLICIT REDIRECT: No useEffect race conditions
       window.location.href = checkoutUrl;
     } catch (error) {
+      // Only show error if we are still on the page (not redirected)
+      console.error(error);
       setLocalError(error.message || "Registration failed");
     } finally {
-      setLocalLoading(false);
+      // Only turn off loading if we haven't redirected
+      if (!window.location.href.includes("checkout")) {
+        setLocalLoading(false);
+      }
     }
   };
+
+  // const handleFinalSubmit = async () => {
+  //   setLocalError("");
+  //   setLocalLoading(true);
+  //   try {
+  //     if (!formData.acceptTerms) {
+  //       throw new Error("You must accept the Terms of Service to continue");
+  //     }
+
+  //     const payload = {
+  //       pharmacyData: {
+  //         pharmacyName: formData.pharmacyName,
+  //         phone: `+251${formData.phone}`,
+  //         email: formData.email,
+  //         licenseNumber: formData.licenseNumber,
+  //         taxId: formData.taxId,
+  //         pharmacyType: formData.pharmacyType,
+  //         address: formData.address,
+  //         businessEmail: formData.businessEmail,
+  //         businessPhone: formData.businessPhone
+  //           ? `+251${formData.businessPhone}`
+  //           : "",
+  //         website: formData.website,
+  //       },
+  //       subscriptionData: {
+  //         selectedTier: formData.selectedTier,
+  //         billingCycle: formData.billingCycle,
+  //       },
+  //       documents: {
+  //         pharmacyLicense: formData.documents.pharmacyLicense
+  //           ? "pending_upload"
+  //           : null,
+  //         pharmacistLicense: formData.documents.pharmacistLicense
+  //           ? "pending_upload"
+  //           : null,
+  //       },
+  //     };
+
+  //     // Step 6: Create pharmacy (status: pending, subscription.status: pending_payment)
+  //     await finalizeRegistration(payload);
+
+  //     // Step 7: Initialize payment with Chapa
+  //     const { checkoutUrl, txRef } = await initializePayment(
+  //       formData.billingCycle,
+  //     );
+
+  //     // Store txRef for verification after redirect
+  //     sessionStorage.setItem("pending_payment_txRef", txRef);
+
+  //     // Redirect to Chapa payment page
+  //     window.location.href = checkoutUrl;
+  //   } catch (error) {
+  //     setLocalError(error.message || "Registration failed");
+  //   } finally {
+  //     setLocalLoading(false);
+  //   }
+  // };
 
   const displayError = localError || authError;
   const isLoading = localLoading || authLoading;

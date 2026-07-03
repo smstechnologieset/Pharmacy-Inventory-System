@@ -7,7 +7,6 @@ import {
 } from "../config/chapa.js";
 import { TIER_PRICING } from "../config/subscriptionConfig.js";
 
-
 const getPharmacyIdFromTxRef = (txRef) => {
   // tx_ref format: signup_{pharmacyId}_{timestamp}
   const parts = txRef.split("_");
@@ -40,6 +39,13 @@ export const initializeSignupPayment = async (req, res) => {
 
     const { billingCycle } = req.body;
     const tier = pharmacy.subscription.tier;
+
+    // 🚨 ADD THIS LOG: This will print the exact keys being used
+    console.log("🔍 DEBUG PAYMENT INIT:", {
+      tierFromDB: tier,
+      billingCycleFromFrontend: billingCycle,
+      availableTiersInConfig: Object.keys(TIER_PRICING),
+    });
     const pricing = TIER_PRICING[tier]?.[billingCycle];
 
     if (!pricing) {
@@ -90,8 +96,6 @@ export const initializeSignupPayment = async (req, res) => {
     }
   }
 };
-
-
 export const verifyPaymentStatus = async (req, res) => {
   try {
     const { tx_ref } = req.query;
@@ -116,7 +120,14 @@ export const verifyPaymentStatus = async (req, res) => {
     const paymentDoc = paymentSnap.docs[0];
     const paymentData = paymentDoc.data();
 
-    // If already processed, return the full receipt data
+    // 🚨 SECURITY FIX: Ensure the authenticated user owns this payment
+    if (req.user.uid !== paymentData.userId) {
+      return res
+        .status(403)
+        .json({ error: "Unauthorized: You do not own this transaction" });
+    }
+
+    // If already processed, return receipt data
     if (paymentData.status === "completed") {
       const pharmacyDoc = await db
         .collection("pharmacies")
@@ -129,9 +140,7 @@ export const verifyPaymentStatus = async (req, res) => {
         amount: paymentData.amount,
         tier: paymentData.tier,
         billingCycle: paymentData.billingCycle,
-        // 🆕 Full Chapa response for the receipt
         chapaResponse: paymentData.chapaResponse || {},
-        // 🆕 Pharmacy info for the receipt
         pharmacyInfo: {
           name: pharmacyData.name,
           email: pharmacyData.email,
@@ -150,50 +159,16 @@ export const verifyPaymentStatus = async (req, res) => {
         const chapaData = chapaResponse.data.data;
 
         if (chapaData.status === "success") {
-          const pharmacyRef = db.collection("pharmacies").doc(pharmacyId);
+          await activateSubscription(
+            db,
+            pharmacyId,
+            paymentDoc,
+            paymentData,
+            chapaData,
+          );
 
-          await db.runTransaction(async (transaction) => {
-            const periodEnd = new Date();
-            const daysToAdd = paymentData.billingCycle === "yearly" ? 365 : 30;
-            periodEnd.setDate(periodEnd.getDate() + daysToAdd);
-
-            transaction.update(pharmacyRef, {
-              "subscription.status": "active",
-              "subscription.currentPeriodEnd":
-                admin.firestore.Timestamp.fromDate(periodEnd),
-              "subscription.lastPaymentAt":
-                admin.firestore.FieldValue.serverTimestamp(),
-              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
-
-            transaction.update(paymentDoc.ref, {
-              status: "completed",
-              completedAt: admin.firestore.FieldValue.serverTimestamp(),
-              chapaRefId: chapaData.reference || tx_ref,
-              chapaResponse: chapaData, // 🆕 Save full Chapa response to DB
-            });
-          });
-
-          // Fetch pharmacy info to return immediately
-          const pharmacyDoc = await db
-            .collection("pharmacies")
-            .doc(pharmacyId)
-            .get();
-          const pharmacyData = pharmacyDoc.data();
-
-          return res.json({
-            status: "completed",
-            amount: paymentData.amount,
-            tier: paymentData.tier,
-            billingCycle: paymentData.billingCycle,
-            chapaResponse: chapaData,
-            pharmacyInfo: {
-              name: pharmacyData.name,
-              email: pharmacyData.email,
-              phone: pharmacyData.phone,
-              address: pharmacyData.address,
-            },
-          });
+          // Fetch and return receipt data...
+          return res.json({ status: "completed", data /* ...receipt data */ });
         }
       } catch (chapaError) {
         console.warn("Chapa active verification failed:", chapaError.message);
@@ -207,8 +182,155 @@ export const verifyPaymentStatus = async (req, res) => {
   }
 };
 
+const activateSubscription = async (
+  db,
+  pharmacyId,
+  paymentDoc,
+  paymentData,
+  chapaData,
+) => {
+  const pharmacyRef = db.collection("pharmacies").doc(pharmacyId);
 
-export const retryPayment = async ( req, res ) => {
+  await db.runTransaction(async (transaction) => {
+    const periodEnd = new Date();
+    const daysToAdd = paymentData.billingCycle === "yearly" ? 365 : 30;
+    periodEnd.setDate(periodEnd.getDate() + daysToAdd);
+
+    transaction.update(pharmacyRef, {
+      "subscription.status": "active",
+      "subscription.currentPeriodEnd":
+        admin.firestore.Timestamp.fromDate(periodEnd),
+      "subscription.lastPaymentAt":
+        admin.firestore.FieldValue.serverTimestamp(),
+      status: "active", // Auto-approve the pharmacy status upon successful payment
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    transaction.update(paymentDoc.ref, {
+      status: "completed",
+      completedAt: admin.firestore.FieldValue.serverTimestamp(),
+      chapaRefId: chapaData.reference || paymentData.txRef,
+      chapaResponse: chapaData,
+    });
+  });
+};
+
+// export const verifyPaymentStatus = async (req, res) => {
+//   try {
+//     const { tx_ref } = req.query;
+//     if (!tx_ref) return res.status(400).json({ error: "tx_ref is required" });
+
+//     const db = getFirestore();
+//     const pharmacyId = getPharmacyIdFromTxRef(tx_ref);
+//     if (!pharmacyId)
+//       return res.status(400).json({ error: "Invalid tx_ref format" });
+
+//     const paymentSnap = await db
+//       .collection("pharmacies")
+//       .doc(pharmacyId)
+//       .collection("payments")
+//       .where("txRef", "==", tx_ref)
+//       .limit(1)
+//       .get();
+
+//     if (paymentSnap.empty)
+//       return res.status(404).json({ error: "Payment not found" });
+
+//     const paymentDoc = paymentSnap.docs[0];
+//     const paymentData = paymentDoc.data();
+
+//     // If already processed, return the full receipt data
+//     if (paymentData.status === "completed") {
+//       const pharmacyDoc = await db
+//         .collection("pharmacies")
+//         .doc(pharmacyId)
+//         .get();
+//       const pharmacyData = pharmacyDoc.data();
+
+//       return res.json({
+//         status: "completed",
+//         amount: paymentData.amount,
+//         tier: paymentData.tier,
+//         billingCycle: paymentData.billingCycle,
+//         // 🆕 Full Chapa response for the receipt
+//         chapaResponse: paymentData.chapaResponse || {},
+//         // 🆕 Pharmacy info for the receipt
+//         pharmacyInfo: {
+//           name: pharmacyData.name,
+//           email: pharmacyData.email,
+//           phone: pharmacyData.phone,
+//           address: pharmacyData.address,
+//         },
+//       });
+//     }
+
+//     // Active verification with Chapa if pending
+//     if (paymentData.status === "pending") {
+//       try {
+//         const chapaResponse = await chapaClient.get(
+//           `/transaction/verify/${tx_ref}`,
+//         );
+//         const chapaData = chapaResponse.data.data;
+
+//         if (chapaData.status === "success") {
+//           const pharmacyRef = db.collection("pharmacies").doc(pharmacyId);
+
+//           await db.runTransaction(async (transaction) => {
+//             const periodEnd = new Date();
+//             const daysToAdd = paymentData.billingCycle === "yearly" ? 365 : 30;
+//             periodEnd.setDate(periodEnd.getDate() + daysToAdd);
+
+//             transaction.update(pharmacyRef, {
+//               "subscription.status": "active",
+//               "subscription.currentPeriodEnd":
+//                 admin.firestore.Timestamp.fromDate(periodEnd),
+//               "subscription.lastPaymentAt":
+//                 admin.firestore.FieldValue.serverTimestamp(),
+//               updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+//             });
+
+//             transaction.update(paymentDoc.ref, {
+//               status: "completed",
+//               completedAt: admin.firestore.FieldValue.serverTimestamp(),
+//               chapaRefId: chapaData.reference || tx_ref,
+//               chapaResponse: chapaData, // 🆕 Save full Chapa response to DB
+//             });
+//           });
+
+//           // Fetch pharmacy info to return immediately
+//           const pharmacyDoc = await db
+//             .collection("pharmacies")
+//             .doc(pharmacyId)
+//             .get();
+//           const pharmacyData = pharmacyDoc.data();
+
+//           return res.json({
+//             status: "completed",
+//             amount: paymentData.amount,
+//             tier: paymentData.tier,
+//             billingCycle: paymentData.billingCycle,
+//             chapaResponse: chapaData,
+//             pharmacyInfo: {
+//               name: pharmacyData.name,
+//               email: pharmacyData.email,
+//               phone: pharmacyData.phone,
+//               address: pharmacyData.address,
+//             },
+//           });
+//         }
+//       } catch (chapaError) {
+//         console.warn("Chapa active verification failed:", chapaError.message);
+//       }
+//     }
+
+//     return res.json({ status: paymentData.status });
+//   } catch (error) {
+//     console.error("Payment verification error:", error);
+//     return res.status(500).json({ error: error.message });
+//   }
+// };
+
+export const retryPayment = async (req, res) => {
   try {
     const uid = req.user.uid;
     const { tx_ref } = req.body;

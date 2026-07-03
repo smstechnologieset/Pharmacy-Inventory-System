@@ -1,29 +1,64 @@
+/* eslint-disable react-refresh/only-export-components */
+// frontend/src/services/notification/apiHelper.jsx
+ // ⚠️ Verify this path matches your firebase config location
+
 import { auth } from "./firebase.js";
 
 export const getAuthHeaders = async () => {
+  // 1. Check internet connection
   if (!navigator.onLine) {
-    throw new Error("You appear to be offline.");
+    throw new Error("You appear to be offline. Please check your connection.");
   }
 
+  // 2. Get the current user
   const user = auth.currentUser;
 
-  // If user is null, they are logged out. Do not wait for listeners.
+  // 3. Fail immediately if no user (don't wait for listeners)
   if (!user) {
     throw new Error("User is not authenticated.");
   }
 
   try {
-    // Force refresh if token is expired or we need new claims
+    // 4. Fetch the token (this handles refresh automatically)
     const token = await user.getIdToken();
+
     return {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     };
   } catch (error) {
-    console.error("Token fetch failed:", error);
+    console.error("❌ [API HELPER] Failed to get ID token:", error);
     throw new Error("Failed to get authentication token.");
   }
 };
+
+// import { auth } from "./firebase.js";
+
+// export const getAuthHeaders = async () => {
+//   if (!navigator.onLine) {
+//     throw new Error("You appear to be offline.");
+//   }
+
+//   const user = auth.currentUser;
+
+//   // If user is null, they are logged out. Do not wait for listeners.
+//   if (!user) {
+//     throw new Error("User is not authenticated.");
+//   }
+
+//   try {
+//     // Force refresh if token is expired or we need new claims
+//     const token = await user.getIdToken();
+//     console.log(`user token`, token);
+//     return {
+//       "Content-Type": "application/json",
+//       Authorization: `Bearer ${token}`,
+//     };
+//   } catch (error) {
+//     console.error("Token fetch failed:", error);
+//     throw new Error("Failed to get authentication token.");
+//   }
+// };
 
 // import { auth } from "./firebase";
 

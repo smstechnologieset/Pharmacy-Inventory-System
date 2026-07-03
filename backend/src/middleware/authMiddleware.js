@@ -1,3 +1,40 @@
+import admin from "firebase-admin";
+
+/**
+ * 1. VERIFY TOKEN (Lightweight)
+ * Checks ONLY if the user is logged in (Valid UID).
+ * Used for: Registration endpoints and Payment Initialization.
+ */
+// backend/src/middleware/authMiddleware.js
+
+export const verifyToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Unauthorized: No token provided" });
+  }
+
+  const token = authHeader.split("Bearer ")[1];
+
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    req.user = {
+      uid: decodedToken.uid,
+      email: decodedToken.email,
+    };
+    next();
+  } catch (error) {
+    // 🚨 ADD THIS: Log the exact Firebase error to your backend terminal
+    console.error("🔥 FIREBASE TOKEN VERIFICATION FAILED:", error.code, error.message); 
+    
+    return res.status(403).json({ error: "Invalid or expired token" });
+  }
+};
+
+/**
+ * 2. AUTHENTICATE (Strict)
+ * Checks if user has completed registration (Has PharmacyId & Role).
+ * Used for: Dashboard, Inventory, Sales, etc.
+ */
 export const authenticate = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -9,11 +46,10 @@ export const authenticate = async (req, res, next) => {
   try {
     const decodedToken = await admin.auth().verifyIdToken(token);
 
-    // STRICT CHECK: Do not fallback to DB
+    // STRICT CHECK: Require Claims
     if (!decodedToken.pharmacyId || !decodedToken.role) {
-      // 498 is a custom code often used for "Token Refresh Required"
       return res.status(498).json({
-        error: "Token invalid: Missing claims. Please refresh your session.",
+        error: "Token invalid: Missing claims. Please complete registration.",
         code: "CLAIMS_MISSING",
       });
     }
@@ -23,12 +59,108 @@ export const authenticate = async (req, res, next) => {
       role: decodedToken.role,
       pharmacyId: decodedToken.pharmacyId,
     };
-
     next();
   } catch (error) {
     return res.status(403).json({ error: "Invalid or expired token" });
   }
 };
+
+// import admin from "firebase-admin";
+
+// /**
+//  * 1. VERIFY TOKEN (Lightweight)
+//  * Checks if the token is valid, but does NOT enforce claims.
+//  * Used for: Registration, Payment Initialization.
+//  */
+// export const verifyToken = async (req, res, next) => {
+//   const authHeader = req.headers.authorization;
+//   if (!authHeader || !authHeader.startsWith("Bearer ")) {
+//     return res.status(401).json({ error: "Unauthorized: No token provided" });
+//   }
+
+//   const token = authHeader.split("Bearer ")[1];
+
+//   try {
+//     const decodedToken = await admin.auth().verifyIdToken(token);
+
+//     // Attach ONLY the UID. We do NOT enforce claims here.
+//     req.user = {
+//       uid: decodedToken.uid,
+//       email: decodedToken.email,
+//     };
+//     next();
+//   } catch (error) {
+//     return res.status(403).json({ error: "Invalid or expired token" });
+//   }
+// };
+
+// /**
+//  * 2. AUTHENTICATE (Strict)
+//  * Checks if user has completed registration (Has PharmacyId & Role).
+//  * Used for: Dashboard, Inventory, and other  API calls.
+//  */
+// export const authenticate = async (req, res, next) => {
+//   const authHeader = req.headers.authorization;
+//   if (!authHeader || !authHeader.startsWith("Bearer ")) {
+//     return res.status(401).json({ error: "Unauthorized: No token provided" });
+//   }
+
+//   const token = authHeader.split("Bearer ")[1];
+
+//   try {
+//     const decodedToken = await admin.auth().verifyIdToken(token);
+
+//     // STRICT CHECK: Require Claims
+//     if (!decodedToken.pharmacyId || !decodedToken.role) {
+//       return res.status(498).json({
+//         error:
+//           "Token invalid: Missing claims. Please complete registration or refresh session.",
+//         code: "CLAIMS_MISSING",
+//       });
+//     }
+
+//     req.user = {
+//       uid: decodedToken.uid,
+//       role: decodedToken.role,
+//       pharmacyId: decodedToken.pharmacyId,
+//     };
+//     next();
+//   } catch (error) {
+//     return res.status(403).json({ error: "Invalid or expired token" });
+//   }
+// };
+
+// export const authenticate = async (req, res, next) => {
+//   const authHeader = req.headers.authorization;
+//   if (!authHeader || !authHeader.startsWith("Bearer ")) {
+//     return res.status(401).json({ error: "Unauthorized: No token provided" });
+//   }
+
+//   const token = authHeader.split("Bearer ")[1];
+
+//   try {
+//     const decodedToken = await admin.auth().verifyIdToken(token);
+
+//     // STRICT CHECK: Do not fallback to DB
+//     if (!decodedToken.pharmacyId || !decodedToken.role) {
+//       // 498 is a custom code often used for "Token Refresh Required"
+//       return res.status(498).json({
+//         error: "Token invalid: Missing claims. Please refresh your session.",
+//         code: "CLAIMS_MISSING",
+//       });
+//     }
+
+//     req.user = {
+//       uid: decodedToken.uid,
+//       role: decodedToken.role,
+//       pharmacyId: decodedToken.pharmacyId,
+//     };
+
+//     next();
+//   } catch (error) {
+//     return res.status(403).json({ error: "Invalid or expired token" });
+//   }
+// };
 
 // import admin from "firebase-admin";
 // import { getFirestore } from "../config/firebase.js";

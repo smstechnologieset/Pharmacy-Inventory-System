@@ -40,7 +40,6 @@ app.use(
 );
 app.use(express.json());
 
-// Ensure all responses are JSON (prevent Express from sending HTML errors)
 app.use((req, res, next) => {
   res.setHeader("Content-Type", "application/json");
   next();
@@ -71,8 +70,10 @@ app.use(errorHandler);
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📍 Environment: ${process.env.NODE_ENV || "development"}`);
+  if (process.env.NODE_ENV === "development") {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📍 Environment: ${process.env.NODE_ENV || "development"}`);
+  }
 });
 
 export default app;
