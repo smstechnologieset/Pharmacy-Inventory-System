@@ -7,7 +7,7 @@ import {
 } from "../config/chapa.js";
 import { TIER_PRICING } from "../config/subscriptionConfig.js";
 
-// 🚀 HELPER: Extract pharmacyId from tx_ref to avoid slow Collection Group queries
+
 const getPharmacyIdFromTxRef = (txRef) => {
   // tx_ref format: signup_{pharmacyId}_{timestamp}
   const parts = txRef.split("_");
@@ -91,91 +91,6 @@ export const initializeSignupPayment = async (req, res) => {
   }
 };
 
-// 🚨 FIXED: Handles both POST (JSON) and GET (Query Params) from Chapa
-// export const handlePaymentWebhook = async (req, res) => {
-//   try {
-//     // Chapa might send POST with JSON body, or GET with query params
-//     const trx_ref = req.body?.trx_ref || req.query?.trx_ref;
-//     const status = req.body?.status || req.query?.status;
-//     const ref_id = req.body?.ref_id || req.query?.ref_id;
-
-//     console.log("🟢 Chapa webhook received:", {
-//       trx_ref,
-//       status,
-//       method: req.method,
-//     });
-
-//     if (!trx_ref) {
-//       return res.status(400).json({ error: "Missing trx_ref" });
-//     }
-
-//     const db = getFirestore();
-
-//     // 🚀 OPTIMIZATION: Extract pharmacyId from tx_ref instead of using collectionGroup
-//     const pharmacyId = getPharmacyIdFromTxRef(trx_ref);
-//     if (!pharmacyId) {
-//       return res.status(400).json({ error: "Invalid tx_ref format" });
-//     }
-
-//     const paymentsSnapshot = await db
-//       .collection("pharmacies")
-//       .doc(pharmacyId)
-//       .collection("payments")
-//       .where("txRef", "==", trx_ref)
-//       .limit(1)
-//       .get();
-//     if (paymentsSnapshot.empty) {
-//       return res.status(404).json({ error: "Payment not found" });
-//     }
-
-//     const paymentDoc = paymentsSnapshot.docs[0];
-//     const paymentData = paymentDoc.data();
-
-//     if (paymentData.status === "completed") {
-//       return res.json({ message: "Already processed" });
-//     }
-
-//     const pharmacyRef = db.collection("pharmacies").doc(pharmacyId);
-
-//     if (status === "success") {
-//       await db.runTransaction(async (transaction) => {
-//         const periodEnd = new Date();
-//         const daysToAdd = paymentData.billingCycle === "yearly" ? 365 : 30;
-//         periodEnd.setDate(periodEnd.getDate() + daysToAdd);
-
-//         transaction.update(pharmacyRef, {
-//           "subscription.status": "active",
-//           "subscription.currentPeriodEnd":
-//             admin.firestore.Timestamp.fromDate(periodEnd),
-//           "subscription.lastPaymentAt":
-//             admin.firestore.FieldValue.serverTimestamp(),
-//           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-//         });
-
-//         transaction.update(paymentDoc.ref, {
-//           status: "completed",
-//           completedAt: admin.firestore.FieldValue.serverTimestamp(),
-//           chapaRefId: ref_id,
-//         });
-//       });
-//       console.log("✅ Payment processed successfully:", trx_ref);
-//     } else {
-//       await paymentDoc.ref.update({
-//         status: "failed",
-//         failedAt: admin.firestore.FieldValue.serverTimestamp(),
-//       });
-//       console.log("❌ Payment failed:", trx_ref);
-//     }
-
-//     return res.json({ message: "Webhook processed" });
-//   } catch (error) {
-//     console.error("Webhook processing error:", error);
-//     return res.status(500).json({ error: error.message });
-//   }
-// };
-// 🚀 OPTIMIZED: Uses direct path instead of collectionGroup
-
-// 🚀 OPTIMIZED & BULLETPROOF: Actively verifies with Chapa if local status is pending
 
 export const verifyPaymentStatus = async (req, res) => {
   try {
@@ -292,98 +207,8 @@ export const verifyPaymentStatus = async (req, res) => {
   }
 };
 
-//verify payment working version
-// export const verifyPaymentStatus = async (req, res) => {
-//   try {
-//     const { tx_ref } = req.query;
-//     if (!tx_ref) return res.status(400).json({ error: 'tx_ref is required' });
 
-//     const db = getFirestore();
-//     const pharmacyId = getPharmacyIdFromTxRef(tx_ref);
-
-//     if (!pharmacyId) return res.status(400).json({ error: 'Invalid tx_ref format' });
-
-//     // 1. Check local Firestore first
-//     const paymentSnap = await db.collection('pharmacies').doc(pharmacyId)
-//       .collection('payments').where('txRef', '==', tx_ref).limit(1).get();
-
-//     if (paymentSnap.empty) return res.status(404).json({ error: 'Payment not found' });
-
-//     const paymentDoc = paymentSnap.docs[0];
-//     const paymentData = paymentDoc.data();
-
-//     // 2. If already processed, just return the status instantly
-//     if (paymentData.status === 'completed' || paymentData.status === 'failed') {
-//       return res.json({
-//         status: paymentData.status,
-//         amount: paymentData.amount,
-//         tier: paymentData.tier,
-//         billingCycle: paymentData.billingCycle
-//       });
-//     }
-
-//     // 3. 🚀 ACTIVE VERIFICATION: If still pending, ask Chapa directly!
-//     if (paymentData.status === 'pending') {
-//       try {
-//         // Call Chapa's verification API
-//         const chapaResponse = await chapaClient.get(`/transaction/verify/${tx_ref}`);
-//         const chapaData = chapaResponse.data.data;
-//         console.log("chapa response ", chapaResponse.data);
-//         // If Chapa says it's successful, process it immediately!
-//         if (chapaData.status === 'success') {
-//           const pharmacyRef = db.collection('pharmacies').doc(pharmacyId);
-
-//           await db.runTransaction(async (transaction) => {
-//             const periodEnd = new Date();
-//             const daysToAdd = paymentData.billingCycle === 'yearly' ? 365 : 30;
-//             periodEnd.setDate(periodEnd.getDate() + daysToAdd);
-
-//             // Activate the subscription
-//             transaction.update(pharmacyRef, {
-//               'subscription.status': 'active',
-//               'subscription.currentPeriodEnd': admin.firestore.Timestamp.fromDate(periodEnd),
-//               'subscription.lastPaymentAt': admin.firestore.FieldValue.serverTimestamp(),
-//               updatedAt: admin.firestore.FieldValue.serverTimestamp()
-//             });
-
-//             // Mark payment as completed
-//             transaction.update(paymentDoc.ref, {
-//               status: 'completed',
-//               completedAt: admin.firestore.FieldValue.serverTimestamp(),
-//               chapaRefId: chapaData.reference || tx_ref, // ✅ Fixed the undefined bug!
-//               chapaResponse: chapaData
-//             });
-//           });
-
-//           console.log('✅ Payment verified via polling and activated:', tx_ref);
-
-//           return res.json({
-//             status: 'completed',
-//             amount: paymentData.amount,
-//             tier: paymentData.tier,
-//             billingCycle: paymentData.billingCycle
-//           });
-//         }
-//       } catch (chapaError) {
-//         // If Chapa verification fails (e.g., transaction not found yet), just fallback to local status
-//         console.warn('Chapa active verification failed, falling back to local status:', chapaError.message);
-//       }
-//     }
-
-//     // 4. Return local pending status if Chapa hasn't confirmed it yet
-//     return res.json({
-//       status: paymentData.status,
-//       amount: paymentData.amount,
-//       tier: paymentData.tier,
-//       billingCycle: paymentData.billingCycle
-//     });
-
-//   } catch (error) {
-//     console.error('Payment verification error:', error);
-//     return res.status(500).json({ error: error.message });
-//   }
-// };
-export const retryPayment = async (req, res) => {
+export const retryPayment = async ( req, res ) => {
   try {
     const uid = req.user.uid;
     const { tx_ref } = req.body;

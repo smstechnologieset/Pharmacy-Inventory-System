@@ -76,7 +76,7 @@ export const updateUserStatusByPharmacyId = async (pharmacyId, status) => {
   }
 };
 
-// Real-time subscription remains on the client via a Firestore listener.
+
 export const subscribeToPharmacyStats = (pharmacyId, callback) => {
   const q = tenantDoc(pharmacyId, "stats", "pharmacy");
   return onSnapshot(q, (snap) => {
