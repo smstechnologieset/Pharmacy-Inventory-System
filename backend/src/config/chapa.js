@@ -14,6 +14,8 @@ export const chapaClient = axios.create({
 
 // URLs for callbacks
 export const CHAPA_CALLBACK_URL =
-  process.env.CHAPA_CALLBACK_URL || "http://localhost:5173/payment/verify";
+  process.env.CHAPA_CALLBACK_URL ||
+  "https://pharma-inventory.vercel.app/payment/verify";
 export const CHAPA_RETURN_URL =
-  process.env.CHAPA_RETURN_UR || "http://localhost:5173/payment/verify";
+  process.env.CHAPA_RETURN_URL ||
+  "https://pharma-inventory.vercel.app/payment/Verify";
