@@ -1,29 +1,10 @@
-import React, { useState, useEffect } from "react";
-import {
-  ShieldPlus,
-  Mail,
-  Lock,
-  ArrowRight,
-  ArrowLeft,
-  AlertCircle,
-  User,
-  Phone,
-  Building2,
-  Eye,
-  EyeOff,
-  FileText,
-  Upload,
-  CheckCircle2,
-  CreditCard,
-  MapPin,
-  Globe,
-  Check,
-  Sparkles,
-} from "lucide-react";
+import React, { useState } from "react";
+import { ShieldPlus, AlertCircle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { useNavigate } from "react-router-dom";
 import { initializePayment } from "../services/payment.js";
+
 import InputField from "../components/InputField.jsx";
 import AccountCreationForm from "../components/AccountCreationForm.jsx";
 import PharmacyDetailsForm from "../components/PharmacyDetailsForm.jsx";
@@ -33,474 +14,300 @@ import DocumentUploadForm from "../components/DocumentUploadForm.jsx";
 import TermsAndConfirmationForm from "./TermsAndConfirmationForm.jsx";
 
 const Signup = () => {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [localError, setLocalError] = useState("");
-  const [localLoading, setLocalLoading] = useState(false);
-  const [isPhoneFocused, setIsPhoneFocused] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [currentStep, setCurrentStep] = useState(1);
+    const [localError, setLocalError] = useState("");
+    const [localLoading, setLocalLoading] = useState(false);
+    const [isPhoneFocused, setIsPhoneFocused] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    phone: "",
-    pharmacyName: "",
-    licenseNumber: "",
-    taxId: "",
-    pharmacyType: "Retail",
-    address: { street: "", city: "", state: "", zip: "", country: "Ethiopia" },
-    businessEmail: "",
-    businessPhone: "",
-    website: "",
-    selectedTier: "starter",
-    billingCycle: "monthly",
-    documents: { pharmacyLicense: null, pharmacistLicense: null },
-    acceptTerms: false,
-    acceptPrivacy: false,
-    newsletter: false,
-  });
+    const [formData, setFormData] = useState({
+        name: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+        phone: "",
+        pharmacyName: "",
+        licenseNumber: "",
+        taxId: "",
+        pharmacyType: "Retail",
+        address: {
+            street: "",
+            city: "",
+            state: "",
+            zip: "",
+            country: "Ethiopia"
+        },
+        businessEmail: "",
+        businessPhone: "",
+        website: "",
+        selectedTier: "starter",
+        billingCycle: "monthly",
+        documents: { pharmacyLicense: null, pharmacistLicense: null },
+        acceptTerms: false,
+        acceptPrivacy: false,
+        newsletter: false
+    });
 
-  const {
-    createAccount,
-    finalizeRegistration,
-    user,
-    loading: authLoading,
-    error: authError,
-  } = useAuth();
-  const { t } = useSettings();
-  const navigate = useNavigate();
+    const {
+        createAccount,
+        finalizeRegistration,
+        user,
+        loading: authLoading,
+        error: authError
+    } = useAuth();
+    const { t } = useSettings();
+    const navigate = useNavigate();
 
-  // useEffect(() => {
-  //   if (user && user.pharmacyId) {
-  //     navigate("/");
-  //   }
-  // }, [user, navigate]);
+    const updateField = (field, value) =>
+        setFormData(prev => ({ ...prev, [field]: value }));
 
-  const updateField = (field, value) =>
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  const updateAddress = (field, value) =>
-    setFormData((prev) => ({
-      ...prev,
-      address: { ...prev.address, [field]: value },
-    }));
+    const updateAddress = (field, value) =>
+        setFormData(prev => ({
+            ...prev,
+            address: { ...prev.address, [field]: value }
+        }));
 
-  const nextStep = () => {
-    setLocalError("");
-    setCurrentStep((prev) => prev + 1);
-  };
-  const prevStep = () => {
-    setLocalError("");
-    setCurrentStep((prev) => prev - 1);
-  };
+    const nextStep = () => {
+        setLocalError("");
+        setCurrentStep(prev => prev + 1);
+    };
 
-  const handlePhoneChange = (e) => {
-    let value = e.target.value;
-    if (value.startsWith("+251")) value = value.substring(4);
-    else if (value.startsWith("0")) value = value.substring(1);
-    updateField("phone", value);
-  };
+    const prevStep = () => {
+        setLocalError("");
+        setCurrentStep(prev => prev - 1);
+    };
 
-  const handleStepOneSubmit = async (e) => {
-    e.preventDefault();
-    setLocalError("");
-    setLocalLoading(true);
-    try {
-      if (!formData.name.trim()) throw new Error("Name is required");
-      if (!formData.phone.trim()) throw new Error("Phone number is required");
-      if (!/^9\d{8}$/.test(formData.phone))
-        throw new Error("Invalid Ethiopian phone number");
-      if (formData.password !== formData.confirmPassword)
-        throw new Error("Passwords do not match");
-      if (formData.password.length < 6)
-        throw new Error("Password must be at least 6 characters");
+    const handlePhoneChange = e => {
+        let value = e.target.value;
+        if (value.startsWith("+251")) value = value.substring(4);
+        else if (value.startsWith("0")) value = value.substring(1);
+        updateField("phone", value);
+    };
 
-      await createAccount(
-        formData.email,
-        formData.password,
-        formData.name,
-        formData.phone,
-      );
-      nextStep();
-    } catch (error) {
-      setLocalError(error.message || "Authentication failed");
-    } finally {
-      setLocalLoading(false);
-    }
-  };
-  
-  
-  const handleFinalSubmit = async () => {
-    setLocalError("");
-    setLocalLoading(true);
-    try {
-      if (!formData.acceptTerms) {
-        throw new Error("You must accept the Terms of Service to continue");
-      }
+    const handleStepOneSubmit = async e => {
+        e.preventDefault();
+        setLocalError("");
+        setLocalLoading(true);
+        try {
+            if (!formData.name.trim()) throw new Error("Name is required");
+            if (!formData.phone.trim())
+                throw new Error("Phone number is required");
+            if (!/^9\d{8}$/.test(formData.phone))
+                throw new Error("Invalid Ethiopian phone number");
+            if (formData.password !== formData.confirmPassword)
+                throw new Error("Passwords do not match");
+            if (formData.password.length < 6)
+                throw new Error("Password must be at least 6 characters");
 
-      const payload = {
-        pharmacyData: { ...formData }, // Adjust as needed for your backend
-        subscriptionData: { ...formData },
-        documents: { ...formData.documents },
-      };
+            await createAccount(
+                formData.email,
+                formData.password,
+                formData.name,
+                formData.phone
+            );
+            nextStep();
+        } catch (error) {
+            setLocalError(error.message || "Authentication failed");
+        } finally {
+            setLocalLoading(false);
+        }
+    };
 
-      // 1. Finalize Registration (Creates Pharmacy in DB)
-      // The backend now uses 'verifyToken' so this won't 403.
-      const result = await finalizeRegistration(payload);
-      const newPharmacyId = result.pharmacyId;
+    const handleFinalSubmit = async () => {
+        setLocalError("");
+        setLocalLoading(true);
+        try {
+            if (!formData.acceptTerms) {
+                throw new Error(
+                    "You must accept the Terms of Service to continue"
+                );
+            }
 
-      // 2. Initialize Payment (Creates Chapa Transaction)
-      const { checkoutUrl, txRef } = await initializePayment(
-        formData.billingCycle,
-      );
+            const payload = {
+                pharmacyData: { ...formData },
+                subscriptionData: { ...formData },
+                documents: { ...formData.documents }
+            };
 
-      // 3. Store ref and Redirect
-      sessionStorage.setItem("pending_payment_txRef", txRef);
+            const result = await finalizeRegistration(payload);
+            const newPharmacyId = result.pharmacyId;
 
-      // 🚨 EXPLICIT REDIRECT: No useEffect race conditions
-      window.location.href = checkoutUrl;
-    } catch (error) {
-      // Only show error if we are still on the page (not redirected)
-      console.error(error);
-      setLocalError(error.message || "Registration failed");
-    } finally {
-      // Only turn off loading if we haven't redirected
-      if (!window.location.href.includes("checkout")) {
-        setLocalLoading(false);
-      }
-    }
-  };
+            const { checkoutUrl, txRef } = await initializePayment(
+                formData.billingCycle
+            );
 
-  // const handleFinalSubmit = async () => {
-  //   setLocalError("");
-  //   setLocalLoading(true);
-  //   try {
-  //     if (!formData.acceptTerms) {
-  //       throw new Error("You must accept the Terms of Service to continue");
-  //     }
+            sessionStorage.setItem("pending_payment_txRef", txRef);
+            window.location.href = checkoutUrl;
+        } catch (error) {
+            console.error(error);
+            setLocalError(error.message || "Registration failed");
+        } finally {
+            if (!window.location.href.includes("checkout")) {
+                setLocalLoading(false);
+            }
+        }
+    };
 
-  //     const payload = {
-  //       pharmacyData: {
-  //         pharmacyName: formData.pharmacyName,
-  //         phone: `+251${formData.phone}`,
-  //         email: formData.email,
-  //         licenseNumber: formData.licenseNumber,
-  //         taxId: formData.taxId,
-  //         pharmacyType: formData.pharmacyType,
-  //         address: formData.address,
-  //         businessEmail: formData.businessEmail,
-  //         businessPhone: formData.businessPhone
-  //           ? `+251${formData.businessPhone}`
-  //           : "",
-  //         website: formData.website,
-  //       },
-  //       subscriptionData: {
-  //         selectedTier: formData.selectedTier,
-  //         billingCycle: formData.billingCycle,
-  //       },
-  //       documents: {
-  //         pharmacyLicense: formData.documents.pharmacyLicense
-  //           ? "pending_upload"
-  //           : null,
-  //         pharmacistLicense: formData.documents.pharmacistLicense
-  //           ? "pending_upload"
-  //           : null,
-  //       },
-  //     };
+    const displayError = localError || authError;
+    const isLoading = localLoading || authLoading;
 
-  //     // Step 6: Create pharmacy (status: pending, subscription.status: pending_payment)
-  //     await finalizeRegistration(payload);
-
-  //     // Step 7: Initialize payment with Chapa
-  //     const { checkoutUrl, txRef } = await initializePayment(
-  //       formData.billingCycle,
-  //     );
-
-  //     // Store txRef for verification after redirect
-  //     sessionStorage.setItem("pending_payment_txRef", txRef);
-
-  //     // Redirect to Chapa payment page
-  //     window.location.href = checkoutUrl;
-  //   } catch (error) {
-  //     setLocalError(error.message || "Registration failed");
-  //   } finally {
-  //     setLocalLoading(false);
-  //   }
-  // };
-
-  const displayError = localError || authError;
-  const isLoading = localLoading || authLoading;
-
-  return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        background: "#F8FAFC",
-        fontFamily: "'Lexend', sans-serif",
-      }}>
-      {" "}
-      {/* LEFT SIDE BRANDING */}
-      <div
-        style={{
-          flex: 1.2,
-          background: "linear-gradient(135deg, #0D9488 0%, #14B8A6 100%)",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          padding: "100px",
-          color: "white",
-          position: "relative",
-          overflow: "hidden",
-        }}>
+    return (
         <div
-          style={{
-            position: "absolute",
-            top: "-100px",
-            left: "-100px",
-            width: "300px",
-            height: "300px",
-            background: "rgba(255,255,255,0.1)",
-            borderRadius: "50%",
-          }}></div>
-        <div
-          style={{
-            position: "absolute",
-            bottom: "-50px",
-            right: "-50px",
-            width: "200px",
-            height: "200px",
-            background: "rgba(255,255,255,0.05)",
-            borderRadius: "50%",
-          }}></div>
-
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "16px",
-            marginBottom: "48px",
-            position: "relative",
-          }}>
-          <div
-            style={{
-              background: "rgba(255,255,255,0.2)",
-              padding: "12px",
-              borderRadius: "18px",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.1)",
-            }}>
-            <ShieldPlus size={40} />{" "}
-          </div>
-          <span
-            style={{
-              fontSize: "2.4rem",
-              fontWeight: "800",
-              letterSpacing: "-0.025em",
-            }}>
-            PharmaCare
-          </span>
-        </div>
-        <h1
-          style={{
-            color: "white",
-            fontSize: "4.2rem",
-            marginBottom: "32px",
-            lineHeight: "1.05",
-            fontWeight: "800",
-            letterSpacing: "-0.04em",
-            position: "relative",
-          }}>
-          Modern <br /> Pharmacy <br /> Solutions.
-        </h1>
-
-        <p
-          style={{
-            fontSize: "1.2rem",
-            opacity: 0.9,
-            maxWidth: "500px",
-            lineHeight: "1.6",
-            fontWeight: "400",
-            position: "relative",
-          }}>
-          Simplified inventory management with real-time tracking, glowing
-          analytics, and a vibrant user experience.
-        </p>
-
-        <div
-          style={{
-            marginTop: "64px",
-            display: "flex",
-            gap: "24px",
-            position: "relative",
-          }}>
-          <div
-            style={{
-              background: "rgba(255,255,255,0.1)",
-              padding: "20px",
-              borderRadius: "24px",
-              backdropFilter: "blur(10px)",
-            }}>
+            className="min-h-screen flex flex-col md:flex-row bg-slate-50"
+            style={{ fontFamily: "'Lexend', sans-serif" }}
+        >
             {" "}
-            <div style={{ fontWeight: "700", fontSize: "1.5rem" }}>99.9%</div>
-            <div style={{ fontSize: "0.8rem", opacity: 0.8 }}>
-              Accuracy Rate
+            {/* 📱 MOBILE HEADER (Visible only on small screens) */}
+            <div className="md:hidden bg-gradient-to-br from-teal-600 to-teal-500 text-white p-6 text-center">
+                <div className="flex items-center justify-center gap-3 mb-2">
+                    <div className="bg-white/20 p-2 rounded-xl">
+                        <ShieldPlus size={28} />
+                    </div>
+                    <span className="text-2xl font-extrabold tracking-tight">
+                        PharmaCare
+                    </span>
+                </div>
+                <p className="text-sm opacity-90">Modern Pharmacy Solutions</p>
             </div>
-          </div>
-          <div
-            style={{
-              background: "rgba(255,255,255,0.1)",
-              padding: "20px",
-              borderRadius: "24px",
-              backdropFilter: "blur(10px)",
-            }}>
-            <div style={{ fontWeight: "700", fontSize: "1.5rem" }}>24/7</div>
-            <div style={{ fontSize: "0.8rem", opacity: 0.8 }}>
-              Real-time Sync
+            {/* 💻 LEFT SIDE - BRANDING (Desktop only) */}
+            <div className="hidden md:flex md:flex-[1.2] bg-gradient-to-br from-teal-600 to-teal-500 flex-col justify-center p-16 lg:p-24 text-white relative overflow-hidden">
+                <div className="absolute -top-24 -left-24 w-72 h-72 bg-white/10 rounded-full"></div>
+                <div className="absolute -bottom-12 -right-12 w-48 h-48 bg-white/5 rounded-full"></div>
+
+                <div className="flex items-center gap-4 mb-12 relative">
+                    <div className="bg-white/20 p-3 rounded-2xl shadow-lg">
+                        <ShieldPlus size={40} />
+                    </div>
+                    <span className="text-4xl font-extrabold tracking-tight">
+                        PharmaCare
+                    </span>
+                </div>
+
+                <h1 className="text-5xl lg:text-6xl font-extrabold leading-tight tracking-tight mb-8 relative">
+                    Modern <br /> Pharmacy <br /> Solutions.
+                </h1>
+
+                <p className="text-xl opacity-90 max-w-md leading-relaxed relative">
+                    Simplified inventory management with real-time tracking,
+                    glowing analytics, and a vibrant user experience.
+                </p>
+
+                <div className="mt-16 flex gap-6 relative">
+                    <div className="bg-white/10 p-5 rounded-3xl backdrop-blur-md">
+                        <div className="font-bold text-2xl">99.9%</div>
+                        <div className="text-sm opacity-80">Accuracy Rate</div>
+                    </div>
+                    <div className="bg-white/10 p-5 rounded-3xl backdrop-blur-md">
+                        <div className="font-bold text-2xl">24/7</div>
+                        <div className="text-sm opacity-80">Real-time Sync</div>
+                    </div>
+                </div>
             </div>
-          </div>
+            {/* 🔐 RIGHT SIDE - FORM */}
+            <div className="flex-1 flex items-center justify-center p-6 sm:p-10 md:p-16 overflow-y-auto">
+                <div className="w-full max-w-xl py-8">
+                    {/* Progress Bar */}
+                    <div className="flex gap-2 mb-8">
+                        {[1, 2, 3, 4, 5, 6].map(step => (
+                            <div
+                                key={step}
+                                className={`flex-1 h-1.5 rounded-full transition-all duration-300 ${
+                                    step <= currentStep
+                                        ? "bg-teal-600"
+                                        : "bg-slate-200"
+                                }`}
+                            />
+                        ))}
+                    </div>
+
+                    {/* Error Message */}
+                    {displayError && (
+                        <div className="flex items-start gap-3 p-4 mb-5 bg-red-50 rounded-2xl border border-red-100">
+                            <AlertCircle
+                                size={20}
+                                className="text-red-600 mt-0.5 flex-shrink-0"
+                            />
+                            <div className="text-red-800 text-sm leading-relaxed">
+                                {displayError}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Render Current Step */}
+                    {currentStep === 1 && (
+                        <AccountCreationForm
+                            formData={formData}
+                            updateField={updateField}
+                            handlePhoneChange={handlePhoneChange}
+                            isPhoneFocused={isPhoneFocused}
+                            setIsPhoneFocused={setIsPhoneFocused}
+                            showPassword={showPassword}
+                            setShowPassword={setShowPassword}
+                            showConfirmPassword={showConfirmPassword}
+                            setShowConfirmPassword={setShowConfirmPassword}
+                            onSubmit={handleStepOneSubmit}
+                            isLoading={isLoading}
+                        />
+                    )}
+                    {currentStep === 2 && (
+                        <PharmacyDetailsForm
+                            formData={formData}
+                            updateField={updateField}
+                            onNext={nextStep}
+                            onBack={prevStep}
+                        />
+                    )}
+                    {currentStep === 3 && (
+                        <BusinessLocationForm
+                            formData={formData}
+                            updateField={updateField}
+                            updateAddress={updateAddress}
+                            onNext={nextStep}
+                            onBack={prevStep}
+                        />
+                    )}
+                    {currentStep === 4 && (
+                        <SubscriptionSelectionForm
+                            formData={formData}
+                            updateField={updateField}
+                            onNext={nextStep}
+                            onBack={prevStep}
+                        />
+                    )}
+                    {currentStep === 5 && (
+                        <DocumentUploadForm
+                            formData={formData}
+                            updateField={updateField}
+                            onNext={nextStep}
+                            onBack={prevStep}
+                        />
+                    )}
+                    {currentStep === 6 && (
+                        <TermsAndConfirmationForm
+                            formData={formData}
+                            updateField={updateField}
+                            onSubmit={handleFinalSubmit}
+                            onBack={prevStep}
+                            isLoading={isLoading}
+                        />
+                    )}
+
+                    {/* Footer Nav */}
+                    <div className="text-center mt-12 text-slate-500 text-base">
+                        Already have an account?{" "}
+                        <button
+                            type="button"
+                            onClick={() => navigate("/login")}
+                            className="text-teal-600 font-bold hover:text-teal-700 transition ml-1"
+                        >
+                            Sign In
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
-      {/* RIGHT SIDE FORM */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "40px 60px",
-          overflowY: "auto",
-        }}>
-        <div style={{ width: "100%", maxWidth: "500px", padding: "20px 0" }}>
-          {/* Progress Bar */}
-          <div style={{ marginBottom: "32px", display: "flex", gap: "8px" }}>
-            {[1, 2, 3, 4, 5, 6].map((step) => (
-              <div
-                key={step}
-                style={{
-                  flex: 1,
-                  height: "6px",
-                  borderRadius: "3px",
-                  background: step <= currentStep ? "#0D9488" : "#E2E8F0",
-                  transition: "all 0.3s",
-                }}
-              />
-            ))}
-          </div>
-
-          {displayError && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "12px",
-                padding: "14px 16px",
-                marginBottom: "20px",
-                backgroundColor: "#FEE2E2",
-                borderRadius: "16px",
-                border: "1px solid #FECACA",
-              }}>
-              <AlertCircle
-                size={20}
-                style={{ color: "#DC2626", marginTop: "2px", flexShrink: 0 }}
-              />
-              <div
-                style={{
-                  color: "#991B1B",
-                  fontSize: "0.9rem",
-                  lineHeight: "1.4",
-                }}>
-                {displayError}
-              </div>
-            </div>
-          )}
-
-          {/* Render Current Step */}
-          {currentStep === 1 && (
-            <AccountCreationForm
-              formData={formData}
-              updateField={updateField}
-              handlePhoneChange={handlePhoneChange}
-              isPhoneFocused={isPhoneFocused}
-              setIsPhoneFocused={setIsPhoneFocused}
-              showPassword={showPassword}
-              setShowPassword={setShowPassword}
-              showConfirmPassword={showConfirmPassword}
-              setShowConfirmPassword={setShowConfirmPassword}
-              onSubmit={handleStepOneSubmit}
-              isLoading={isLoading}
-            />
-          )}
-          {currentStep === 2 && (
-            <PharmacyDetailsForm
-              formData={formData}
-              updateField={updateField}
-              onNext={nextStep}
-              onBack={prevStep}
-            />
-          )}
-          {currentStep === 3 && (
-            <BusinessLocationForm
-              formData={formData}
-              updateField={updateField}
-              updateAddress={updateAddress}
-              onNext={nextStep}
-              onBack={prevStep}
-            />
-          )}
-          {currentStep === 4 && (
-            <SubscriptionSelectionForm
-              formData={formData}
-              updateField={updateField}
-              onNext={nextStep}
-              onBack={prevStep}
-            />
-          )}
-          {currentStep === 5 && (
-            <DocumentUploadForm
-              formData={formData}
-              updateField={updateField}
-              onNext={nextStep}
-              onBack={prevStep}
-            />
-          )}
-          {currentStep === 6 && (
-            <TermsAndConfirmationForm
-              formData={formData}
-              updateField={updateField}
-              onSubmit={handleFinalSubmit}
-              onBack={prevStep}
-              isLoading={isLoading}
-            />
-          )}
-
-          {/* Footer Nav */}
-          <div
-            style={{
-              textAlign: "center",
-              marginTop: "32px",
-              color: "#64748B",
-              fontSize: "0.95rem",
-            }}>
-            Already have an account?{" "}
-            <button
-              type="button"
-              onClick={() => navigate("/login")}
-              style={{
-                color: "#0D9488",
-                fontWeight: "700",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                fontSize: "inherit",
-              }}>
-              Sign In
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 export default Signup;
