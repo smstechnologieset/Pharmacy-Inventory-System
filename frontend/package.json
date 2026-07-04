@@ -13,6 +13,8 @@
     "migrate": "node ./scripts/migrateToTenantSubcollections.js"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.3.2",
+    "@tailwindcss/vite": "^4.3.2",
     "@tanstack/react-query": "^5.101.2",
     "@tanstack/react-query-devtools": "^5.101.2",
     "chart.js": "^4.5.1",
@@ -31,10 +33,13 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.0",
+    "autoprefixer": "^10.5.2",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^17.4.0",
     "inquirer": "^14.0.0",
+    "postcss": "^8.5.16",
+    "tailwindcss": "^4.3.2",
     "vite": "^8.0.0"
   }
 }
