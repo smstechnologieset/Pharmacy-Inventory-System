@@ -79,7 +79,7 @@ export const initializeSignupPayment = async (req, res) => {
       first_name: userData.name?.split(" ")[0] || "Pharmacy",
       last_name: userData.name?.split(" ").slice(1).join(" ") || "Owner",
       tx_ref: txRef,
-      callback_url: CHAPA_CALLBACK_URL,
+
       return_url: `${CHAPA_RETURN_URL}?tx_ref=${txRef}`,
     });
 
