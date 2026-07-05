@@ -17,7 +17,7 @@ import Suppliers from "./pages/Suppliers";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import SuperAdmin from "./pages/SuperAdmin";
-
+//import LandingPage from "./pages/LandingPage.jsx";
 import { useAuth } from "./context/AuthContext";
 import LoadingScreen from "./components/LoadingScreen.jsx";
 import Signup from "./pages/Signup.jsx";
@@ -28,6 +28,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import PaymentVerify from "./pages/PaymentVerify.jsx";
 import PaymentSuccess from "./pages/PaymentSuccess.jsx";
+import LandingPage from "./pages/LandingPage.jsx";
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -42,6 +43,9 @@ const ProtectedRoute = ({ children }) => {
     const { user, loading, pharmacyStatus, subscriptionStatus } = useAuth();
 
     if (loading) return <LoadingScreen />;
+    if (!user && location.pathname === "/") {
+        return <LandingPage />;
+    }
     if (!user) return <Navigate to="/login" />;
 
     // Super admin bypasses tenant checks
@@ -130,7 +134,6 @@ function App() {
                             </SuperAdminRoute>
                         }
                     />
-                    
 
                     {/* Main App Layout (Protected by the Master Gatekeeper) */}
                     <Route
