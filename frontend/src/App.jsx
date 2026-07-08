@@ -234,6 +234,7 @@ function App() {
                         <Route
                             path="settings"
                             element={
+                                
                                 <RoleGuard allowedRoles={["admin"]}>
                                     <Settings />
                                 </RoleGuard>
