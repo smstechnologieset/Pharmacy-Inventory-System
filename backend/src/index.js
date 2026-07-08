@@ -28,17 +28,36 @@ initializeWebPush();
 
 // Middleware
 
+// app.use(
+//     cors({
+//         origin: [
+//             process.env.NODE_ENV == "development" && "http://localhost:5173",
+//             "https://pharma-inventory.vercel.app",
+//             "https://pharmacare-super.vercel.app"
+//         ],
+//         credentials: true,
+//         methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+//         allowedHeaders: ["Content-Type", "Authorization"]
+//     })
+// );
+// Build allowed origins dynamically — no false values in the array
+const allowedOrigins = [
+  "https://pharma-inventory.vercel.app",
+  "https://pharmacare-super.vercel.app",
+];
+
+// Only add localhost in development
+if (process.env.NODE_ENV === "development") {
+  allowedOrigins.push("http://localhost:5173");
+}
+
 app.use(
-    cors({
-        origin: [
-            process.env.NODE_ENV == "development" && "http://localhost:5173",
-            "https://pharma-inventory.vercel.app",
-            "https://pharmacare-super.vercel.app"
-        ],
-        credentials: true,
-        methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"]
-    })
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
 );
 app.use(express.json());
 
