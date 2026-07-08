@@ -23,3 +23,4 @@ dist-ssr
 *.sln
 *.sw?
 src/App1.jsx
+src/App2.jsx
