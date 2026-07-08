@@ -42,22 +42,22 @@ initializeWebPush();
 // );
 // Build allowed origins dynamically — no false values in the array
 const allowedOrigins = [
-  "https://pharma-inventory.vercel.app",
-  "https://pharmacare-super.vercel.app",
+    "https://pharma-inventory.vercel.app",
+    "https://pharmacare-super.vercel.app"
 ];
 
 // Only add localhost in development
 if (process.env.NODE_ENV === "development") {
-  allowedOrigins.push("http://localhost:5173");
+    allowedOrigins.push("http://localhost:5173");
 }
 
 app.use(
-  cors({
-    origin: allowedOrigins,
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
+    cors({
+        origin: allowedOrigins,
+        credentials: true,
+        methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization"]
+    })
 );
 app.use(express.json());
 
@@ -65,7 +65,9 @@ app.use((req, res, next) => {
     res.setHeader("Content-Type", "application/json");
     next();
 });
-
+app.options("*", (req, res) => {
+    res.status(204).end();
+});
 // Health check endpoint
 app.get("/health", (req, res) => {
     res.json({
