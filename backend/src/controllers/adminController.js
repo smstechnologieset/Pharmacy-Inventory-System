@@ -1,7 +1,7 @@
 import admin from "firebase-admin";
-import { getFirestore } from "../config/firebase.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
-import { TIER_LIMITS, TIER_PRICING, SUBSCRIPTION_TIERS } from "../config/subscriptionConfig.js";
+import { getFirestore } from "./config/firebase.js";
+import { asyncHandler } from "./utils/asyncHandler.js";
+import { TIER_LIMITS, TIER_PRICING, SUBSCRIPTION_TIERS } from "./config/subscriptionConfig.js";
 
 const db = getFirestore();
 
