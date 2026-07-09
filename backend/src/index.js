@@ -28,18 +28,6 @@ initializeWebPush();
 
 // Middleware
 
-// app.use(
-//     cors({
-//         origin: [
-//             process.env.NODE_ENV == "development" && "http://localhost:5173",
-//             "https://pharma-inventory.vercel.app",
-//             "https://pharmacare-super.vercel.app"
-//         ],
-//         credentials: true,
-//         methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-//         allowedHeaders: ["Content-Type", "Authorization"]
-//     })
-// );
 // Build allowed origins dynamically — no false values in the array
 const allowedOrigins = [
     "https://pharma-inventory.vercel.app",
@@ -72,7 +60,21 @@ app.get("/health", (req, res) => {
         message: "Pharmacy Inventory Backend is running"
     });
 });
-
+app.get("/api", (req, res) => {
+    res.json({
+        name: "PharmaCare API",
+        version: "1.0.0",
+        status: "operational",
+        endpoints: {
+            auth: "/api/auth",
+            admin: "/api/admin",
+            pharmacies: "/api/pharmacies",
+            dashboard: "/api/dashboard",
+            health: "/health"
+        },
+        docs: "https://pharmacare-super.vercel.app"
+    });
+});
 // ...
 app.use("/api/auth", authRoutes);
 // Routes

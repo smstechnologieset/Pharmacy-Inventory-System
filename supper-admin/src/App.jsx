@@ -30,6 +30,8 @@ import {
   fetchAnnouncements,
   createAnnouncement,
   fetchSubscriptionConfig,
+  fetchSubscriptionTiers,
+  updateSubscriptionTiers
 } from "./services/admin";
 
 const COLORS = ["#0d9488", "#0ea5e9", "#f59e0b", "#ef4444", "#8b5cf6"];
@@ -96,6 +98,7 @@ const ErrorState = ({ error, onRetry }) => (
 );
 
 // ─── Login Page ────────────────────────────────────────────────────────────────
+
 const AdminLoginPage = ({ onLogin }) => {  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -122,7 +125,7 @@ const AdminLoginPage = ({ onLogin }) => {  const [email, setEmail] = useState(""
         <div className="absolute -bottom-12 -right-12 w-48 h-48 bg-white/5 rounded-full blur-3xl"></div>
         <div className="flex items-center gap-4 mb-12 relative">
           <div className="bg-white/20 p-3 rounded-2xl shadow-lg backdrop-blur-sm"><ShieldPlus size={40} /></div>
-          <span className="text-4xl font-extrabold tracking-tight">PharmaSys</span>
+          <span className="text-4xl font-extrabold tracking-tight">PharmaCare</span>
         </div>
         <h1 className="text-5xl xl:text-6xl font-extrabold leading-tight tracking-tight mb-8 relative">Platform<br />Management<br />Console.</h1>
         <p className="text-xl opacity-90 max-w-md leading-relaxed relative">Monitor, manage, and scale your pharmacy SaaS platform from a single unified dashboard.</p>
@@ -131,7 +134,7 @@ const AdminLoginPage = ({ onLogin }) => {  const [email, setEmail] = useState(""
         <div className="w-full max-w-md">
           <div className="lg:hidden flex items-center gap-3 mb-8">
             <div className="w-10 h-10 bg-teal-600 rounded-xl flex items-center justify-center"><ShieldPlus className="text-white w-6 h-6" /></div>
-            <span className="text-2xl font-extrabold text-slate-900">PharmaSys Admin</span>
+            <span className="text-2xl font-extrabold text-slate-900">PharmaCare Admin</span>
           </div>
           <div className="mb-10">
             <h1 className="text-2xl font-extrabold text-slate-900 mb-2">Admin Sign In</h1>
@@ -147,7 +150,13 @@ const AdminLoginPage = ({ onLogin }) => {  const [email, setEmail] = useState(""
             <div className="flex flex-col gap-2">
               <label className="text-sm font-bold text-slate-700 ml-1">Email Address</label>              <div className="relative">
                 <Mail size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full py-3.5 pl-12 pr-4 rounded-xl border-2 border-slate-100 bg-slate-50 outline-none text-sm transition-all focus:border-teal-600 focus:bg-white focus:ring-4 focus:ring-teal-600/10" placeholder="admin@pharmasys.et" required />
+                <input type="email" value={email} onChange={(e) =>
+                setEmail(e.target.value)} className="w-full py-3.5 pl-12 pr-4
+                rounded-xl border-2 border-slate-100 bg-slate-50 outline-none
+                text-sm transition-all focus:border-teal-600 focus:bg-white
+                focus:ring-4 focus:ring-teal-600/10"
+                placeholder="admin@pharmaare.et"
+                required />
               </div>
             </div>
             <div className="flex flex-col gap-2">
@@ -167,6 +176,206 @@ const AdminLoginPage = ({ onLogin }) => {  const [email, setEmail] = useState(""
         </div>
       </div>
     </div>
+  );
+};
+
+// ─── SUBSCRIPTIONS MANAGER COMPONENT ─────────────────────────────────────────
+const SubscriptionsManager = ({ isAuthenticated, queryClient }) => {
+  const [localTiers, setLocalTiers] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  
+  const tiersQuery = useQuery({
+    queryKey: ["adminSubscriptionTiers"],
+    queryFn: fetchSubscriptionTiers,
+    enabled: isAuthenticated,
+  });
+
+  React.useEffect(() => {
+    if (tiersQuery.data?.tiers) {
+      setLocalTiers(tiersQuery.data.tiers);
+    }
+  }, [tiersQuery.data]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await updateSubscriptionTiers(localTiers);
+      setEditMode(false);
+      queryClient.invalidateQueries({ queryKey: ["adminSubscriptionTiers"] });
+    } catch (error) {
+      alert("Failed to save tiers: " + error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateTier = (tierId, field, value) => {
+    setLocalTiers(prev => ({ ...prev, [tierId]: { ...prev[tierId], [field]: value } }));
+  };
+
+  const updateTierLimit = (tierId, field, value) => {
+    setLocalTiers(prev => ({ ...prev, [tierId]: { ...prev[tierId], limits: { ...prev[tierId].limits, [field]: Number(value) } } }));
+  };
+
+  const updateTierPricing = (tierId, field, value) => {
+    setLocalTiers(prev => ({ ...prev, [tierId]: { ...prev[tierId], pricing: { ...prev[tierId].pricing, [field]: Number(value) } } }));
+  };
+
+  const toggleTierEnabled = (tierId) => {
+    setLocalTiers(prev => ({ ...prev, [tierId]: { ...prev[tierId], enabled: !prev[tierId].enabled } }));
+  };
+
+  if (tiersQuery.isLoading) return <LoadingState />;
+  if (tiersQuery.error) return <ErrorState error={tiersQuery.error} onRetry={() => tiersQuery.refetch()} />;
+  const tiers = localTiers;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Subscription Tiers</h1>
+          <p className="text-sm text-slate-500 mt-1">Manage plan pricing, limits, and features</p>
+        </div>
+        <div className="flex gap-3">
+          {editMode ? (
+            <>
+              <button onClick={() => { setEditMode(false); setLocalTiers(tiersQuery.data?.tiers || {}); }} disabled={saving} className="px-4 py-2.5 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">Cancel</button>
+              <button onClick={handleSave} disabled={saving} className="px-6 py-2.5 text-sm font-semibold text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-all shadow-lg shadow-teal-600/20 active:scale-[0.98] disabled:opacity-70">{saving ? "Saving..." : "Save Changes"}</button>
+            </>
+          ) : (
+            <button onClick={() => setEditMode(true)} className="px-6 py-2.5 text-sm font-semibold text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-all shadow-lg shadow-teal-600/20 active:scale-[0.98]">Edit Tiers</button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {Object.entries(tiers).map(([tierId, tier]) => (
+          <div key={tierId} className={`bg-white rounded-2xl border-2 ${tier.enabled ? "border-slate-100" : "border-slate-200 opacity-60"} p-6 shadow-sm`}>
+            <div className="flex items-center justify-between mb-4">
+              {editMode ? (
+                <input type="text" value={tier.name} onChange={(e) => updateTier(tierId, "name", e.target.value)} className="text-lg font-bold text-slate-900 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1 w-full" />
+              ) : (
+                <h3 className="text-lg font-bold text-slate-900">{tier.name}</h3>
+              )}
+              {editMode && (
+                <button onClick={() => toggleTierEnabled(tierId)} className={`ml-2 px-3 py-1 text-xs font-semibold rounded-lg ${tier.enabled ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                  {tier.enabled ? "Enabled" : "Disabled"}
+                </button>
+              )}
+            </div>
+
+            {editMode ? (
+              <textarea value={tier.description || ""} onChange={(e) => updateTier(tierId, "description", e.target.value)} className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 w-full mb-4 resize-none" rows={2} />
+            ) : (
+              <p className="text-sm text-slate-500 mb-4">{tier.description}</p>
+            )}
+
+            <div className="space-y-3 mb-4">
+              <div className="flex items-baseline gap-2">
+                {editMode ? (
+                  <>
+                    <input type="number" value={tier.pricing.monthly} onChange={(e) => updateTierPricing(tierId, "monthly", Number(e.target.value))} className="text-2xl font-black text-slate-900 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 w-24" />
+                    <span className="text-sm text-slate-500">/mo</span>
+                    <input type="number" value={tier.pricing.yearly} onChange={(e) => updateTierPricing(tierId, "yearly", Number(e.target.value))} className="text-lg font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 w-24 ml-2" />                    <span className="text-sm text-slate-500">/yr</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-2xl font-black text-slate-900">ETB {tier.pricing.monthly.toLocaleString()}</span>
+                    <span className="text-sm text-slate-500">/mo</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 pt-4 space-y-2">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Limits</p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                {[
+                  { key: "maxSkus", label: "SKUs" },
+                  { key: "maxUsers", label: "Users" },
+                  { key: "maxBranches", label: "Branches" },
+                  { key: "dailyTransactions", label: "Daily Tx" },
+                ].map(({ key, label }) => (
+                  <div key={key}>
+                    <span className="text-slate-500">{label}:</span>{" "}
+                    {editMode ? (
+                      <input type="number" value={tier.limits[key]} onChange={(e) => updateTierLimit(tierId, key, Number(e.target.value))} className="w-16 bg-slate-50 border border-slate-200 rounded px-2 py-0.5 text-xs" />
+                    ) : (
+                      <span className="font-semibold">{tier.limits[key] === -1 ? "∞" : tier.limits[key]}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 pt-4 mt-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Features</p>
+              {editMode ? (
+                <textarea value={(tier.features || []).join("\n")} onChange={(e) => updateTier(tierId, "features", e.target.value.split("\n").filter(f => f.trim()))} className="text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 w-full resize-none" rows={5} placeholder="One feature per line" />
+              ) : (
+                <ul className="space-y-1">
+                  {(tier.features || []).map((feat, idx) => (
+                    <li key={idx} className="text-sm text-slate-600 flex items-start gap-2">
+                      <Check className="w-3.5 h-3.5 text-teal-600 flex-shrink-0 mt-0.5" />
+                      {feat}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>    </div>
+  );
+};
+
+// ─── PLATFORM SETTINGS MANAGER COMPONENT ─────────────────────────────────────
+const PlatformSettingsManager = ({ settingsQuery, saveSettingsMutation }) => {
+  const settings = settingsQuery.data || {};
+  const [localSettings, setLocalSettings] = useState(settings);
+
+  React.useEffect(() => { setLocalSettings(settings); }, [settings]);
+
+  if (settingsQuery.isLoading) return <LoadingState />;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Platform Settings</h1>
+        <p className="text-sm text-slate-500 mt-1">Global platform configuration</p>
+      </div>
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm max-w-2xl">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Platform Name</label>
+            <input type="text" value={localSettings.platformName || ""} onChange={(e) => setLocalSettings({ ...localSettings, platformName: e.target.value })} className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 transition-all" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Support Email</label>
+            <input type="email" value={localSettings.supportEmail || ""} onChange={(e) => setLocalSettings({ ...localSettings, supportEmail: e.target.value })} className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 transition-all" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Maintenance Mode</label>
+            <button
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.maintenanceMode ? "bg-teal-600" : "bg-slate-300"}`}
+              onClick={() => setLocalSettings({ ...localSettings, maintenanceMode: !localSettings.maintenanceMode })}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.maintenanceMode ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+          </div>
+        </div>
+        <div className="mt-6 pt-6 border-t border-slate-100 flex justify-end">
+          <button
+            onClick={() => saveSettingsMutation.mutate(localSettings)}
+            disabled={saveSettingsMutation.isPending}
+            className="px-6 py-2.5 text-sm font-semibold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-all active:scale-[0.98] disabled:opacity-70 flex items-center gap-2 shadow-lg shadow-slate-900/10"
+          >
+            {saveSettingsMutation.isPending ? "Saving..." : "Save Settings"}
+          </button>
+        </div>
+        {saveSettingsMutation.isSuccess && <p className="text-sm text-emerald-600 font-semibold mt-3">✓ Settings saved successfully</p>}
+      </div>    </div>
   );
 };
 
@@ -515,31 +724,6 @@ export default function App() {
     );
   };
 
-  const renderSubscriptions = () => {
-    if (subscriptionConfigQuery.isLoading) return <LoadingState />;
-    const config = subscriptionConfigQuery.data || {};
-    const tiers = config.tiers || {};
-    const pricing = config.pricing || {};
-
-    return (
-      <div className="space-y-6">
-        <div><h1 className="text-2xl font-black text-slate-900 tracking-tight">Subscription Plans</h1><p className="text-sm text-slate-500 mt-1">View plan tiers, limits, and pricing configuration</p></div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {Object.entries(tiers).map(([tierId, limits]) => (
-            <div key={tierId} className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-shadow">
-              <h3 className="text-lg font-bold text-slate-900 capitalize mb-1">{tierId}</h3>
-              <p className="text-2xl font-black text-slate-900 mb-1">ETB {pricing[tierId]?.monthly?.amount?.toLocaleString() || "—"}</p>
-              <p className="text-xs text-slate-500 mb-4">per month</p>
-              <div className="space-y-1.5 text-sm text-slate-600 border-t border-slate-100 pt-4">
-                <p>Max SKUs: <span className="font-bold">{limits.maxSkus === Infinity ? "∞" : limits.maxSkus}</span></p>
-                <p>Max Users: <span className="font-bold">{limits.maxUsers === Infinity ? "∞" : limits.maxUsers}</span></p>
-                <p>Max Branches: <span className="font-bold">{limits.maxBranches === Infinity ? "∞" : limits.maxBranches}</span></p>
-              </div>
-            </div>
-          ))}
-        </div>      </div>
-    );
-  };
 
   const renderPayments = () => {
     if (paymentsQuery.isLoading) return <LoadingState />;
@@ -758,64 +942,24 @@ export default function App() {
     );
   };
 
-  const renderSettings = () => {
-    if (settingsQuery.isLoading) return <LoadingState />;
-    const settings = settingsQuery.data || {};
-    const [localSettings, setLocalSettings] = useState(settings);
 
-    React.useEffect(() => { setLocalSettings(settings); }, [settings]);
-
-    return (
-      <div className="space-y-6">
-        <div><h1 className="text-2xl font-black text-slate-900 tracking-tight">Platform Settings</h1><p className="text-sm text-slate-500 mt-1">Global platform configuration</p></div>
-        <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm max-w-2xl">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Platform Name</label>
-              <input type="text" value={localSettings.platformName || ""} onChange={(e) => setLocalSettings({ ...localSettings, platformName: e.target.value })} className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 transition-all" />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Support Email</label>
-              <input type="email" value={localSettings.supportEmail || ""} onChange={(e) => setLocalSettings({ ...localSettings, supportEmail: e.target.value })} className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 transition-all" />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Maintenance Mode</label>
-              <button
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localSettings.maintenanceMode ? "bg-teal-600" : "bg-slate-300"}`}
-                onClick={() => setLocalSettings({ ...localSettings, maintenanceMode: !localSettings.maintenanceMode })}              >
-                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localSettings.maintenanceMode ? "translate-x-6" : "translate-x-1"}`} />
-              </button>
-            </div>
-          </div>
-          <div className="mt-6 pt-6 border-t border-slate-100 flex justify-end">
-            <button
-              onClick={() => saveSettingsMutation.mutate(localSettings)}
-              disabled={saveSettingsMutation.isPending}
-              className="px-6 py-2.5 text-sm font-semibold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-all active:scale-[0.98] disabled:opacity-70 flex items-center gap-2 shadow-lg shadow-slate-900/10"
-            >
-              {saveSettingsMutation.isPending ? "Saving..." : "Save Settings"}
-            </button>
-          </div>
-          {saveSettingsMutation.isSuccess && <p className="text-sm text-emerald-600 font-semibold mt-3">✓ Settings saved successfully</p>}
-        </div>
-      </div>
-    );
-  };
-
-  const renderContent = () => {
+const renderContent = () => {
     switch (activePage) {
       case "dashboard": return renderDashboard();
       case "pharmacies": return renderPharmacies();
       case "pharmacy-detail": return renderPharmacyDetail();
       case "verification": return renderVerification();
-      case "subscriptions": return renderSubscriptions();
+      
+      // ✅ UPDATED: Render standalone components
+      case "subscriptions": return <SubscriptionsManager isAuthenticated={isAuthenticated} queryClient={queryClient} />;
+      case "settings": return <PlatformSettingsManager settingsQuery={settingsQuery} saveSettingsMutation={saveSettingsMutation} />;
+      
       case "payments": return renderPayments();
       case "users": return renderUsers();
       case "analytics": return renderAnalytics();
       case "audit": return renderAudit();
       case "announcements": return renderAnnouncements();
       case "features": return renderFeatures();
-      case "settings": return renderSettings();
       default: return renderDashboard();
     }
   };
@@ -828,7 +972,8 @@ export default function App() {
           <div className={`flex items-center h-16 border-b border-slate-100 ${sidebarOpen ? "px-6" : "px-4 justify-center"}`}>
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md"><Package className="w-5 h-5 text-white" /></div>
-              {sidebarOpen && <span className="text-lg font-extrabold text-slate-900 tracking-tight">PharmaSys</span>}
+              {sidebarOpen && <span className="text-lg font-extrabold
+              text-slate-900 tracking-tight">PharnaCare</span>}
             </div>
           </div>
           <nav className="flex-1 overflow-y-auto py-4 px-3">            <ul className="space-y-0.5">
