@@ -80,6 +80,14 @@ export const createAnnouncement = data =>
         method: "POST",
         body: JSON.stringify(data)
     });
-
+// Subscription Tiers Management
+export const fetchSubscriptionTiers = () => adminFetch("/subscription-tiers");
+export const updateSubscriptionTiers = tiers =>
+    adminFetch("/subscription-tiers", {
+        method: "PUT",
+        body: JSON.stringify({
+            tiers
+        })
+    });
 // Subscription Config
 export const fetchSubscriptionConfig = () => adminFetch("/subscription-config");

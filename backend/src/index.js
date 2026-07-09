@@ -72,7 +72,21 @@ app.get("/health", (req, res) => {
         message: "Pharmacy Inventory Backend is running"
     });
 });
-
+app.get("/api", (req, res) => {
+    res.json({
+        name: "PharmaCare API",
+        version: "1.0.0",
+        status: "operational",
+        endpoints: {
+            auth: "/api/auth",
+            admin: "/api/admin",
+            pharmacies: "/api/pharmacies",
+            dashboard: "/api/dashboard",
+            health: "/health"
+        },
+        docs: "https://pharmacare-super.vercel.app"
+    });
+});
 // ...
 app.use("/api/auth", authRoutes);
 // Routes

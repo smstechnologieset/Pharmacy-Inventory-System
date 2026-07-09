@@ -1,21 +1,22 @@
 import express from "express";
 import { requireSuperAdmin } from "../middleware/adminMiddleware.js";
 import {
-  getAdminDashboardStats,
-  listPharmacies,
-  getPharmacyDetail,
-  updatePharmacyStatus,
-  listUsers,
-  getVerificationQueue,
-  getAuditLogs,
-  getPaymentsOverview,
-  getPlatformSettings,
-  updatePlatformSettings,
-  getFeatureFlags,
-  toggleFeatureFlag,
-  getAnnouncements,
-  createAnnouncement,
-  getSubscriptionConfig,
+    getAdminDashboardStats,
+    listPharmacies,
+    getPharmacyDetail,
+    updatePharmacyStatus,
+    listUsers,
+    getVerificationQueue,
+    getAuditLogs,
+    getPaymentsOverview,
+    getPlatformSettings,
+    updatePlatformSettings,
+    getFeatureFlags,
+    toggleFeatureFlag,
+    getAnnouncements,
+    createAnnouncement,
+    getSubscriptionConfig,
+    updateSubscriptionTiers,getSubscriptionTiers
 } from "../controllers/adminController.js";
 
 const router = express.Router();
@@ -54,7 +55,9 @@ router.patch("/feature-flags/:flagId/toggle", toggleFeatureFlag);
 // Announcements
 router.get("/announcements", getAnnouncements);
 router.post("/announcements", createAnnouncement);
-
+// Subscription Tiers Management
+router.get("/subscription-tiers", getSubscriptionTiers);
+router.put("/subscription-tiers", updateSubscriptionTiers);
 // Subscription Config
 router.get("/subscription-config", getSubscriptionConfig);
 
