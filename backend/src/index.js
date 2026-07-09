@@ -28,18 +28,6 @@ initializeWebPush();
 
 // Middleware
 
-// app.use(
-//     cors({
-//         origin: [
-//             process.env.NODE_ENV == "development" && "http://localhost:5173",
-//             "https://pharma-inventory.vercel.app",
-//             "https://pharmacare-super.vercel.app"
-//         ],
-//         credentials: true,
-//         methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-//         allowedHeaders: ["Content-Type", "Authorization"]
-//     })
-// );
 // Build allowed origins dynamically — no false values in the array
 const allowedOrigins = [
     "https://pharma-inventory.vercel.app",
