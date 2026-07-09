@@ -1,5 +1,7 @@
-import { getFirestore } from "./config/firebase.js";
-import { TIER_LIMITS } from "./config/subscriptionConfig.js";
+
+
+import { getFirestore } from "../config/firebase.js";
+import { TIER_LIMITS } from "../config/subscriptionConfig.js";
 
 // 1. Loads the pharmacy (tenant) data and checks if subscription is active
 
