@@ -18,7 +18,7 @@ import { auth } from "../services/firebase";
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // New state for password visibility
+  const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState("");
   const [localLoading, setLocalLoading] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
@@ -46,9 +46,8 @@ const Login = () => {
       await login(email, password);
       setLocalLoading(false);
       navigate("/");
-    } catch ( error ) {
-      if (error.message === "__unverified__") {
-        navigate("/verify-email");
+    } catch (error) {
+      if (error.message === "__unverified__") {        navigate("/verify-email");
       } else {
         setLocalError(error.message || "Authentication failed");
       }
@@ -95,26 +94,13 @@ const Login = () => {
   const isLoading = localLoading || authLoading;
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        background: "#F8FAFC",
-        fontFamily: "'Lexend', sans-serif",
-      }}>
+    <div className="min-h-screen flex flex-col md:flex-row bg-[#F8FAFC] font-['Lexend']">
       {/* Left Side - Branding */}
-      <div
+      <div        className="md:flex-1_2 flex flex-col justify-center p-10 md:p-[100px] text-white relative overflow-hidden"
         style={{
-          flex: 1.2,
           background: "linear-gradient(135deg, #0D9488 0%, #14B8A6 100%)",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          padding: "100px",
-          color: "white",
-          position: "relative",
-          overflow: "hidden",
-        }}>
+        }}
+      >
         <div
           style={{
             position: "absolute",
@@ -124,7 +110,8 @@ const Login = () => {
             height: "300px",
             background: "rgba(255,255,255,0.1)",
             borderRadius: "50%",
-          }}></div>
+          }}
+        ></div>
         <div
           style={{
             position: "absolute",
@@ -134,7 +121,8 @@ const Login = () => {
             height: "200px",
             background: "rgba(255,255,255,0.05)",
             borderRadius: "50%",
-          }}></div>
+          }}
+        ></div>
 
         <div
           style={{
@@ -143,22 +131,24 @@ const Login = () => {
             gap: "16px",
             marginBottom: "48px",
             position: "relative",
-          }}>
+          }}
+        >
           <div
             style={{
               background: "rgba(255,255,255,0.2)",
               padding: "12px",
               borderRadius: "18px",
               boxShadow: "0 8px 32px rgba(0,0,0,0.1)",
-            }}>
+            }}
+          >
             <ShieldPlus size={40} />
           </div>
           <span
             style={{
-              fontSize: "2.4rem",
-              fontWeight: "800",
+              fontSize: "2.4rem",              fontWeight: "800",
               letterSpacing: "-0.025em",
-            }}>
+            }}
+          >
             PharmaCare
           </span>
         </div>
@@ -172,7 +162,8 @@ const Login = () => {
             fontWeight: "800",
             letterSpacing: "-0.04em",
             position: "relative",
-          }}>
+          }}
+        >
           Modern <br /> Pharmacy <br /> Solutions.
         </h1>
 
@@ -184,7 +175,8 @@ const Login = () => {
             lineHeight: "1.6",
             fontWeight: "400",
             position: "relative",
-          }}>
+          }}
+        >
           Simplified inventory management with real-time tracking, glowing
           analytics, and a vibrant user experience.
         </p>
@@ -195,14 +187,15 @@ const Login = () => {
             display: "flex",
             gap: "24px",
             position: "relative",
-          }}>
+          }}
+        >
           <div
             style={{
               background: "rgba(255,255,255,0.1)",
               padding: "20px",
               borderRadius: "24px",
-              backdropFilter: "blur(10px)",
-            }}>
+              backdropFilter: "blur(10px)",            }}
+          >
             <div style={{ fontWeight: "700", fontSize: "1.5rem" }}>99.9%</div>
             <div style={{ fontSize: "0.8rem", opacity: 0.8 }}>
               Accuracy Rate
@@ -214,7 +207,8 @@ const Login = () => {
               padding: "20px",
               borderRadius: "24px",
               backdropFilter: "blur(10px)",
-            }}>
+            }}
+          >
             <div style={{ fontWeight: "700", fontSize: "1.5rem" }}>24/7</div>
             <div style={{ fontSize: "0.8rem", opacity: 0.8 }}>
               Real-time Sync
@@ -224,15 +218,8 @@ const Login = () => {
       </div>
 
       {/* Right Side - Form */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "60px",
-        }}>
-        <div style={{ width: "100%", maxWidth: "440px" }}>
+      <div className="flex-1 flex items-center justify-center p-6 md:p-[60px]">
+        <div className="w-full max-w-[440px]">
           <div style={{ marginBottom: "40px" }}>
             <h1
               style={{
@@ -240,7 +227,8 @@ const Login = () => {
                 fontWeight: "800",
                 color: "#1E293B",
                 marginBottom: "8px",
-              }}>
+              }}
+            >
               {t("login.welcomeBack")}
             </h1>
             <p
@@ -248,14 +236,14 @@ const Login = () => {
                 color: "#64748B",
                 fontSize: "0.85rem",
                 marginBottom: "32px",
-              }}>
+              }}
+            >
               {t("login.loginPrompt")}
             </p>
           </div>
 
           {displayError && (
-            <div
-              style={{
+            <div              style={{
                 display: "flex",
                 alignItems: "flex-start",
                 gap: "12px",
@@ -264,7 +252,8 @@ const Login = () => {
                 backgroundColor: "#FEE2E2",
                 borderRadius: "16px",
                 border: "1px solid #FECACA",
-              }}>
+              }}
+            >
               <AlertCircle
                 size={20}
                 style={{ color: "#DC2626", marginTop: "2px", flexShrink: 0 }}
@@ -274,7 +263,8 @@ const Login = () => {
                   color: "#991B1B",
                   fontSize: "0.9rem",
                   lineHeight: "1.4",
-                }}>
+                }}
+              >
                 {displayError}
               </div>
             </div>
@@ -282,17 +272,18 @@ const Login = () => {
 
           <form
             onSubmit={handleSubmit}
-            style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+            style={{ display: "flex", flexDirection: "column", gap: "24px" }}
+          >
             {/* Email Field */}
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               <label
                 style={{
                   fontSize: "0.95rem",
                   fontWeight: "700",
                   color: "#1E293B",
                   marginLeft: "4px",
-                }}>
+                }}
+              >
                 {t("login.emailAddress")}
               </label>
               <div style={{ position: "relative" }}>
@@ -301,8 +292,7 @@ const Login = () => {
                   style={{
                     position: "absolute",
                     left: "20px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
+                    top: "50%",                    transform: "translateY(-50%)",
                     color: "#94A3B8",
                   }}
                 />
@@ -339,21 +329,21 @@ const Login = () => {
             </div>
 
             {/* Password Field */}
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               <div
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                }}>
+                }}
+              >
                 <label
                   style={{
                     fontSize: "0.95rem",
                     fontWeight: "700",
-                    color: "#1E293B",
-                    marginLeft: "4px",
-                  }}>
+                    color: "#1E293B",                    marginLeft: "4px",
+                  }}
+                >
                   {t("login.password")}
                 </label>
                 <button
@@ -368,7 +358,8 @@ const Login = () => {
                     border: "none",
                     cursor: "pointer",
                     padding: 0,
-                  }}>
+                  }}
+                >
                   {t("login.forgotPassword")}
                 </button>
               </div>
@@ -389,7 +380,7 @@ const Login = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   style={{
                     width: "100%",
-                    padding: "18px 56px 18px 56px", // Increased right padding for the eye icon
+                    padding: "18px 56px 18px 56px",
                     borderRadius: "20px",
                     border: "2px solid #F1F5F9",
                     background: "#F8FAFC",
@@ -399,20 +390,18 @@ const Login = () => {
                     fontFamily: "inherit",
                   }}
                   onFocus={(e) => {
-                    e.target.style.borderColor = "#0D9488";
-                    e.target.style.background = "white";
+                    e.target.style.borderColor = "#0D9488";                    e.target.style.background = "white";
                     e.target.style.boxShadow =
                       "0 0 0 4px rgba(13, 148, 136, 0.1)";
                   }}
                   onBlur={(e) => {
                     e.target.style.borderColor = "#F1F5F9";
-                    e.target.style.background = "#F8FAFC";
+                    e.target.style.background = "#F8FAFC",
                     e.target.style.boxShadow = "none";
                   }}
                   placeholder="••••••••"
                   required
                 />
-                {/* Eye Icon Toggle Button */}
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -450,8 +439,7 @@ const Login = () => {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: "12px",
-                backgroundColor: "#0D9488",
+                gap: "12px",                backgroundColor: "#0D9488",
                 color: "white",
                 border: "none",
                 fontWeight: "700",
@@ -465,7 +453,8 @@ const Login = () => {
               }}
               onMouseLeave={(e) => {
                 e.target.style.backgroundColor = "#0D9488";
-              }}>
+              }}
+            >
               {isLoading ? t("login.loading") : t("login.signIntoAccount")}
               {!isLoading && <ArrowRight size={22} />}
             </button>
@@ -478,7 +467,8 @@ const Login = () => {
               marginTop: "48px",
               color: "#64748B",
               fontSize: "0.95rem",
-            }}>
+            }}
+          >
             {t("login.dontHaveAccount")}
             <button
               type="button"
@@ -492,29 +482,23 @@ const Login = () => {
                 cursor: "pointer",
                 fontSize: "inherit",
                 marginLeft: "4px",
-              }}>
+              }}
+            >
               {t("login.signUp")}
             </button>
           </div>
         </div>
       </div>
-
-      {/* Reset Password Modal (Unchanged) */}
+      {/* Reset Password Modal */}
       {showResetModal && (
         <div
-          className="modal-overlay"
+          className="fixed inset-0 flex items-center justify-center z-[9999] bg-black bg-opacity-50"
           onClick={() => setShowResetModal(false)}
-          style={{ zIndex: 9999 }}>
+        >
           <div
-            className="modal-content"
+            className="bg-white rounded-2xl max-w-[430px] w-full p-8 relative"
             onClick={(e) => e.stopPropagation()}
-            style={{
-              maxWidth: "430px",
-              padding: "32px",
-              position: "relative",
-              background: "white",
-              borderRadius: "24px",
-            }}>
+          >
             <button
               onClick={() => setShowResetModal(false)}
               title={t("modal.close")}
@@ -526,7 +510,8 @@ const Login = () => {
                 border: "none",
                 cursor: "pointer",
                 color: "#94A3B8",
-              }}>
+              }}
+            >
               <X size={20} />
             </button>
 
@@ -536,7 +521,8 @@ const Login = () => {
                 fontWeight: "800",
                 marginBottom: "8px",
                 color: "#0F172A",
-              }}>
+              }}
+            >
               {t("login.resetPasswordTitle")}
             </h2>
             <p
@@ -545,13 +531,14 @@ const Login = () => {
                 fontSize: "0.9rem",
                 lineHeight: "1.5",
                 marginBottom: "24px",
-              }}>
+              }}
+            >
               {t("login.resetPasswordSubtitle")}
             </p>
 
             <form
-              onSubmit={handlePasswordReset}
-              style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              onSubmit={handlePasswordReset}              style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+            >
               <div>
                 <label
                   style={{
@@ -560,7 +547,8 @@ const Login = () => {
                     fontWeight: "700",
                     marginBottom: "8px",
                     color: "#1E293B",
-                  }}>
+                  }}
+                >
                   {t("login.emailAddress")}
                 </label>
                 <input
@@ -587,7 +575,8 @@ const Login = () => {
                     borderRadius: "10px",
                     fontSize: "0.85rem",
                     fontWeight: "600",
-                  }}>
+                  }}
+                >
                   {resetError}
                 </div>
               )}
@@ -597,10 +586,10 @@ const Login = () => {
                     color: "#059669",
                     background: "#ECFDF5",
                     padding: "10px 12px",
-                    borderRadius: "10px",
-                    fontSize: "0.85rem",
+                    borderRadius: "10px",                    fontSize: "0.85rem",
                     fontWeight: "600",
-                  }}>
+                  }}
+                >
                   {resetSuccess}
                 </div>
               )}
@@ -615,14 +604,16 @@ const Login = () => {
                     background: "#F8FAFC",
                     color: "#475569",
                     border: "1px solid #E2E8F0",
-                  }}>
+                  }}
+                >
                   {t("modal.cancel")}
                 </button>
                 <button
                   type="submit"
                   className="btn btn-primary"
                   disabled={resetLoading}
-                  style={{ flex: 1, opacity: resetLoading ? 0.7 : 1 }}>
+                  style={{ flex: 1, opacity: resetLoading ? 0.7 : 1 }}
+                >
                   {resetLoading
                     ? t("login.sendingReset")
                     : t("login.sendResetLink")}

@@ -13,6 +13,7 @@ import pharmaciesRoutes from "./routes/pharmacies.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import authRoutes from "./routes/auth.js";
 import paymentRoutes from "./routes/payments.js";
+import adminRoutes from "./routes/admin.js";
 // ... other imports ..
 dotenv.config();
 
@@ -27,27 +28,49 @@ initializeWebPush();
 
 // Middleware
 
+// app.use(
+//     cors({
+//         origin: [
+//             process.env.NODE_ENV == "development" && "http://localhost:5173",
+//             "https://pharma-inventory.vercel.app",
+//             "https://pharmacare-super.vercel.app"
+//         ],
+//         credentials: true,
+//         methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+//         allowedHeaders: ["Content-Type", "Authorization"]
+//     })
+// );
+// Build allowed origins dynamically — no false values in the array
+const allowedOrigins = [
+    "https://pharma-inventory.vercel.app",
+    "https://pharmacare-super.vercel.app"
+];
+
+// Only add localhost in development
+if (process.env.NODE_ENV === "development") {
+    allowedOrigins.push("http://localhost:5173");
+}
+
 app.use(
-  cors({
-    origin: [
-      process.env.NODE_ENV == "development" && "http://localhost:5173",
-      "https://pharma-inventory.vercel.app",
-    ],
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  }),
+    cors({
+        origin: allowedOrigins,
+        credentials: true,
+        methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization"]
+    })
 );
 app.use(express.json());
 
 app.use((req, res, next) => {
-  res.setHeader("Content-Type", "application/json");
-  next();
+    res.setHeader("Content-Type", "application/json");
+    next();
 });
-
 // Health check endpoint
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", message: "Pharmacy Inventory Backend is running" });
+    res.json({
+        status: "ok",
+        message: "Pharmacy Inventory Backend is running"
+    });
 });
 
 // ...
@@ -62,7 +85,10 @@ app.use("/api/sales", salesRoutes);
 app.use("/api/pharmacies", pharmaciesRoutes);
 
 app.use("/api/payments", paymentRoutes);
-// 404 Not Found Handler (must be before error handler)
+
+// Add this import at the top with your other route imports:
+
+app.use("/api/admin", adminRoutes); // 404 Not Found Handler (must be before error handler)
 app.use(notFoundHandler);
 
 // Error handling middleware (must be last)
@@ -70,10 +96,10 @@ app.use(errorHandler);
 
 // Start server
 app.listen(PORT, () => {
-  if (process.env.NODE_ENV === "development") {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📍 Environment: ${process.env.NODE_ENV || "development"}`);
-  }
+    if (process.env.NODE_ENV === "development") {
+        console.log(`🚀 Server running on port ${PORT}`);
+        console.log(`📍 Environment: ${process.env.NODE_ENV || "development"}`);
+    }
 });
 
 export default app;
