@@ -1,5 +1,5 @@
 import express from "express";
-import { requireSuperAdmin } from "../middleware/adminMiddleware.js";
+import { requireSuperAdmin } from "./middleware/adminMiddleware.js";
 import {
   getAdminDashboardStats,
   listPharmacies,
