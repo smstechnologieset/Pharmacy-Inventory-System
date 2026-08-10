@@ -46,6 +46,21 @@ export const fetchUsers = (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return adminFetch(`/users?${qs}`);
 };
+export const createUser = (userData) =>
+    adminFetch("/users", {
+        method: "POST",
+        body: JSON.stringify(userData)
+    });
+export const updateUserRole = (userId, role) =>
+    adminFetch(`/users/${userId}/role`, {
+        method: "PATCH",
+        body: JSON.stringify({ role })
+    });
+export const updateUserStatus = (userId, status) =>
+    adminFetch(`/users/${userId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status })
+    });
 
 // Verification
 export const fetchVerificationQueue = () => adminFetch("/verification/queue");
@@ -72,6 +87,15 @@ export const toggleFeatureFlag = (flagId, enabled) =>
         method: "PATCH",
         body: JSON.stringify({ enabled })
     });
+export const createFeatureFlag = (flagData) =>
+    adminFetch("/feature-flags", {
+        method: "POST",
+        body: JSON.stringify(flagData)
+    });
+export const deleteFeatureFlag = (flagId) =>
+    adminFetch(`/feature-flags/${flagId}`, {
+        method: "DELETE"
+    });
 
 // Announcements
 export const fetchAnnouncements = () => adminFetch("/announcements");
@@ -80,14 +104,27 @@ export const createAnnouncement = data =>
         method: "POST",
         body: JSON.stringify(data)
     });
+export const updateAnnouncement = (announcementId, data) =>
+    adminFetch(`/announcements/${announcementId}`, {
+        method: "PUT",
+        body: JSON.stringify(data)
+    });
+export const deleteAnnouncement = (announcementId) =>
+    adminFetch(`/announcements/${announcementId}`, {
+        method: "DELETE"
+    });
+
 // Subscription Tiers Management
 export const fetchSubscriptionTiers = () => adminFetch("/subscription-tiers");
 export const updateSubscriptionTiers = tiers =>
     adminFetch("/subscription-tiers", {
         method: "PUT",
-        body: JSON.stringify({
-            tiers
-        })
+        body: JSON.stringify({ tiers })
     });
+export const deleteSubscriptionTier = (tierId) =>
+    adminFetch(`/subscription-tiers/${tierId}`, {
+        method: "DELETE"
+    });
+
 // Subscription Config
 export const fetchSubscriptionConfig = () => adminFetch("/subscription-config");

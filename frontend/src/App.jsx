@@ -16,8 +16,6 @@ import Staff from "./pages/Staff";
 import Suppliers from "./pages/Suppliers";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
-import SuperAdmin from "./pages/SuperAdmin";
-//import LandingPage from "./pages/LandingPage.jsx";
 import { useAuth } from "./context/AuthContext";
 import LoadingScreen from "./components/LoadingScreen.jsx";
 import Signup from "./pages/Signup.jsx";
@@ -48,8 +46,17 @@ const ProtectedRoute = ({ children }) => {
     }
     if (!user) return <Navigate to="/login" />;
 
-    // Super admin bypasses tenant checks
-    if (user.role === "superadmin") return <Navigate to="/super-admin" />;
+    // Super admin redirects to standalone Super Admin App
+    if (user.role === "superadmin") {
+        const superAdminUrl = import.meta.env.VITE_SUPERADMIN_URL || "http://localhost:5174";
+        window.location.href = superAdminUrl;
+        return <LoadingScreen />;
+    }
+
+    // NEW CHECK: If user hasn't finished the signup flow, force them to /signup
+    if (user.status === "pending_onboarding" || !user.pharmacyId) {
+        return <Navigate to="/signup" replace />;
+    }
 
     // 1. Check Subscription Status (Payment)
     if (subscriptionStatus === "pending_payment") {
@@ -70,15 +77,17 @@ const ProtectedRoute = ({ children }) => {
     return children;
 };
 
-// Super Admin Route Guard
-const SuperAdminRoute = ({ children }) => {
-    const { user, loading, authUser } = useAuth();
+// Super Admin Redirect Route
+const SuperAdminRoute = () => {
+    const { user, loading } = useAuth();
 
     if (loading) return <LoadingScreen />;
     if (!user) return <Navigate to="/login" />;
     if (user.role !== "superadmin") return <Navigate to="/" />;
-    if (!authUser?.emailVerified) return <Navigate to="/verify-email" />;
-    return children;
+
+    const superAdminUrl = import.meta.env.VITE_SUPERADMIN_URL || "http://localhost:5174";
+    window.location.href = superAdminUrl;
+    return <LoadingScreen />;
 };
 
 // Role Guard Component (Restricts access based on specific user roles)
@@ -125,14 +134,10 @@ function App() {
                         }
                     />
 
-                    {/* Super Admin Dashboard — completely separate layout */}
+                    {/* Super Admin Redirect */}
                     <Route
                         path="/super-admin"
-                        element={
-                            <SuperAdminRoute>
-                                <SuperAdmin />
-                            </SuperAdminRoute>
-                        }
+                        element={<SuperAdminRoute />}
                     />
 
                     {/* Main App Layout (Protected by the Master Gatekeeper) */}

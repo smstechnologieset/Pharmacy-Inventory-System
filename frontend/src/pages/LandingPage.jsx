@@ -41,6 +41,35 @@ const LandingPage = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState(null);
   const [scrolled, setScrolled] = useState(false);
+  const [subscriptionTiers, setSubscriptionTiers] = useState([]);
+
+  useEffect(() => {
+    const fetchTiers = async () => {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+        const res = await fetch(`${API_URL}/public/subscription-tiers`);
+        const data = await res.json();
+        if (data.tiers && Object.keys(data.tiers).length > 0) {
+          // Convert the object into an array and sort by monthly pricing
+          const tiersArr = Object.values(data.tiers)
+            .sort((a, b) => (a.pricing?.monthly || 0) - (b.pricing?.monthly || 0))
+            .map((tier, index) => ({
+              name: tier.name,
+              price: (tier.pricing?.monthly || 0).toLocaleString(),
+              period: "/mo",
+              yearly: `${(tier.pricing?.yearly || 0).toLocaleString()} ETB/yr`,
+              desc: tier.description,
+              features: tier.features || [],
+              popular: index === 1, // Make the middle one popular by default
+            }));
+          setSubscriptionTiers(tiersArr);
+        }
+      } catch (err) {
+        console.error("Failed to fetch subscription tiers:", err);
+      }
+    };
+    fetchTiers();
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -110,7 +139,7 @@ const LandingPage = () => {
               <button
                 onClick={() => navigate("/signup")}
                 className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-full text-sm font-semibold transition shadow-lg shadow-teal-600/25 active:scale-95">
-                Start Free Trial
+                Get Started
               </button>
             </div>
 
@@ -163,7 +192,7 @@ const LandingPage = () => {
                 navigate("/signup");
               }}
               className="w-full bg-teal-600 text-white py-3 rounded-xl font-semibold active:scale-95 transition">
-              Start Free Trial
+              Get Started
             </button>
           </div>
         )}
@@ -213,7 +242,7 @@ const LandingPage = () => {
             <button
               onClick={() => navigate("/signup")}
               className="group bg-teal-600 hover:bg-teal-700 text-white px-8 py-4 rounded-full text-lg font-bold transition-all shadow-xl shadow-teal-600/30 hover:shadow-teal-600/40 flex items-center justify-center gap-2 active:scale-95">
-              Start 14-Day Free Trial
+              Get Started Now
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
             <button
@@ -1010,58 +1039,61 @@ const LandingPage = () => {
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {[
-              {
-                name: "Starter",
-                price: "1,500",
-                period: "/mo",
-                yearly: "15,000 ETB/yr",
-                desc: "Perfect for single-branch community pharmacies.",
-                features: [
-                  "Up to 500 SKUs",
-                  "1 Branch",
-                  "3 Users",
-                  "Basic Expiry Alerts",
-                  "EFDA Compliance Reports",
-                  "Offline Mode",
-                ],
-                popular: false,
-              },
-              {
-                name: "Growth",
-                price: "3,000",
-                period: "/mo",
-                yearly: "28,000 ETB/yr",
-                desc: "For growing pharmacies with multiple staff.",
-                features: [
-                  "Up to 2,000 SKUs",
-                  "2 Branches",
-                  "5 Users",
-                  "Telebirr Auto-Sync",
-                  "Demand Forecasting",
-                  "Priority Support",
-                  "PDF Report Export",
-                ],
-                popular: true,
-              },
-              {
-                name: "Business",
-                price: "5,000",
-                period: "/mo",
-                yearly: "42,000 ETB/yr",
-                desc: "For chains and wholesalers who need unlimited scale.",
-                features: [
-                  "Unlimited SKUs",
-                  "Unlimited Branches",
-                  "Unlimited Users",
-                  "API Access",
-                  "Custom Integrations",
-                  "Dedicated Account Manager",
-                  "Advanced Analytics",
-                ],
-                popular: false,
-              },
-            ].map((tier, i) => (
+            {(subscriptionTiers.length > 0
+              ? subscriptionTiers
+              : [
+                  {
+                    name: "Starter",
+                    price: "1,500",
+                    period: "/mo",
+                    yearly: "15,000 ETB/yr",
+                    desc: "Perfect for single-branch community pharmacies.",
+                    features: [
+                      "Up to 500 SKUs",
+                      "1 Branch",
+                      "3 Users",
+                      "Basic Expiry Alerts",
+                      "EFDA Compliance Reports",
+                      "Offline Mode",
+                    ],
+                    popular: false,
+                  },
+                  {
+                    name: "Growth",
+                    price: "3,000",
+                    period: "/mo",
+                    yearly: "28,000 ETB/yr",
+                    desc: "For growing pharmacies with multiple staff.",
+                    features: [
+                      "Up to 2,000 SKUs",
+                      "2 Branches",
+                      "5 Users",
+                      "Telebirr Auto-Sync",
+                      "Demand Forecasting",
+                      "Priority Support",
+                      "PDF Report Export",
+                    ],
+                    popular: true,
+                  },
+                  {
+                    name: "Business",
+                    price: "5,000",
+                    period: "/mo",
+                    yearly: "42,000 ETB/yr",
+                    desc: "For chains and wholesalers who need unlimited scale.",
+                    features: [
+                      "Unlimited SKUs",
+                      "Unlimited Branches",
+                      "Unlimited Users",
+                      "API Access",
+                      "Custom Integrations",
+                      "Dedicated Account Manager",
+                      "Advanced Analytics",
+                    ],
+                    popular: false,
+                  },
+                ]
+            ).map((tier, i) => (
               <div
                 key={i}
                 className={`relative p-8 rounded-2xl border-2 transition-all duration-300 ${
@@ -1106,7 +1138,7 @@ const LandingPage = () => {
                       ? "bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-600/25"
                       : "bg-slate-100 hover:bg-slate-200 text-slate-900"
                   }`}>
-                  Start Free Trial
+                  Get Started
                 </button>
               </div>
             ))}
@@ -1220,7 +1252,7 @@ const LandingPage = () => {
               <CheckCircle2 className="w-4 h-4" /> No credit card required
             </span>
             <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4" /> 14-day free trial
+              <CheckCircle2 className="w-4 h-4" /> Instant access
             </span>
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4" /> Cancel anytime

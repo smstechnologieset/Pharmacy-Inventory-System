@@ -118,3 +118,40 @@ export const completeRegistration = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+/**
+ * Cancel / roll back a partial signup.
+ * Deletes the Firebase Auth user and their Firestore profile so the
+ * same email address can be used to register again in the future.
+ * Only works while the user's Firestore status is "pending_onboarding"
+ * (i.e. they never finished the full registration wizard).
+ */
+export const cancelRegistration = async (req, res) => {
+  const uid = req.user.uid;
+  const db = getFirestore();
+
+  try {
+    const userRef = db.collection("users").doc(uid);
+    const userDoc = await userRef.get();
+
+    // Safety check: only allow cancellation before the pharmacy is created
+    if (userDoc.exists && userDoc.data().status !== "pending_onboarding") {
+      return res.status(400).json({
+        error: "Cannot cancel registration after it has already been completed.",
+      });
+    }
+
+    // Delete Firestore profile (if it exists)
+    if (userDoc.exists) {
+      await userRef.delete();
+    }
+
+    // Delete the Firebase Auth account so the email is freed up
+    await admin.auth().deleteUser(uid);
+
+    return res.status(200).json({ success: true, message: "Registration cancelled." });
+  } catch (error) {
+    console.error("Error cancelling registration:", error);
+    return res.status(500).json({ error: error.message });
+  }
+};

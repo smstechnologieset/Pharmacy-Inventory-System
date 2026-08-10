@@ -7,7 +7,7 @@ export const CHAPA_API_URL = "https://api.chapa.co/v1";
 export const chapaClient = axios.create({
   baseURL: CHAPA_API_URL,
   headers: {
-    Authorization: `Bearer ${process.env.CHAPA_SECRET}`,
+    Authorization: `Bearer ${process.env.CHAPA_SECRET_KEY}`,
     "Content-Type": "application/json",
   },
 });

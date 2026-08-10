@@ -14,6 +14,7 @@ import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import authRoutes from "./routes/auth.js";
 import paymentRoutes from "./routes/payments.js";
 import adminRoutes from "./routes/admin.js";
+import publicRoutes from "./routes/public.js";
 // ... other imports ..
 dotenv.config();
 
@@ -35,8 +36,10 @@ const allowedOrigins = [
 ];
 
 // Only add localhost in development
-if (process.env.NODE_ENV === "development") {
+if (!process.env.NODE_ENV || process.env.NODE_ENV === "development") {
     allowedOrigins.push("http://localhost:5173");
+    allowedOrigins.push("http://localhost:5174");
+    allowedOrigins.push("http://localhost:5175");
 }
 
 app.use(
@@ -47,7 +50,8 @@ app.use(
         allowedHeaders: ["Content-Type", "Authorization"]
     })
 );
-app.use(express.json());
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ limit: '200mb', extended: true }));
 
 app.use((req, res, next) => {
     res.setHeader("Content-Type", "application/json");
@@ -90,7 +94,10 @@ app.use("/api/payments", paymentRoutes);
 
 // Add this import at the top with your other route imports:
 
-app.use("/api/admin", adminRoutes); // 404 Not Found Handler (must be before error handler)
+app.use("/api/admin", adminRoutes); 
+app.use("/api/public", publicRoutes);
+
+// 404 Not Found Handler (must be before error handler)
 app.use(notFoundHandler);
 
 // Error handling middleware (must be last)

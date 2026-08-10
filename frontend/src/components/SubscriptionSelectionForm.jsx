@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from "react";
 import {
   ShieldPlus,
   Mail,
@@ -26,30 +27,33 @@ const SubscriptionSelectionForm = ({
   onNext,
   onBack,
 }) => {
-  const tiers = [
-    {
-      id: "starter", // Changed from "starter_fikir"
-      name: "Starter",
-      monthlyPrice: "1,500",
-      yearlyPrice: "15,000",
-      features: ["Up to 500 SKUs", "1 Branch", "3 Users"],
-    },
-    {
-      id: "growth", // Changed from "growth_gizmo"
-      name: "Growth",
-      monthlyPrice: "3,000",
-      yearlyPrice: "28,000",
-      features: ["Up to 2,000 SKUs", "2 Branches", "5 Users"],
-      popular: true,
-    },
-    {
-      id: "business", // Changed from "business_medipro"
-      name: "Business",
-      monthlyPrice: "5,000",
-      yearlyPrice: "42,000",
-      features: ["Unlimited SKUs", "Unlimited Branches", "Unlimited Users"],
-    },
-  ];
+  const [tiers, setTiers] = useState([]);
+
+  useEffect(() => {
+    const fetchTiers = async () => {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+        const res = await fetch(`${API_URL}/public/subscription-tiers`);
+        const data = await res.json();
+        if (data.tiers && Object.keys(data.tiers).length > 0) {
+          const tiersArr = Object.values(data.tiers)
+            .sort((a, b) => (a.pricing?.monthly || 0) - (b.pricing?.monthly || 0))
+            .map((tier, index) => ({
+              id: Object.keys(data.tiers).find(key => data.tiers[key].name === tier.name) || tier.name.toLowerCase().replace(/\s+/g, '_'),
+              name: tier.name,
+              monthlyPrice: (tier.pricing?.monthly || 0).toLocaleString(),
+              yearlyPrice: (tier.pricing?.yearly || 0).toLocaleString(),
+              features: tier.features || [],
+              popular: index === 1,
+            }));
+          setTiers(tiersArr);
+        }
+      } catch (err) {
+        console.error("Failed to fetch subscription tiers:", err);
+      }
+    };
+    fetchTiers();
+  }, []);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
@@ -100,7 +104,30 @@ const SubscriptionSelectionForm = ({
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-        {tiers.map((tier) => (
+        {(tiers.length > 0 ? tiers : [
+          {
+            id: "starter",
+            name: "Starter",
+            monthlyPrice: "1,500",
+            yearlyPrice: "15,000",
+            features: ["Up to 500 SKUs", "1 Branch", "3 Users"],
+          },
+          {
+            id: "growth",
+            name: "Growth",
+            monthlyPrice: "3,000",
+            yearlyPrice: "28,000",
+            features: ["Up to 2,000 SKUs", "2 Branches", "5 Users"],
+            popular: true,
+          },
+          {
+            id: "business",
+            name: "Business",
+            monthlyPrice: "5,000",
+            yearlyPrice: "42,000",
+            features: ["Unlimited SKUs", "Unlimited Branches", "Unlimited Users"],
+          },
+        ]).map((tier) => (
           <div
             key={tier.id}
             onClick={() => updateField("selectedTier", tier.id)}

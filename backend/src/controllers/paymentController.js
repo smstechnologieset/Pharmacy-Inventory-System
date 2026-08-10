@@ -40,13 +40,33 @@ export const initializeSignupPayment = async (req, res) => {
     const { billingCycle } = req.body;
     const tier = pharmacy.subscription.tier;
 
-    // 🚨 ADD THIS LOG: This will print the exact keys being used
+    // Fetch tier pricing from DB (platformSettings/subscriptionTiers is a single doc
+    // where each key is a tier ID, e.g. { starter: { pricing: { monthly: 1500 } }, ... })
+    let pricing = null;
+    try {
+      const platformDoc = await db.collection("platformSettings").doc("subscriptionTiers").get();
+      if (platformDoc.exists) {
+        const allTiers = platformDoc.data();
+        const tierData = allTiers[tier];
+        const amount = tierData?.pricing?.[billingCycle];
+        if (amount) {
+          pricing = { amount: Number(amount), currency: 'ETB' };
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to fetch dynamic tier from DB, falling back to config", err);
+    }
+
+    // Fallback to hardcoded config for legacy tiers (starter, growth, business, enterprise)
+    if (!pricing) {
+      pricing = TIER_PRICING[tier]?.[billingCycle];
+    }
+
     console.log("🔍 DEBUG PAYMENT INIT:", {
       tierFromDB: tier,
       billingCycleFromFrontend: billingCycle,
-      availableTiersInConfig: Object.keys(TIER_PRICING),
+      resolvedPricing: pricing,
     });
-    const pricing = TIER_PRICING[tier]?.[billingCycle];
 
     if (!pricing) {
       return res.status(400).json({ error: "Invalid billing cycle or tier" });
@@ -167,8 +187,22 @@ export const verifyPaymentStatus = async (req, res) => {
             chapaData,
           );
 
-          // Fetch and return receipt data...
-          return res.json({ status: "completed", data /* ...receipt data */ });
+          const pharmacyDoc = await db.collection("pharmacies").doc(pharmacyId).get();
+          const pharmacyData = pharmacyDoc.data();
+
+          return res.json({
+            status: "completed",
+            amount: paymentData.amount,
+            tier: paymentData.tier,
+            billingCycle: paymentData.billingCycle,
+            chapaResponse: chapaData,
+            pharmacyInfo: {
+              name: pharmacyData.name,
+              email: pharmacyData.email,
+              phone: pharmacyData.phone,
+              address: pharmacyData.address,
+            }
+          });
         }
       } catch (chapaError) {
         console.warn("Chapa active verification failed:", chapaError.message);

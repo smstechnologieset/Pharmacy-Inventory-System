@@ -71,6 +71,7 @@ const Signup = () => {
     const {
         createAccount,
         finalizeRegistration,
+        cancelRegistration,
         user,
         loading: authLoading,
         error: authError
@@ -78,11 +79,23 @@ const Signup = () => {
     const { t } = useSettings();
     const navigate = useNavigate();
 
-    // useEffect(() => {
-    //   if (user && user.pharmacyId) {
-    //     navigate("/");
-    //   }
-    // }, [user, navigate]);
+    useEffect(() => {
+        if (user) {
+            if (user.pharmacyId) {
+                // Fully registered user shouldn't be here
+                navigate("/");
+            } else if (user.status === "pending_onboarding" && currentStep === 1) {
+                // User created account but didn't finish signup. Skip step 1.
+                // Pre-fill email and name from user profile
+                setFormData(prev => ({
+                    ...prev,
+                    email: user.email || "",
+                    name: user.name || ""
+                }));
+                setCurrentStep(2);
+            }
+        }
+    }, [user, navigate, currentStep]);
 
     const updateField = (field, value) =>
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -132,6 +145,19 @@ const Signup = () => {
             nextStep();
         } catch (error) {
             setLocalError(error.message || "Authentication failed");
+        } finally {
+            setLocalLoading(false);
+        }
+    };
+
+    const handleCancelRegistration = async () => {
+        if (!window.confirm("Are you sure you want to cancel? Your account will be deleted so you can start over with the same email.")) return;
+        setLocalLoading(true);
+        try {
+            await cancelRegistration();
+            navigate("/signup"); // Page reloads fresh since auth state clears
+        } catch (err) {
+            setLocalError(err.message || "Failed to cancel registration");
         } finally {
             setLocalLoading(false);
         }
@@ -269,6 +295,28 @@ const Signup = () => {
             {/* RIGHT SIDE FORM */}
             <div className="flex-1 flex items-center justify-center p-6 md:py-10 md:px-[60px] overflow-y-auto">
                 <div className="w-full max-w-[500px] py-5">
+                    {/* Cancel & Start Over — only shown after account is created (step 2+) */}
+                    {currentStep > 1 && (
+                        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "8px" }}>
+                            <button
+                                type="button"
+                                onClick={handleCancelRegistration}
+                                disabled={isLoading}
+                                style={{
+                                    background: "none",
+                                    border: "none",
+                                    color: "#94A3B8",
+                                    fontSize: "0.78rem",
+                                    cursor: "pointer",
+                                    textDecoration: "underline",
+                                    padding: "4px 0",
+                                }}
+                            >
+                                Cancel &amp; Start Over
+                            </button>
+                        </div>
+                    )}
+
                     {/* Progress Bar */}
                     <div className="mb-8 flex gap-2">
                         {[1, 2, 3, 4, 5, 6].map(step => (

@@ -155,6 +155,139 @@ export const listUsers = asyncHandler(async (req, res) => {
     res.json({ users });
 });
 
+// ─── CREATE USER ──────────────────────────────────────────────────────────────
+export const createUser = asyncHandler(async (req, res) => {
+    const { email, password, name, role, pharmacyId } = req.body;
+
+    if (!email || !password || !name || !role) {
+        return res.status(400).json({ error: "Email, password, name, and role are required" });
+    }
+
+    const validRoles = ["admin", "pharmacist", "cashier", "superadmin"];
+    if (!validRoles.includes(role)) {
+        return res.status(400).json({ error: `Invalid role. Must be one of: ${validRoles.join(", ")}` });
+    }
+
+    // Create Firebase Auth user
+    let userRecord;
+    try {
+        userRecord = await admin.auth().createUser({
+            email,
+            password,
+            displayName: name
+        });
+    } catch (error) {
+        if (error.code === "auth/email-already-exists") {
+            return res.status(409).json({ error: "A user with this email already exists" });
+        }
+        throw error;
+    }
+
+    // Create Firestore user document
+    const userData = {
+        uid: userRecord.uid,
+        email,
+        name,
+        role,
+        status: "Active",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdBy: req.user.uid
+    };
+
+    if (pharmacyId) {
+        userData.pharmacyId = pharmacyId;
+    }
+
+    await db.collection("users").doc(userRecord.uid).set(userData);
+
+    // Set custom claims for role
+    await admin.auth().setCustomUserClaims(userRecord.uid, { role, ...(pharmacyId && { pharmacyId }) });
+
+    // Audit log
+    await db.collection("auditLogs").add({
+        actor: req.user.email,
+        action: `Created user account (${role})`,
+        target: userRecord.uid,
+        details: `Created ${name} (${email}) with role ${role}`,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    res.json({ success: true, id: userRecord.uid });
+});
+
+// ─── UPDATE USER ROLE ─────────────────────────────────────────────────────────
+export const updateUserRole = asyncHandler(async (req, res) => {
+    const { userId } = req.params;
+    const { role } = req.body;
+
+    const validRoles = ["admin", "pharmacist", "cashier", "superadmin"];
+    if (!validRoles.includes(role)) {
+        return res.status(400).json({ error: `Invalid role. Must be one of: ${validRoles.join(", ")}` });
+    }
+
+    const userDoc = await db.collection("users").doc(userId).get();
+    if (!userDoc.exists) {
+        return res.status(404).json({ error: "User not found" });
+    }
+
+    await db.collection("users").doc(userId).update({
+        role,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Update custom claims
+    const existingClaims = (await admin.auth().getUser(userId)).customClaims || {};
+    await admin.auth().setCustomUserClaims(userId, { ...existingClaims, role });
+
+    await db.collection("auditLogs").add({
+        actor: req.user.email,
+        action: `Changed user role to ${role}`,
+        target: userId,
+        details: `${userDoc.data().email} role changed to ${role}`,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    res.json({ success: true });
+});
+
+// ─── UPDATE USER STATUS ───────────────────────────────────────────────────────
+export const updateUserStatus = asyncHandler(async (req, res) => {
+    const { userId } = req.params;
+    const { status } = req.body;
+
+    const validStatuses = ["Active", "Suspended", "Pending"];
+    if (!validStatuses.includes(status)) {
+        return res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` });
+    }
+
+    const userDoc = await db.collection("users").doc(userId).get();
+    if (!userDoc.exists) {
+        return res.status(404).json({ error: "User not found" });
+    }
+
+    await db.collection("users").doc(userId).update({
+        status,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // If suspending, disable the auth account; if activating, enable it
+    if (status === "Suspended") {
+        await admin.auth().updateUser(userId, { disabled: true });
+    } else if (status === "Active") {
+        await admin.auth().updateUser(userId, { disabled: false });
+    }
+
+    await db.collection("auditLogs").add({
+        actor: req.user.email,
+        action: `Updated user status to ${status}`,
+        target: userId,
+        details: `${userDoc.data().email} status changed to ${status}`,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    res.json({ success: true });
+});
+
 // ─── VERIFICATION QUEUE ───────────────────────────────────────────────────────
 export const getVerificationQueue = asyncHandler(async (req, res) => {
     // ✅ FIX: Fetch all pending, then sort in memory to avoid composite index requirement
@@ -237,6 +370,54 @@ export const toggleFeatureFlag = asyncHandler(async (req, res) => {
     res.json({ success: true });
 });
 
+export const createFeatureFlag = asyncHandler(async (req, res) => {
+    const { name, description, enabled } = req.body;
+
+    if (!name) {
+        return res.status(400).json({ error: "Feature flag name is required" });
+    }
+
+    const ref = await db.collection("featureFlags").add({
+        name,
+        description: description || "",
+        enabled: enabled ?? false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdBy: req.user.uid
+    });
+
+    await db.collection("auditLogs").add({
+        actor: req.user.email,
+        action: "Created feature flag",
+        target: ref.id,
+        details: `Created flag: ${name}`,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    res.json({ success: true, id: ref.id });
+});
+
+export const deleteFeatureFlag = asyncHandler(async (req, res) => {
+    const { flagId } = req.params;
+
+    const docRef = db.collection("featureFlags").doc(flagId);
+    const doc = await docRef.get();
+    if (!doc.exists) {
+        return res.status(404).json({ error: "Feature flag not found" });
+    }
+
+    await docRef.delete();
+
+    await db.collection("auditLogs").add({
+        actor: req.user.email,
+        action: "Deleted feature flag",
+        target: flagId,
+        details: `Deleted flag: ${doc.data().name}`,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    res.json({ success: true });
+});
+
 // ─── ANNOUNCEMENTS ────────────────────────────────────────────────────────────
 export const getAnnouncements = asyncHandler(async (req, res) => {
     const snapshot = await db.collection("announcements").orderBy("createdAt", "desc").get();
@@ -244,12 +425,84 @@ export const getAnnouncements = asyncHandler(async (req, res) => {
     res.json({ announcements });
 });
 export const createAnnouncement = asyncHandler(async (req, res) => {
-    const ref = await db.collection("announcements").add({
-        ...req.body,
+    const { title, message, target, scheduledAt } = req.body;
+
+    if (!title || !message) {
+        return res.status(400).json({ error: "Title and message are required" });
+    }
+
+    const announcementData = {
+        title,
+        message,
+        target: target || "All Pharmacies",
+        status: scheduledAt ? "Scheduled" : "Sent",
         createdBy: req.user.uid,
         createdAt: admin.firestore.FieldValue.serverTimestamp()
-    });
+    };
+
+    if (scheduledAt) {
+        announcementData.scheduledAt = new Date(scheduledAt);
+    }
+
+    const ref = await db.collection("announcements").add(announcementData);
     res.json({ success: true, id: ref.id });
+});
+
+export const updateAnnouncement = asyncHandler(async (req, res) => {
+    const { announcementId } = req.params;
+    const { title, message, target, scheduledAt, status } = req.body;
+
+    const docRef = db.collection("announcements").doc(announcementId);
+    const doc = await docRef.get();
+    if (!doc.exists) {
+        return res.status(404).json({ error: "Announcement not found" });
+    }
+
+    const updateData = {
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+    if (title !== undefined) updateData.title = title;
+    if (message !== undefined) updateData.message = message;
+    if (target !== undefined) updateData.target = target;
+    if (status !== undefined) updateData.status = status;
+    if (scheduledAt !== undefined) {
+        updateData.scheduledAt = scheduledAt ? new Date(scheduledAt) : admin.firestore.FieldValue.delete();
+        updateData.status = scheduledAt ? "Scheduled" : "Sent";
+    }
+
+    await docRef.update(updateData);
+
+    await db.collection("auditLogs").add({
+        actor: req.user.email,
+        action: "Updated announcement",
+        target: announcementId,
+        details: title || "Announcement updated",
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    res.json({ success: true });
+});
+
+export const deleteAnnouncement = asyncHandler(async (req, res) => {
+    const { announcementId } = req.params;
+
+    const docRef = db.collection("announcements").doc(announcementId);
+    const doc = await docRef.get();
+    if (!doc.exists) {
+        return res.status(404).json({ error: "Announcement not found" });
+    }
+
+    await docRef.delete();
+
+    await db.collection("auditLogs").add({
+        actor: req.user.email,
+        action: "Deleted announcement",
+        target: announcementId,
+        details: doc.data().title || "Announcement deleted",
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    res.json({ success: true });
 });
 
 // ─── EXPORT SUBSCRIPTION CONFIG (for frontend) ───────────────────────────────
@@ -295,7 +548,6 @@ export const getSubscriptionTiers = asyncHandler(async (req, res) => {
     res.json({ tiers: doc.data(), source: "firestore" });});
 
 export const updateSubscriptionTiers = asyncHandler(async (req, res) => {
-    // ✅ FIX: Removed `const db = getDb();` - uses top-level `db`
     const { tiers } = req.body;
 
     if (!tiers || typeof tiers !== "object") {
@@ -314,4 +566,45 @@ export const updateSubscriptionTiers = asyncHandler(async (req, res) => {
     });
 
     res.json({ success: true, message: "Subscription tiers updated" });
+});
+
+export const deleteSubscriptionTier = asyncHandler(async (req, res) => {
+    const { tierId } = req.params;
+
+    const doc = await db.collection("platformSettings").doc("subscriptionTiers").get();
+    if (!doc.exists) {
+        return res.status(404).json({ error: "Subscription tiers not found" });
+    }
+
+    const tiers = doc.data();
+    if (!tiers[tierId]) {
+        return res.status(404).json({ error: `Tier '${tierId}' not found` });
+    }
+
+    // Check if any pharmacy is on this tier
+    const pharmaciesOnTier = await db.collection("pharmacies")
+        .where("subscription.tier", "==", tierId)
+        .limit(1)
+        .get();
+
+    if (!pharmaciesOnTier.empty) {
+        return res.status(409).json({
+            error: `Cannot delete tier '${tierId}' — there are pharmacies currently subscribed to it. Move them to a different tier first.`
+        });
+    }
+
+    // Use FieldValue.delete() to remove the key
+    await db.collection("platformSettings").doc("subscriptionTiers").update({
+        [tierId]: admin.firestore.FieldValue.delete()
+    });
+
+    await db.collection("auditLogs").add({
+        actor: req.user.email,
+        action: "Deleted subscription tier",
+        target: tierId,
+        details: `Deleted tier: ${tiers[tierId].name}`,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    res.json({ success: true });
 });

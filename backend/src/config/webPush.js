@@ -10,13 +10,21 @@ export const initializeWebPush = () => {
     subject: process.env.VAPID_SUBJECT || 'mailto:your-email@example.com',
   };
 
-  webpush.setVapidDetails(
-    vapidDetails.subject,
-    vapidDetails.publicKey,
-    vapidDetails.privateKey
-  );
+  if (!vapidDetails.publicKey || !vapidDetails.privateKey) {
+    console.warn('⚠️ Web Push skipped: VAPID keys missing in environment variables.');
+    return webpush;
+  }
 
-  console.log('✅ Web Push VAPID keys configured');
+  try {
+    webpush.setVapidDetails(
+      vapidDetails.subject,
+      vapidDetails.publicKey,
+      vapidDetails.privateKey
+    );
+    console.log('✅ Web Push VAPID keys configured');
+  } catch (error) {
+    console.warn('⚠️ Web Push initialization failed:', error.message);
+  }
   return webpush;
 };
 

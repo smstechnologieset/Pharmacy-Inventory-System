@@ -134,8 +134,6 @@ export const AuthProvider = ({ children }) => {
 
     const fetchStatus = async () => {
       try {
-        // Note: Ideally use onSnapshot here too, but kept getPharmacyById
-        // to maintain your existing architecture pattern.
         const pharmacy = await getPharmacyById(user.pharmacyId);
 
         if (isMounted) {
@@ -158,7 +156,21 @@ export const AuthProvider = ({ children }) => {
     return () => {
       isMounted = false;
     };
-  }, [user?.pharmacyId, user?.role]); // Only re-run when the ID changes
+  }, [user?.pharmacyId, user?.role]);
+
+  // Provide a way to manually refresh pharmacy status after events like payment success
+  const refreshPharmacyStatus = async () => {
+    if (!user?.pharmacyId || user.role === "superadmin") return;
+    try {
+      const pharmacy = await getPharmacyById(user.pharmacyId);
+      setPharmacyStatus(pharmacy?.status || "pending");
+      setSubscriptionStatus(
+        pharmacy?.subscription?.status || "pending_payment",
+      );
+    } catch (err) {
+      console.error("Pharmacy fetch error:", err);
+    }
+  }; // Only re-run when the ID changes
 
   // ---------------------------------------------------------
   // ACTIONS (No manual setUser calls)
@@ -213,6 +225,28 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       setError(err.message || "Registration failed");
       throw err;
+    }
+  };
+
+  /**
+   * Cancel an in-progress signup. Calls the backend to delete both the
+   * Firebase Auth account and the Firestore profile, so the same email
+   * can be used again in a future signup attempt.
+   */
+  const cancelRegistration = async () => {
+    try {
+      const API_URL =
+        import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      const headers = await getAuthHeaders();
+      await fetch(`${API_URL}/auth/cancel-registration`, {
+        method: "DELETE",
+        headers,
+      });
+    } catch (err) {
+      console.warn("Could not cancel registration on backend:", err.message);
+    } finally {
+      // Always sign out locally regardless of backend success
+      await signOut(auth).catch(() => {});
     }
   };
   
@@ -284,8 +318,10 @@ export const AuthProvider = ({ children }) => {
       needsVerification, 
       createAccount,
       finalizeRegistration,
+      cancelRegistration,
       login,
       logout,
+      refreshPharmacyStatus,
       clearError: () => setError(null),
       isSuperAdmin: user?.role === "superadmin",
       pharmacyStatus,

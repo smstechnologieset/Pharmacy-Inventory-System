@@ -10,8 +10,7 @@ const PaymentVerify = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-
-  const { user, authUser, loading: authLoading } = useAuth(); // 🚨 Added authUser
+  const { user, authUser, loading: authLoading, refreshPharmacyStatus } = useAuth(); // 🚨 Added refreshPharmacyStatus
 
   useEffect(() => {
     // 🚨 CRITICAL FIX: Wait for Firebase Auth to restore the user session!
@@ -43,7 +42,11 @@ const PaymentVerify = () => {
           if (result.status === "completed") {
             setStatus("success");
             sessionStorage.removeItem("pending_payment_txRef");
+            
+            // 🚨 CRITICAL FIX: Refresh global auth context so the app knows we paid!
+            if (refreshPharmacyStatus) await refreshPharmacyStatus();
             if (authUser) await authUser.getIdToken(true);
+            
             navigate("/payment/success", { state: { receipt: result } });
           } else if (result.status === "failed") {
             setStatus("failed");

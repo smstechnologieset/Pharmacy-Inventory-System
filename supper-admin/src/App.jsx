@@ -42,6 +42,7 @@ import {
   AlertTriangle,
   HelpCircle,
   Target,
+  Trash2,
 } from "lucide-react";
 import {
   LineChart,
@@ -72,6 +73,9 @@ import {
   fetchPharmacyDetail,
   updatePharmacyStatus,
   fetchUsers,
+  createUser,
+  updateUserRole,
+  updateUserStatus,
   fetchVerificationQueue,
   fetchPayments,
   fetchAuditLogs,
@@ -79,11 +83,16 @@ import {
   savePlatformSettings,
   fetchFeatureFlags,
   toggleFeatureFlag,
+  createFeatureFlag,
+  deleteFeatureFlag,
   fetchAnnouncements,
   createAnnouncement,
+  updateAnnouncement,
+  deleteAnnouncement,
   fetchSubscriptionConfig,
   fetchSubscriptionTiers,
   updateSubscriptionTiers,
+  deleteSubscriptionTier,
 } from "./services/admin";
 
 const COLORS = ["#0d9488", "#0ea5e9", "#f59e0b", "#ef4444", "#8b5cf6"];
@@ -323,6 +332,7 @@ const SubscriptionsManager = ({ isAuthenticated, queryClient }) => {
   const [localTiers, setLocalTiers] = useState({});
   const [saving, setSaving] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [deleting, setDeleting] = useState(null);
 
   const tiersQuery = useQuery({
     queryKey: ["adminSubscriptionTiers"],
@@ -346,6 +356,44 @@ const SubscriptionsManager = ({ isAuthenticated, queryClient }) => {
       alert("Failed to save tiers: " + error.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAddTier = () => {
+    const tierId = `tier_${Date.now()}`;
+    setLocalTiers((prev) => ({
+      ...prev,
+      [tierId]: {
+        name: "New Tier",
+        description: "Describe this tier",
+        limits: { maxSkus: 100, maxUsers: 2, maxBranches: 1, dailyTransactions: 25 },
+        pricing: { monthly: 0, yearly: 0 },
+        features: [],
+        enabled: true,
+      },
+    }));
+    if (!editMode) setEditMode(true);
+  };
+
+  const handleDeleteTier = async (tierId) => {
+    if (!confirm(`Delete the "${localTiers[tierId]?.name}" tier? This cannot be undone.`)) return;
+    setDeleting(tierId);
+    try {
+      // If it's a tier that exists in Firestore (not just locally added)
+      if (tiersQuery.data?.tiers?.[tierId]) {
+        await deleteSubscriptionTier(tierId);
+        queryClient.invalidateQueries({ queryKey: ["adminSubscriptionTiers"] });
+      }
+      // Also remove from local state
+      setLocalTiers((prev) => {
+        const copy = { ...prev };
+        delete copy[tierId];
+        return copy;
+      });
+    } catch (error) {
+      alert("Failed to delete tier: " + error.message);
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -405,6 +453,11 @@ const SubscriptionsManager = ({ isAuthenticated, queryClient }) => {
           </p>
         </div>
         <div className="flex gap-3">
+          <button
+            onClick={handleAddTier}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-teal-700 bg-teal-50 border border-teal-200 rounded-xl hover:bg-teal-100 transition-all active:scale-[0.98]">
+            <Plus className="w-4 h-4" /> Add Tier
+          </button>
           {editMode ? (
             <>
               <button
@@ -436,7 +489,20 @@ const SubscriptionsManager = ({ isAuthenticated, queryClient }) => {
         {Object.entries(tiers).map(([tierId, tier]) => (
           <div
             key={tierId}
-            className={`bg-white rounded-2xl border-2 ${tier.enabled ? "border-slate-100" : "border-slate-200 opacity-60"} p-6 shadow-sm`}>
+            className={`bg-white rounded-2xl border-2 ${tier.enabled ? "border-slate-100" : "border-slate-200 opacity-60"} p-6 shadow-sm relative`}>
+            {editMode && (
+              <button
+                onClick={() => handleDeleteTier(tierId)}
+                disabled={deleting === tierId}
+                className="absolute top-3 right-3 p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                title="Delete Tier">
+                {deleting === tierId ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+              </button>
+            )}
             <div className="flex items-center justify-between mb-4">
               {editMode ? (
                 <input
@@ -689,6 +755,16 @@ export default function App() {
   const [confirmAction, setConfirmAction] = useState(null);
   const [pharmacyFilter, setPharmacyFilter] = useState("All");
   const [paymentFilter, setPaymentFilter] = useState("All");
+  // Announcement modal state
+  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+  const [editingAnnouncement, setEditingAnnouncement] = useState(null);
+  const [announcementForm, setAnnouncementForm] = useState({ title: "", message: "", target: "All Pharmacies", scheduledAt: "" });
+  // User creation modal state
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [userForm, setUserForm] = useState({ email: "", password: "", name: "", role: "pharmacist", pharmacyId: "" });
+  // Feature flag modal state
+  const [showFlagModal, setShowFlagModal] = useState(false);
+  const [flagForm, setFlagForm] = useState({ name: "", description: "", enabled: false });
   const queryClient = useQueryClient();
 
   // ✅ ALL HOOKS BEFORE ANY EARLY RETURN
@@ -775,6 +851,54 @@ export default function App() {
     mutationFn: (data) => createAnnouncement(data),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["adminAnnouncements"] }),
+  });
+
+  const updateAnnouncementMutation = useMutation({
+    mutationFn: ({ id, data }) => updateAnnouncement(id, data),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["adminAnnouncements"] }),
+  });
+
+  const deleteAnnouncementMutation = useMutation({
+    mutationFn: (id) => deleteAnnouncement(id),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["adminAnnouncements"] }),
+  });
+
+  const createUserMutation = useMutation({
+    mutationFn: (data) => createUser(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["adminUsers"] });
+      setShowUserModal(false);
+      setUserForm({ email: "", password: "", name: "", role: "pharmacist", pharmacyId: "" });
+    },
+  });
+
+  const updateUserRoleMutation = useMutation({
+    mutationFn: ({ userId, role }) => updateUserRole(userId, role),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["adminUsers"] }),
+  });
+
+  const updateUserStatusMutation = useMutation({
+    mutationFn: ({ userId, status }) => updateUserStatus(userId, status),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["adminUsers"] }),
+  });
+
+  const createFlagMutation = useMutation({
+    mutationFn: (data) => createFeatureFlag(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["adminFeatureFlags"] });
+      setShowFlagModal(false);
+      setFlagForm({ name: "", description: "", enabled: false });
+    },
+  });
+
+  const deleteFlagMutation = useMutation({
+    mutationFn: (flagId) => deleteFeatureFlag(flagId),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["adminFeatureFlags"] }),
   });
 
   // Auth listener
@@ -1608,16 +1732,118 @@ export default function App() {
       );
     const users = usersQuery.data?.users || [];
 
+    const handleCreateUser = (e) => {
+      e.preventDefault();
+      createUserMutation.mutate(userForm);
+    };
+
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            User Management
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Platform users and account management
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+              User Management
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Platform users and account management
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setUserForm({ email: "", password: "", name: "", role: "pharmacist", pharmacyId: "" });
+              setShowUserModal(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-all shadow-lg shadow-teal-600/20 active:scale-[0.98]">
+            <Plus className="w-4 h-4" /> Create User
+          </button>
         </div>
+
+        {/* Create User Modal */}
+        {showUserModal && (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowUserModal(false)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+              <h2 className="text-lg font-bold text-slate-900 mb-4">Create New User</h2>
+              <form onSubmit={handleCreateUser} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Full Name</label>
+                  <input
+                    type="text"
+                    value={userForm.name}
+                    onChange={(e) => setUserForm(f => ({ ...f, name: e.target.value }))}
+                    required
+                    className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 transition-all"
+                    placeholder="John Doe"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Email</label>
+                  <input
+                    type="email"
+                    value={userForm.email}
+                    onChange={(e) => setUserForm(f => ({ ...f, email: e.target.value }))}
+                    required
+                    className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 transition-all"
+                    placeholder="user@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Password</label>
+                  <input
+                    type="password"
+                    value={userForm.password}
+                    onChange={(e) => setUserForm(f => ({ ...f, password: e.target.value }))}
+                    required
+                    minLength={6}
+                    className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 transition-all"
+                    placeholder="Minimum 6 characters"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Role</label>
+                    <select
+                      value={userForm.role}
+                      onChange={(e) => setUserForm(f => ({ ...f, role: e.target.value }))}
+                      className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 bg-white transition-all">
+                      <option value="pharmacist">Pharmacist</option>
+                      <option value="cashier">Cashier</option>
+                      <option value="admin">Admin</option>
+                      <option value="superadmin">Super Admin</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Pharmacy ID (optional)</label>
+                    <input
+                      type="text"
+                      value={userForm.pharmacyId}
+                      onChange={(e) => setUserForm(f => ({ ...f, pharmacyId: e.target.value }))}
+                      className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 transition-all"
+                      placeholder="Leave empty if not assigned"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowUserModal(false)}
+                    className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createUserMutation.isPending}
+                    className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-all shadow-lg shadow-teal-600/20 disabled:opacity-70">
+                    {createUserMutation.isPending ? "Creating..." : "Create User"}
+                  </button>
+                </div>
+                {createUserMutation.error && (
+                  <p className="text-sm text-red-600 mt-2">{createUserMutation.error.message}</p>
+                )}
+              </form>
+            </div>
+          </div>
+        )}
+
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900">
@@ -1638,7 +1864,7 @@ export default function App() {
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
-                  {["Name", "Email", "Role", "Status", "Pharmacy"].map((h) => (
+                  {["Name", "Email", "Role", "Status", "Pharmacy", "Actions"].map((h) => (
                     <th
                       key={h}
                       className="px-6 py-3.5 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -1651,7 +1877,7 @@ export default function App() {
                 {users.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={6}
                       className="px-6 py-12 text-center text-slate-400">
                       No users found
                     </td>
@@ -1665,8 +1891,19 @@ export default function App() {
                         {u.name || "—"}
                       </td>
                       <td className="px-6 py-4 text-slate-600">{u.email}</td>
-                      <td className="px-6 py-4 text-slate-600 capitalize">
-                        {u.role}
+                      <td className="px-6 py-4">
+                        <select
+                          value={u.role}
+                          onChange={(e) =>
+                            updateUserRoleMutation.mutate({ userId: u.id, role: e.target.value })
+                          }
+                          disabled={updateUserRoleMutation.isPending}
+                          className="text-sm capitalize bg-transparent border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 transition-all">
+                          <option value="pharmacist">Pharmacist</option>
+                          <option value="cashier">Cashier</option>
+                          <option value="admin">Admin</option>
+                          <option value="superadmin">Super Admin</option>
+                        </select>
                       </td>
                       <td className="px-6 py-4">
                         <StatusBadge
@@ -1681,6 +1918,32 @@ export default function App() {
                       </td>
                       <td className="px-6 py-4 text-slate-500">
                         {u.pharmacyId ? u.pharmacyId.slice(0, 8) + "..." : "—"}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-1">
+                          {u.status === "Active" ? (
+                            <button
+                              onClick={() => {
+                                setConfirmAction(() => () =>
+                                  updateUserStatusMutation.mutate({ userId: u.id, status: "Suspended" })
+                                );
+                                setShowConfirmDialog(true);
+                              }}
+                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                              title="Suspend User">
+                              <Ban className="w-4 h-4" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() =>
+                                updateUserStatusMutation.mutate({ userId: u.id, status: "Active" })
+                              }
+                              className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                              title="Activate User">
+                              <Check className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -1839,6 +2102,47 @@ export default function App() {
     if (announcementsQuery.isLoading) return <LoadingState />;
     const announcements = announcementsQuery.data?.announcements || [];
 
+    const openCreateModal = () => {
+      setEditingAnnouncement(null);
+      setAnnouncementForm({ title: "", message: "", target: "All Pharmacies", scheduledAt: "" });
+      setShowAnnouncementModal(true);
+    };
+
+    const openEditModal = (a) => {
+      setEditingAnnouncement(a);
+      setAnnouncementForm({
+        title: a.title,
+        message: a.message,
+        target: a.target || "All Pharmacies",
+        scheduledAt: a.scheduledAt?.toDate ? a.scheduledAt.toDate().toISOString().slice(0, 16) : a.scheduledAt || "",
+      });
+      setShowAnnouncementModal(true);
+    };
+
+    const handleAnnouncementSubmit = (e) => {
+      e.preventDefault();
+      const data = {
+        title: announcementForm.title,
+        message: announcementForm.message,
+        target: announcementForm.target,
+        scheduledAt: announcementForm.scheduledAt || null,
+      };
+      if (editingAnnouncement) {
+        updateAnnouncementMutation.mutate({ id: editingAnnouncement.id, data }, {
+          onSuccess: () => setShowAnnouncementModal(false)
+        });
+      } else {
+        createAnnouncementMutation.mutate(data, {
+          onSuccess: () => setShowAnnouncementModal(false)
+        });
+      }
+    };
+
+    const handleDeleteAnnouncement = (id, title) => {
+      if (!confirm(`Delete announcement "${title}"?`)) return;
+      deleteAnnouncementMutation.mutate(id);
+    };
+
     return (
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -1851,19 +2155,93 @@ export default function App() {
             </p>
           </div>
           <button
-            onClick={() =>
-              createAnnouncementMutation.mutate({
-                title: "New Announcement",
-                message: "Draft announcement",
-                target: "All Pharmacies",
-                status: "Scheduled",
-              })
-            }
-            disabled={createAnnouncementMutation.isPending}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-all shadow-lg shadow-teal-600/20 active:scale-[0.98] disabled:opacity-70">
+            onClick={openCreateModal}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-all shadow-lg shadow-teal-600/20 active:scale-[0.98]">
             <Plus className="w-4 h-4" /> Create Announcement
           </button>
         </div>
+
+        {/* Announcement Form Modal */}
+        {showAnnouncementModal && (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowAnnouncementModal(false)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+              <h2 className="text-lg font-bold text-slate-900 mb-4">
+                {editingAnnouncement ? "Edit Announcement" : "Create Announcement"}
+              </h2>
+              <form onSubmit={handleAnnouncementSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Title</label>
+                  <input
+                    type="text"
+                    value={announcementForm.title}
+                    onChange={(e) => setAnnouncementForm(f => ({ ...f, title: e.target.value }))}
+                    required
+                    className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 transition-all"
+                    placeholder="Announcement title"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Message</label>
+                  <textarea
+                    value={announcementForm.message}
+                    onChange={(e) => setAnnouncementForm(f => ({ ...f, message: e.target.value }))}
+                    required
+                    rows={4}
+                    className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 transition-all resize-none"
+                    placeholder="Write your announcement message..."
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Target</label>
+                    <select
+                      value={announcementForm.target}
+                      onChange={(e) => setAnnouncementForm(f => ({ ...f, target: e.target.value }))}
+                      className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 bg-white transition-all">
+                      <option value="All Pharmacies">All Pharmacies</option>
+                      <option value="Active Only">Active Only</option>
+                      <option value="Starter Plan">Starter Plan</option>
+                      <option value="Growth Plan">Growth Plan</option>
+                      <option value="Business Plan">Business Plan</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Schedule (optional)</label>
+                    <input
+                      type="datetime-local"
+                      value={announcementForm.scheduledAt}
+                      onChange={(e) => setAnnouncementForm(f => ({ ...f, scheduledAt: e.target.value }))}
+                      className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 transition-all"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">Leave empty to send immediately</p>
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAnnouncementModal(false)}
+                    className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createAnnouncementMutation.isPending || updateAnnouncementMutation.isPending}
+                    className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-all shadow-lg shadow-teal-600/20 disabled:opacity-70">
+                    {(createAnnouncementMutation.isPending || updateAnnouncementMutation.isPending)
+                      ? "Saving..."
+                      : announcementForm.scheduledAt ? "Schedule" : (editingAnnouncement ? "Update" : "Send Now")}
+                  </button>
+                </div>
+                {(createAnnouncementMutation.error || updateAnnouncementMutation.error) && (
+                  <p className="text-sm text-red-600 mt-2">
+                    {createAnnouncementMutation.error?.message || updateAnnouncementMutation.error?.message}
+                  </p>
+                )}
+              </form>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-4">
           {announcements.length === 0 && (
             <p className="text-slate-400 text-center py-12">
@@ -1875,7 +2253,7 @@ export default function App() {
               key={a.id}
               className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between mb-3">
-                <div>
+                <div className="flex-1">
                   <h3 className="text-base font-bold text-slate-900">
                     {a.title}
                   </h3>
@@ -1883,9 +2261,24 @@ export default function App() {
                     {a.message}
                   </p>
                 </div>
-                <StatusBadge
-                  status={a.status === "Sent" ? "Sent" : "Scheduled"}
-                />
+                <div className="flex items-center gap-2 ml-4">
+                  <StatusBadge
+                    status={a.status === "Sent" ? "Sent" : "Scheduled"}
+                  />
+                  <button
+                    onClick={() => openEditModal(a)}
+                    className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-all"
+                    title="Edit">
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteAnnouncement(a.id, a.title)}
+                    disabled={deleteAnnouncementMutation.isPending}
+                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                    title="Delete">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
               <div className="flex items-center gap-4 text-xs text-slate-400 font-medium mt-4 pt-4 border-t border-slate-100">
                 <span className="flex items-center gap-1.5">
@@ -1897,6 +2290,14 @@ export default function App() {
                     ? a.createdAt.toDate().toLocaleDateString()
                     : "—"}
                 </span>
+                {a.scheduledAt && (
+                  <span className="flex items-center gap-1.5 text-blue-500">
+                    <Clock className="w-3.5 h-3.5" />{" "}
+                    Scheduled: {a.scheduledAt?.toDate
+                      ? a.scheduledAt.toDate().toLocaleString()
+                      : new Date(a.scheduledAt).toLocaleString()}
+                  </span>
+                )}
               </div>
             </div>
           ))}
@@ -1916,16 +2317,97 @@ export default function App() {
       );
     const flags = featureFlagsQuery.data?.flags || [];
 
+    const handleCreateFlag = (e) => {
+      e.preventDefault();
+      createFlagMutation.mutate(flagForm);
+    };
+
+    const handleDeleteFlag = (id, name) => {
+      if (!confirm(`Are you sure you want to delete the feature flag "${name}"?`)) return;
+      deleteFlagMutation.mutate(id);
+    };
+
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            Feature Flags
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Manage feature availability across plans
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+              Feature Flags
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Manage feature availability across plans
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setFlagForm({ name: "", description: "", enabled: false });
+              setShowFlagModal(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-all shadow-lg shadow-teal-600/20 active:scale-[0.98]">
+            <Plus className="w-4 h-4" /> Create Flag
+          </button>
         </div>
+
+        {/* Create Feature Flag Modal */}
+        {showFlagModal && (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowFlagModal(false)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+              <h2 className="text-lg font-bold text-slate-900 mb-4">Create Feature Flag</h2>
+              <form onSubmit={handleCreateFlag} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Flag Name / Key</label>
+                  <input
+                    type="text"
+                    value={flagForm.name}
+                    onChange={(e) => setFlagForm(f => ({ ...f, name: e.target.value }))}
+                    required
+                    className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 transition-all"
+                    placeholder="e.g., enable_advanced_analytics"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Description</label>
+                  <textarea
+                    value={flagForm.description}
+                    onChange={(e) => setFlagForm(f => ({ ...f, description: e.target.value }))}
+                    rows={3}
+                    className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-600 transition-all resize-none"
+                    placeholder="What does this feature flag do?"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2 ${flagForm.enabled ? "bg-teal-600" : "bg-slate-300"}`}
+                    onClick={() => setFlagForm(f => ({ ...f, enabled: !f.enabled }))}>
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${flagForm.enabled ? "translate-x-6" : "translate-x-1"}`}
+                    />
+                  </button>
+                  <span className="text-sm font-semibold text-slate-700">Enabled by default</span>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowFlagModal(false)}
+                    className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createFlagMutation.isPending}
+                    className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-all shadow-lg shadow-teal-600/20 disabled:opacity-70">
+                    {createFlagMutation.isPending ? "Creating..." : "Create Flag"}
+                  </button>
+                </div>
+                {createFlagMutation.error && (
+                  <p className="text-sm text-red-600 mt-2">{createFlagMutation.error.message}</p>
+                )}
+              </form>
+            </div>
+          </div>
+        )}
+
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="divide-y divide-slate-50">
             {flags.length === 0 && (
@@ -1948,7 +2430,7 @@ export default function App() {
                     {f.description || ""}
                   </p>
                 </div>
-                <div className="flex items-center gap-3 ml-6">
+                <div className="flex items-center gap-4 ml-6">
                   <button
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2 ${f.enabled ? "bg-teal-600" : "bg-slate-300"}`}
                     onClick={() =>
@@ -1961,6 +2443,13 @@ export default function App() {
                     <span
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${f.enabled ? "translate-x-6" : "translate-x-1"}`}
                     />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteFlag(f.id, f.name)}
+                    disabled={deleteFlagMutation.isPending}
+                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                    title="Delete Flag">
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
