@@ -1,3 +1,5 @@
+import { getAuthHeaders } from "./apiHelper.js";
+
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const handleResponse = async (response) => {
@@ -10,9 +12,10 @@ const handleResponse = async (response) => {
 
 export const createSupplier = async (supplier, pharmacyId) => {
   try {
+    const headers = await getAuthHeaders();
     const response = await fetch(`${API_URL}/suppliers`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ supplier, pharmacyId }),
     });
     return await handleResponse(response);
@@ -37,12 +40,13 @@ export const getAllSuppliers = async (pharmacyId) => {
 
 export const updateSupplier = async (supplierId, updates, pharmacyId) => {
   try {
+    const headers = await getAuthHeaders();
     const url = new URL(`${API_URL}/suppliers/${supplierId}`);
     if (pharmacyId) url.searchParams.append("pharmacyId", pharmacyId);
 
     const response = await fetch(url.toString(), {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(updates),
     });
     return await handleResponse(response);
@@ -54,11 +58,13 @@ export const updateSupplier = async (supplierId, updates, pharmacyId) => {
 
 export const deleteSupplier = async (supplierId, pharmacyId) => {
   try {
+    const headers = await getAuthHeaders();
     const url = new URL(`${API_URL}/suppliers/${supplierId}`);
     if (pharmacyId) url.searchParams.append("pharmacyId", pharmacyId);
 
     const response = await fetch(url.toString(), {
       method: "DELETE",
+      headers,
     });
     await handleResponse(response);
     return supplierId;

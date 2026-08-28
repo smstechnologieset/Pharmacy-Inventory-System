@@ -1,6 +1,6 @@
 import admin from "firebase-admin";
 import { getFirestore } from "../config/firebase.js";
-import { TIER_LIMITS } from "../config/subscriptionConfig.js";
+import { getTierLimits } from "../utils/tierCache.js";
 
 const SALES_COLLECTION = "sales";
 
@@ -27,7 +27,7 @@ const toMillis = (value) => {
 
 //     // 🛑 QUOTA CHECK: Verify they haven't hit their daily transaction limit
 //     const tier = req.tenant.subscription.tier;
-//     const limits = TIER_LIMITS[tier];
+//     const limits = await getTierLimits(tier);
 //     const dailyTx = req.tenant.usageMetrics?.dailyTransactionsToday || 0;
 
 //     if (dailyTx >= limits.dailyTransactions) {
@@ -91,7 +91,7 @@ export const createSale = async (req, res) => {
       const pharmacyData = pharmacyDoc.data();
       const dailyTx = pharmacyData.usageMetrics?.dailyTransactionsToday || 0;
       const tier = pharmacyData.subscription?.tier || "starter_fikir";
-      const limits = TIER_LIMITS[tier];
+      const limits = await getTierLimits(tier);
 
       // 1. CHECK DAILY QUOTA
       if (dailyTx >= limits.dailyTransactions) {

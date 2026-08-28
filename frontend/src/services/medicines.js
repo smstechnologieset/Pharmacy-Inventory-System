@@ -1,6 +1,7 @@
 import { query, where, onSnapshot } from "firebase/firestore";
 import { MEDICINES_COLLECTION } from "./collections";
 import { tenantCollection } from "./firestorePaths.js";
+import { getAuthHeaders } from "./apiHelper.js";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
@@ -14,9 +15,10 @@ const handleResponse = async (response) => {
 
 export const createMedicine = async (medicine, pharmacyId) => {
   try {
+    const headers = await getAuthHeaders();
     const response = await fetch(`${API_URL}/medicines`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ medicine, pharmacyId }),
     });
     return await handleResponse(response);
@@ -67,12 +69,13 @@ export const searchMedicinesByPrefix = async (pharmacyId, prefix) => {
 
 export const updateMedicine = async (medicineId, updates, pharmacyId) => {
   try {
+    const headers = await getAuthHeaders();
     const url = new URL(`${API_URL}/medicines/${medicineId}`);
     if (pharmacyId) url.searchParams.append("pharmacyId", pharmacyId);
 
     const response = await fetch(url.toString(), {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(updates),
     });
     return await handleResponse(response);
@@ -84,11 +87,13 @@ export const updateMedicine = async (medicineId, updates, pharmacyId) => {
 
 export const deleteMedicine = async (medicineId, pharmacyId) => {
   try {
+    const headers = await getAuthHeaders();
     const url = new URL(`${API_URL}/medicines/${medicineId}`);
     if (pharmacyId) url.searchParams.append("pharmacyId", pharmacyId);
 
     const response = await fetch(url.toString(), {
       method: "DELETE",
+      headers,
     });
     return await handleResponse(response);
   } catch (error) {

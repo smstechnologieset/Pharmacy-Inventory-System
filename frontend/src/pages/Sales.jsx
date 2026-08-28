@@ -57,22 +57,41 @@ const Sales = () => {
   useEffect(() => {
     if (!user?.pharmacyId) return;
     const loadSalesData = async () => {
-      try {
-        setLoading(true);
-        const [meds, salesList, stockBatches] = await Promise.all([
-          getAllMedicines(user.pharmacyId),
-          getRecentSales(user.pharmacyId, 50),
-          getAllStockBatches(user.pharmacyId),
-        ]);
-        setMedicines(meds);
-        setTransactions(salesList);
-        setBatches(stockBatches);
-      } catch (loadError) {
-        console.error("Failed to load sales data", loadError);
-        setError("Unable to load data from Firestore.");
-      } finally {
-        setLoading(false);
+      setLoading(true);
+      setError("");
+
+      // Load each source independently — failure in one won't block the others
+      const [medsResult, salesResult, batchesResult] = await Promise.allSettled([
+        getAllMedicines(user.pharmacyId),
+        getRecentSales(user.pharmacyId, 50),
+        getAllStockBatches(user.pharmacyId),
+      ]);
+
+      if (medsResult.status === "fulfilled") {
+        setMedicines(medsResult.value);
+      } else {
+        console.error("Failed to load medicines:", medsResult.reason);
+        setError("Could not load your medicine list. Please check your connection and try again.");
       }
+
+      if (salesResult.status === "fulfilled") {
+        setTransactions(salesResult.value);
+      } else {
+        // Sales history failing is non-critical — POS still works
+        console.warn("Failed to load recent sales:", salesResult.reason);
+      }
+
+      if (batchesResult.status === "fulfilled") {
+        setBatches(batchesResult.value);
+      } else {
+        console.error("Failed to load stock batches:", batchesResult.reason);
+        // Only set error if medicines also failed or batches is the critical issue
+        if (medsResult.status === "fulfilled") {
+          setError("Could not load stock information. Please check your connection and try again.");
+        }
+      }
+
+      setLoading(false);
     };
     loadSalesData();
   }, [user?.pharmacyId]);
@@ -443,14 +462,46 @@ const Sales = () => {
                 }}>
                 {t("sales.loadingProducts")}
               </div>
+            ) : error ? (
+              <div
+                style={{
+                  gridColumn: "1 / -1",
+                  textAlign: "center",
+                  padding: "40px 20px",
+                }}>
+                <div style={{ fontSize: "2.5rem", marginBottom: "12px" }}>⚠️</div>
+                <div style={{ fontWeight: "600", fontSize: "1rem", color: "#1E293B", marginBottom: "8px" }}>
+                  Could not load products
+                </div>
+                <div style={{ fontSize: "0.875rem", color: "#64748B", marginBottom: "20px", maxWidth: "300px", margin: "0 auto 20px" }}>
+                  {error}
+                </div>
+                <button
+                  onClick={() => window.location.reload()}
+                  style={{
+                    background: "#0D9488",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "8px",
+                    padding: "10px 24px",
+                    cursor: "pointer",
+                    fontWeight: "600",
+                    fontSize: "0.875rem",
+                  }}>
+                  Try Again
+                </button>
+              </div>
             ) : productGrid.length === 0 ? (
               <div
                 style={{
                   gridColumn: "1 / -1",
                   textAlign: "center",
                   color: "#64748B",
+                  padding: "40px 20px",
                 }}>
-                {t("sales.noMedicines")}
+                <div style={{ fontSize: "2.5rem", marginBottom: "12px" }}>💊</div>
+                <div style={{ fontWeight: "600", color: "#1E293B", marginBottom: "6px" }}>No products available</div>
+                <div style={{ fontSize: "0.875rem" }}>Add medicines and stock in the Inventory section first.</div>
               </div>
             ) : (
               productGrid.map((med) => (

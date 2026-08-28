@@ -1,7 +1,7 @@
 
 
 import { getFirestore } from "../config/firebase.js";
-import { TIER_LIMITS } from "../config/subscriptionConfig.js";
+import { getTierLimits, getTierFeatures } from "../utils/tierCache.js";
 
 // 1. Loads the pharmacy (tenant) data and checks if subscription is active
 
@@ -71,13 +71,13 @@ export const loadTenantContext = async (req, res, next) => {
 };
 
 export const requireFeature = featureName => {
-    return (req, res, next) => {
+    return async (req, res, next) => {
         if (req.user.role === "super_admin") return next();
 
         const tier = req.tenant.subscription.tier;
-        const limits = TIER_LIMITS[tier];
+        const features = await getTierFeatures(tier);
 
-        if (!limits || !limits.features[featureName]) {
+        if (!features || !features[featureName]) {
             return res.status(403).json({
                 error: "Feature locked",
                 message: `The '${featureName}' feature is not included in your current plan. Please upgrade.`
@@ -93,7 +93,7 @@ export const checkQuota = quotaType => {
         if (req.user.role === "super_admin") return next();
 
         const tier = req.tenant.subscription.tier;
-        const limits = TIER_LIMITS[tier];
+        const limits = await getTierLimits(tier);
         const usage = req.tenant.usageMetrics || {};
 
         let current = 0;

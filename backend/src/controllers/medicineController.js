@@ -1,6 +1,6 @@
 import admin from "firebase-admin";
 import { getFirestore } from "../config/firebase.js";
-import { TIER_LIMITS } from "../config/subscriptionConfig.js";
+import { getTierLimits } from "../utils/tierCache.js";
 
 const MEDICINES_COLLECTION = "medicines";
 
@@ -165,7 +165,7 @@ export const createMedicine = async (req, res) => {
       const pharmacyData = pharmacyDoc.data();
       const currentSkuCount = pharmacyData.usageMetrics?.currentSkuCount || 0;
       const tier = pharmacyData.subscription?.tier || "starter_fikir";
-      const limits = TIER_LIMITS[tier];
+      const limits = await getTierLimits(tier);
 
       // 1. CHECK QUOTA INSIDE TRANSACTION
       if (currentSkuCount >= limits.maxSkus) {

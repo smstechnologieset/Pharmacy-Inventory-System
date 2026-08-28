@@ -1,6 +1,6 @@
 import admin from "firebase-admin";
 import { getFirestore } from "../config/firebase.js";
-import { TIER_LIMITS } from "../config/subscriptionConfig.js"; // Import limits
+import { getTierLimits } from "../utils/tierCache.js";
 
 export const createStaff = async (req, res) => {
   try {
@@ -14,7 +14,7 @@ export const createStaff = async (req, res) => {
 
     // 🛑 QUOTA CHECK: Verify they haven't hit their user limit
     const tier = req.tenant.subscription.tier;
-    const limits = TIER_LIMITS[tier];
+    const limits = await getTierLimits(tier);
     const currentUsers = req.tenant.usageMetrics?.currentUserCount || 0;
 
     if (currentUsers >= limits.maxUsers) {
@@ -39,7 +39,14 @@ export const createStaff = async (req, res) => {
 
     const uid = userRecord.uid;
 
-    // 3. Save profile to Firestore
+    // 3a. Set Firebase custom claims so the token carries pharmacyId & role
+    //     (Required by the authenticate middleware on all protected routes)
+    await admin.auth().setCustomUserClaims(uid, {
+      role: role || "staff",
+      pharmacyId: pharmacyId,
+    });
+
+    // 3b. Save profile to Firestore
     const db = getFirestore();
     const profile = {
       uid,
