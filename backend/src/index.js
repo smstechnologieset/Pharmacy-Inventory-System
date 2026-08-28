@@ -31,16 +31,17 @@ initializeWebPush();
 
 // Build allowed origins dynamically — no false values in the array
 const allowedOrigins = [
+    "https://pharmacy-inventory-system-smoky.vercel.app",
     "https://pharma-inventory.vercel.app",
-    "https://pharmacare-super.vercel.app"
+    "https://pharmacare-super.vercel.app",
+    ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [])
 ];
 
-// Only add localhost in development
-if (!process.env.NODE_ENV || process.env.NODE_ENV === "development") {
-    allowedOrigins.push("http://localhost:5173");
-    allowedOrigins.push("http://localhost:5174");
-    allowedOrigins.push("http://localhost:5175");
-}
+// Always allow localhost during development and local testing
+allowedOrigins.push("http://localhost:5173");
+allowedOrigins.push("http://localhost:5174");
+allowedOrigins.push("http://localhost:5175");
+
 
 app.use(
     cors({
