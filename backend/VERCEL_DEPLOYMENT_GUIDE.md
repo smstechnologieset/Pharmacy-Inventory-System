@@ -93,7 +93,7 @@ Test your endpoint to confirm Firebase is working:
 
 ```bash
 # Local
-curl http://localhost:5000/api/notifications/vapid-public-key
+curl pharmacy-inventory-system-production-6e12.up.railway.app/api/notifications/vapid-public-key
 
 # Vercel
 curl https://your-vercel-domain.com/api/notifications/vapid-public-key

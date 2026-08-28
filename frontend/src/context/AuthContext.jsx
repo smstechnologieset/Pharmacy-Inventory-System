@@ -206,7 +206,7 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     try {
       const API_URL =
-        import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+        import.meta.env.VITE_API_URL || "https://pharmacy-inventory-system-production-6e12.up.railway.app/api";
       const headers = await getAuthHeaders();
 
       const response = await fetch(`${API_URL}/auth/complete-registration`, {
@@ -236,7 +236,7 @@ export const AuthProvider = ({ children }) => {
   const cancelRegistration = async () => {
     try {
       const API_URL =
-        import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+        import.meta.env.VITE_API_URL || "https://pharmacy-inventory-system-production-6e12.up.railway.app/api";
       const headers = await getAuthHeaders();
       await fetch(`${API_URL}/auth/cancel-registration`, {
         method: "DELETE",

@@ -338,7 +338,7 @@ firestore/unauthenticated        → User is not authenticated
 ### Test Invalid Subscription
 
 ```bash
-curl -X POST http://localhost:5000/api/notifications/subscribe \
+curl -X POST pharmacy-inventory-system-production-6e12.up.railway.app/api/notifications/subscribe \
   -H "Content-Type: application/json" \
   -d '{}'
 ```
@@ -359,7 +359,7 @@ curl -X POST http://localhost:5000/api/notifications/subscribe \
 ### Test Missing Fields
 
 ```bash
-curl -X POST http://localhost:5000/api/notifications/check-stock \
+curl -X POST pharmacy-inventory-system-production-6e12.up.railway.app/api/notifications/check-stock \
   -H "Content-Type: application/json" \
   -d '{"medicineName": "Aspirin"}'
 ```
@@ -380,7 +380,7 @@ curl -X POST http://localhost:5000/api/notifications/check-stock \
 ### Test Undefined Route
 
 ```bash
-curl http://localhost:5000/api/undefined-route
+curl pharmacy-inventory-system-production-6e12.up.railway.app/api/undefined-route
 ```
 
 **Expected Response:**
@@ -496,9 +496,7 @@ All API responses follow this format:
 ```json
 {
   "success": true,
-  "data": {
-    /* response data */
-  },
+  "data": {/* response data */},
   "message": "Operation successful"
 }
 ```
@@ -511,14 +509,10 @@ All API responses follow this format:
   "error": {
     "status": 400,
     "message": "Human-readable error message",
-    "details": {
-      /* optional additional details */
-    }
+    "details": {/* optional additional details */}
   },
   "timestamp": "2026-06-23T10:30:00.000Z",
-  "debug": {
-    /* only in development mode */
-  }
+  "debug": {/* only in development mode */}
 }
 ```
 

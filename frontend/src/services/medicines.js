@@ -3,7 +3,7 @@ import { MEDICINES_COLLECTION } from "./collections";
 import { tenantCollection } from "./firestorePaths.js";
 import { getAuthHeaders } from "./apiHelper.js";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const API_URL = import.meta.env.VITE_API_URL || "https://pharmacy-inventory-system-production-6e12.up.railway.app/api";
 
 const handleResponse = async (response) => {
   const data = await response.json();

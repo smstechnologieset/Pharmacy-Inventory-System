@@ -46,7 +46,7 @@ const LandingPage = () => {
   useEffect(() => {
     const fetchTiers = async () => {
       try {
-        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+        const API_URL = import.meta.env.VITE_API_URL || "https://pharmacy-inventory-system-production-6e12.up.railway.app/api";
         const res = await fetch(`${API_URL}/public/subscription-tiers`);
         const data = await res.json();
         if (data.tiers && Object.keys(data.tiers).length > 0) {

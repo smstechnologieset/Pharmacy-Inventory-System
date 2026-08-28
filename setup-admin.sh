@@ -20,7 +20,7 @@ touch "$ADMIN_DIR/admin.js"
 # Create .env file if it doesn't exist
 if [ ! -f "supper-admin/.env" ]; then
   cat > "supper-admin/.env" << 'EOF'
-VITE_API_URL=http://localhost:5000/api
+VITE_API_URL=pharmacy-inventory-system-production-6e12.up.railway.app/api
 VITE_FIREBASE_API_KEY=
 VITE_FIREBASE_AUTH_DOMAIN=
 VITE_FIREBASE_PROJECT_ID=
