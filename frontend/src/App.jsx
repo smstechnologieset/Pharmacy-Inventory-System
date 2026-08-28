@@ -28,6 +28,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import PaymentVerify from "./pages/PaymentVerify.jsx";
 import PaymentSuccess from "./pages/PaymentSuccess.jsx";
 import LandingPage from "./pages/LandingPage.jsx";
+import SuperAdmin from "./pages/SuperAdmin.jsx";
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -48,11 +49,9 @@ const RootRoute = () => {
         return <LandingPage />;
     }
 
-    // 2. Super admin redirects to standalone Super Admin App
+    // 2. If Super Admin, render Super Admin dashboard directly
     if (user.role === "superadmin") {
-        const superAdminUrl = import.meta.env.VITE_SUPERADMIN_URL || "http://localhost:5174";
-        window.location.href = superAdminUrl;
-        return <LoadingScreen />;
+        return <SuperAdmin />;
     }
 
     // 3. If user hasn't finished the signup flow, force them to /signup
@@ -90,11 +89,9 @@ const ProtectedRoute = ({ children }) => {
     if (loading) return <LoadingScreen />;
     if (!user) return <Navigate to="/login" replace />;
 
-    // Super admin redirects to standalone Super Admin App
+    // If Super admin, render SuperAdmin dashboard
     if (user.role === "superadmin") {
-        const superAdminUrl = import.meta.env.VITE_SUPERADMIN_URL || "http://localhost:5174";
-        window.location.href = superAdminUrl;
-        return <LoadingScreen />;
+        return <SuperAdmin />;
     }
 
     // If user hasn't finished the signup flow, force them to /signup
@@ -121,17 +118,15 @@ const ProtectedRoute = ({ children }) => {
     return children;
 };
 
-// Super Admin Redirect Route
+// Super Admin Protected Route
 const SuperAdminRoute = () => {
     const { user, loading } = useAuth();
 
     if (loading) return <LoadingScreen />;
-    if (!user) return <Navigate to="/login" />;
-    if (user.role !== "superadmin") return <Navigate to="/" />;
+    if (!user) return <Navigate to="/login" replace />;
+    if (user.role !== "superadmin") return <Navigate to="/" replace />;
 
-    const superAdminUrl = import.meta.env.VITE_SUPERADMIN_URL || "http://localhost:5174";
-    window.location.href = superAdminUrl;
-    return <LoadingScreen />;
+    return <SuperAdmin />;
 };
 
 // Role Guard Component (Restricts access based on specific user roles)
