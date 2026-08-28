@@ -37,12 +37,58 @@ const queryClient = new QueryClient({
     }
 });
 
-// 🚨 THE MASTER GATEKEEPER: Handles all status blocking cleanly
+// 🚨 ROOT ROUTE: Shows LandingPage for guests, or Dashboard inside Layout for logged-in users
+const RootRoute = () => {
+    const { user, loading, pharmacyStatus, subscriptionStatus } = useAuth();
+
+    if (loading) return <LoadingScreen />;
+
+    // 1. If not logged in, render the Landing Page directly at '/'
+    if (!user) {
+        return <LandingPage />;
+    }
+
+    // 2. Super admin redirects to standalone Super Admin App
+    if (user.role === "superadmin") {
+        const superAdminUrl = import.meta.env.VITE_SUPERADMIN_URL || "http://localhost:5174";
+        window.location.href = superAdminUrl;
+        return <LoadingScreen />;
+    }
+
+    // 3. If user hasn't finished the signup flow, force them to /signup
+    if (user.status === "pending_onboarding" || !user.pharmacyId) {
+        return <Navigate to="/signup" replace />;
+    }
+
+    // 4. Check Subscription Status (Payment)
+    if (subscriptionStatus === "pending_payment") {
+        return <PaymentVerify />;
+    }
+
+    // 5. Check Pharmacy Status (Admin Approval)
+    if (pharmacyStatus === "pending") {
+        return <PharmacyPendingMessage />;
+    }
+
+    // 6. Check Suspended Status
+    if (pharmacyStatus === "suspended") {
+        return <PharmacySuspendedMessage />;
+    }
+
+    // If all clear and authenticated, render the Dashboard inside Layout
+    return (
+        <Layout>
+            <Dashboard />
+        </Layout>
+    );
+};
+
+// 🚨 THE MASTER GATEKEEPER: Protects internal app sub-routes (/medicine, /inventory, etc.)
 const ProtectedRoute = ({ children }) => {
     const { user, loading, pharmacyStatus, subscriptionStatus } = useAuth();
 
     if (loading) return <LoadingScreen />;
-    if (!user) return <Navigate to="/login" />;
+    if (!user) return <Navigate to="/login" replace />;
 
     // Super admin redirects to standalone Super Admin App
     if (user.role === "superadmin") {
@@ -51,7 +97,7 @@ const ProtectedRoute = ({ children }) => {
         return <LoadingScreen />;
     }
 
-    // NEW CHECK: If user hasn't finished the signup flow, force them to /signup
+    // If user hasn't finished the signup flow, force them to /signup
     if (user.status === "pending_onboarding" || !user.pharmacyId) {
         return <Navigate to="/signup" replace />;
     }
@@ -71,16 +117,8 @@ const ProtectedRoute = ({ children }) => {
         return <PharmacySuspendedMessage />;
     }
 
-    // If all clear, render the children (Layout)
+    // If all clear, render the children
     return children;
-};
-
-// Landing page route: shows landing for guests, redirects logged-in users to dashboard
-const LandingRoute = () => {
-    const { user, loading } = useAuth();
-    if (loading) return <LoadingScreen />;
-    if (user) return <Navigate to="/" replace />;
-    return <LandingPage />;
 };
 
 // Super Admin Redirect Route
@@ -122,10 +160,11 @@ function App() {
             )}
             <Router>
                 <Routes>
-                    {/* Landing page for unauthenticated visitors */}
-                    <Route path="/landing" element={<LandingRoute />} />
+                    {/* Root path '/' renders LandingPage for guests or Dashboard for authenticated users */}
+                    <Route path="/" element={<RootRoute />} />
+                    <Route path="/landing" element={<LandingPage />} />
 
-                    {/* Public Routes */}
+                    {/* Public Auth & Onboarding Routes */}
                     <Route path="/login" element={<Login />} />
                     <Route path="/signup" element={<Signup />} />
                     <Route path="/payment/verify" element={<PaymentVerify />} />
@@ -149,17 +188,15 @@ function App() {
                         element={<SuperAdminRoute />}
                     />
 
-                    {/* Main App Layout (Protected by the Master Gatekeeper) */}
+                    {/* Main Protected App Routes (Wrapped in ProtectedRoute and Layout) */}
                     <Route
-                        path="/"
                         element={
                             <ProtectedRoute>
                                 <Layout />
                             </ProtectedRoute>
                         }
                     >
-                        {/* Dashboard is accessible to all authenticated, non-staff roles */}
-                        <Route index element={<Dashboard />} />
+                        <Route path="/dashboard" element={<Navigate to="/" replace />} />
 
                         {/* Core Operations - Accessible by Admin, Manager, Pharmacist */}
                         <Route
