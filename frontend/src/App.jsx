@@ -3,7 +3,8 @@ import {
     BrowserRouter as Router,
     Routes,
     Route,
-    Navigate
+    Navigate,
+    useLocation
 } from "react-router-dom";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
@@ -41,9 +42,6 @@ const ProtectedRoute = ({ children }) => {
     const { user, loading, pharmacyStatus, subscriptionStatus } = useAuth();
 
     if (loading) return <LoadingScreen />;
-    if (!user && location.pathname === "/") {
-        return <LandingPage />;
-    }
     if (!user) return <Navigate to="/login" />;
 
     // Super admin redirects to standalone Super Admin App
@@ -75,6 +73,14 @@ const ProtectedRoute = ({ children }) => {
 
     // If all clear, render the children (Layout)
     return children;
+};
+
+// Landing page route: shows landing for guests, redirects logged-in users to dashboard
+const LandingRoute = () => {
+    const { user, loading } = useAuth();
+    if (loading) return <LoadingScreen />;
+    if (user) return <Navigate to="/" replace />;
+    return <LandingPage />;
 };
 
 // Super Admin Redirect Route
@@ -116,6 +122,9 @@ function App() {
             )}
             <Router>
                 <Routes>
+                    {/* Landing page for unauthenticated visitors */}
+                    <Route path="/landing" element={<LandingRoute />} />
+
                     {/* Public Routes */}
                     <Route path="/login" element={<Login />} />
                     <Route path="/signup" element={<Signup />} />
