@@ -1092,7 +1092,7 @@ const LandingPage = () => {
                   Get Started
                 </button>
               </div>
-            ))}
+            )))}
           </div>
         </div>
       </section>
