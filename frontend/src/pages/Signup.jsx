@@ -79,23 +79,27 @@ const Signup = () => {
     const { t } = useSettings();
     const navigate = useNavigate();
 
+    // Ref to prevent the 'skip to step 2' effect from firing more than once
+    const hasAdvancedFromStep1 = React.useRef(false);
+
     useEffect(() => {
         if (user) {
             if (user.pharmacyId) {
                 // Fully registered user shouldn't be here
                 navigate("/");
-            } else if (user.status === "pending_onboarding" && currentStep === 1) {
-                // User created account but didn't finish signup. Skip step 1.
-                // Pre-fill email and name from user profile
+            } else if (user.status === "pending_onboarding" && !hasAdvancedFromStep1.current) {
+                // User created account but didn't finish signup — only skip step 1 once.
+                hasAdvancedFromStep1.current = true;
                 setFormData(prev => ({
                     ...prev,
                     email: user.email || "",
                     name: user.name || ""
                 }));
-                setCurrentStep(2);
+                setCurrentStep(prev => (prev === 1 ? 2 : prev));
             }
         }
-    }, [user, navigate, currentStep]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user, navigate]);
 
     const updateField = (field, value) =>
         setFormData(prev => ({ ...prev, [field]: value }));
