@@ -20,7 +20,10 @@ export const initializePayment = async (billingCycle) => {
     const result = await response.json();
     
     if (!response.ok) {
-      throw new Error(result.error || 'Failed to initialize payment');
+      const errMsg = typeof result.error === 'object'
+        ? (result.error?.message || JSON.stringify(result.error))
+        : (result.error || result.message || 'Failed to initialize payment');
+      throw new Error(errMsg);
     }
 
     return result;

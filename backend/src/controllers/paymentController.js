@@ -114,27 +114,49 @@ export const initializeSignupPayment = async (req, res) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    const response = await chapaClient.post("/transaction/initialize", {
-      amount: pricing.amount.toString(),
-      currency: pricing.currency,
-      email: userData.email,
-      first_name: userData.name?.split(" ")[0] || "Pharmacy",
-      last_name: userData.name?.split(" ").slice(1).join(" ") || "Owner",
-      tx_ref: txRef,
+    const rawKey = process.env.CHAPA_SECRET_KEY || "";
+    const chapaSecretKey = rawKey.replace(/^["']|["']$/g, "").trim();
 
-      return_url: `${CHAPA_RETURN_URL}?tx_ref=${txRef}`,
-    });
+    const response = await chapaClient.post(
+      "/transaction/initialize",
+      {
+        amount: pricing.amount.toString(),
+        currency: pricing.currency || "ETB",
+        email: userData.email,
+        first_name: userData.name?.split(" ")[0] || "Pharmacy",
+        last_name: userData.name?.split(" ").slice(1).join(" ") || "Owner",
+        phone_number: userData.phone || pharmacy.phone || "",
+        tx_ref: txRef,
+        callback_url: CHAPA_CALLBACK_URL,
+        return_url: `${CHAPA_RETURN_URL}?tx_ref=${txRef}`,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${chapaSecretKey}`,
+        },
+      }
+    );
 
     return res.json({
       checkoutUrl: response.data.data.checkout_url,
       txRef,
     });
   } catch (error) {
-    console.error("Payment initialization error:", error);
+    console.error("Payment initialization error:", error?.response?.data || error.message);
     if (!res.headersSent) {
-      return res
-        .status(500)
-        .json({ error: error.response?.data?.message || error.message });
+      let errMsg = "Payment initialization failed";
+      if (error.response?.data) {
+        if (typeof error.response.data.message === "string") {
+          errMsg = error.response.data.message;
+        } else if (typeof error.response.data === "string") {
+          errMsg = error.response.data;
+        } else {
+          errMsg = JSON.stringify(error.response.data);
+        }
+      } else if (error.message) {
+        errMsg = error.message;
+      }
+      return res.status(500).json({ error: errMsg });
     }
   }
 };
