@@ -94,7 +94,6 @@ const Signup = () => {
     const {
         createAccount,
         finalizeRegistration,
-        cancelRegistration,
         user,
         loading: authLoading,
         error: authError
@@ -102,26 +101,11 @@ const Signup = () => {
     const { t } = useSettings();
     const navigate = useNavigate();
 
-    // Ref to prevent the 'skip to step 2' effect from firing more than once
-    const hasAdvancedFromStep1 = React.useRef(false);
-
     useEffect(() => {
-        if (user) {
-            if (user.pharmacyId) {
-                // Fully registered user shouldn't be here
-                navigate("/");
-            } else if (user.status === "pending_onboarding" && !hasAdvancedFromStep1.current) {
-                // User created account but didn't finish signup — only skip step 1 once.
-                hasAdvancedFromStep1.current = true;
-                setFormData(prev => ({
-                    ...prev,
-                    email: user.email || "",
-                    name: user.name || ""
-                }));
-                setCurrentStep(prev => (prev === 1 ? 2 : prev));
-            }
+        if (user?.pharmacyId) {
+            // Fully registered user shouldn't be on the signup page
+            navigate("/");
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user, navigate]);
 
     const updateField = (field, value) =>
@@ -153,79 +137,69 @@ const Signup = () => {
         setLocalError("");
         setLocalLoading(true);
         try {
+            // Validate locally — DO NOT create a Firebase account yet.
+            // The account is only created at the final step to prevent email squatting.
             if (!formData.name.trim()) throw new Error("Name is required");
+            if (!formData.email.trim()) throw new Error("Email is required");
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
+                throw new Error("Please enter a valid email address.");
             if (!formData.phone.trim())
                 throw new Error("Phone number is required");
             if (!/^9\d{8}$/.test(formData.phone))
-                throw new Error("Invalid Ethiopian phone number");
+                throw new Error("Invalid Ethiopian phone number (must start with 9 and be 9 digits)");
             if (formData.password !== formData.confirmPassword)
                 throw new Error("Passwords do not match");
             if (formData.password.length < 6)
                 throw new Error("Password must be at least 6 characters");
 
-            await createAccount(
-                formData.email,
-                formData.password,
-                formData.name,
-                formData.phone
-            );
+            // All good — advance to step 2
             nextStep();
         } catch (error) {
-            setLocalError(error.message || "Authentication failed");
+            setLocalError(error.message);
         } finally {
             setLocalLoading(false);
         }
     };
 
-    const handleCancelRegistration = async () => {
-        if (!window.confirm("Are you sure you want to cancel? Your account will be deleted so you can start over with the same email.")) return;
-        setLocalLoading(true);
-        try {
-            await cancelRegistration();
-            navigate("/signup"); // Page reloads fresh since auth state clears
-        } catch (err) {
-            setLocalError(err.message || "Failed to cancel registration");
-        } finally {
-            setLocalLoading(false);
-        }
-    };
+
 
     const handleFinalSubmit = async () => {
         setLocalError("");
         setLocalLoading(true);
         try {
             if (!formData.acceptTerms) {
-                throw new Error(
-                    "You must accept the Terms of Service to continue"
-                );
+                throw new Error("You must accept the Terms of Service to continue");
             }
 
+            // Step A: Create the Firebase Auth account + Firestore user profile.
+            // This is done HERE (not at step 1) so an email is never "claimed"
+            // until the user has completed the full registration form.
+            await createAccount(
+                formData.email,
+                formData.password,
+                formData.name,
+                formData.phone
+            );
+
             const payload = {
-                pharmacyData: { ...formData }, // Adjust as needed for your backend
+                pharmacyData: { ...formData },
                 subscriptionData: { ...formData },
                 documents: { ...formData.documents }
             };
 
-            // 1. Finalize Registration (Creates Pharmacy in DB)
-            // The backend now uses 'verifyToken' so this won't 403.
-            const result = await finalizeRegistration(payload);
-            const newPharmacyId = result.pharmacyId;
-            // 2. Initialize Payment (Creates Chapa Transaction)
-            const { checkoutUrl, txRef } = await initializePayment(
-                formData.billingCycle
-            );
+            // Step B: Finalize registration (creates Pharmacy record in DB)
+            await finalizeRegistration(payload);
 
-            // 3. Store ref and Redirect
+            // Step C: Initialize Chapa payment
+            const { checkoutUrl, txRef } = await initializePayment(formData.billingCycle);
+
+            // Step D: Redirect to Chapa checkout
             sessionStorage.setItem("pending_payment_txRef", txRef);
-
-            // 🚨 EXPLICIT REDIRECT: No useEffect race conditions
             window.location.href = checkoutUrl;
         } catch (error) {
-            // Only show error if we are still on the page (not redirected)
             console.error(error);
             setLocalError(error.message || "Registration failed");
         } finally {
-            // Only turn off loading if we haven't redirected
             if (!window.location.href.includes("checkout")) {
                 setLocalLoading(false);
             }
@@ -234,7 +208,8 @@ const Signup = () => {
 
     const rawError = localError || authError || "";
     const displayError = friendlyError(rawError);
-    const isEmailTaken = rawError.includes("email-already-in-use");
+    // If email is already taken at the final step, tell them which step to fix it
+    const isEmailTakenAtFinalStep = rawError.includes("email-already-in-use") && currentStep === 6;
     const isLoading = localLoading || authLoading;
 
     return (
@@ -324,28 +299,6 @@ const Signup = () => {
             {/* RIGHT SIDE FORM */}
             <div className="flex-1 flex items-center justify-center p-6 md:py-10 md:px-[60px] overflow-y-auto">
                 <div className="w-full max-w-[500px] py-5">
-                    {/* Cancel & Start Over — only shown after account is created (step 2+) */}
-                    {currentStep > 1 && (
-                        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "8px" }}>
-                            <button
-                                type="button"
-                                onClick={handleCancelRegistration}
-                                disabled={isLoading}
-                                style={{
-                                    background: "none",
-                                    border: "none",
-                                    color: "#94A3B8",
-                                    fontSize: "0.78rem",
-                                    cursor: "pointer",
-                                    textDecoration: "underline",
-                                    padding: "4px 0",
-                                }}
-                            >
-                                Cancel &amp; Start Over
-                            </button>
-                        </div>
-                    )}
-
                     {/* Progress Bar */}
                     <div className="mb-8 flex gap-2">
                         {[1, 2, 3, 4, 5, 6].map(step => (
@@ -385,13 +338,12 @@ const Signup = () => {
                             />
                             <div style={{ color: "#991B1B", fontSize: "0.9rem", lineHeight: "1.5" }}>
                                 <div>{displayError}</div>
-                                {isEmailTaken && (
+                                {isEmailTakenAtFinalStep && (
                                     <div style={{ marginTop: "6px" }}>
-                                        Started signing up before?{" "}
+                                        Please{" "}
                                         <button
                                             type="button"
-                                            onClick={handleCancelRegistration}
-                                            disabled={isLoading}
+                                            onClick={() => setCurrentStep(1)}
                                             style={{
                                                 background: "none",
                                                 border: "none",
@@ -403,8 +355,9 @@ const Signup = () => {
                                                 padding: 0
                                             }}
                                         >
-                                            Cancel that account and start over.
+                                            go back to step 1
                                         </button>
+                                        {" "}and use a different email address.
                                     </div>
                                 )}
                             </div>
