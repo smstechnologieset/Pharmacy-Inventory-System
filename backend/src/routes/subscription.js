@@ -8,10 +8,19 @@ import {
 import { authenticate } from "../middleware/authMiddleware.js";
 import { loadTenantContext } from "../middleware/subscriptionMiddleware.js";
 
+import { getChapaReturnUrl } from "../config/chapa.js";
+
 const router = express.Router();
 
 // 🟢 Public route for Chapa Webhook (No auth required)
 router.post("/webhook", handleChapaWebhook);
+router.get("/webhook", (req, res) => {
+  const txRef = req.query.tx_ref || req.query.trx_ref || "";
+  const returnUrl = getChapaReturnUrl();
+  const sep = returnUrl.includes("?") ? "&" : "?";
+  const target = txRef ? `${returnUrl}${sep}tx_ref=${encodeURIComponent(txRef)}` : returnUrl;
+  return res.redirect(302, target);
+});
 
 // 🟢 Authenticated routes
 router.use(authenticate);
