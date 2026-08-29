@@ -88,7 +88,7 @@ export const initializeSignupPayment = async (req, res) => {
 
       const freeTxRef = `free_${pharmacyId}_${Date.now()}`;
       return res.json({
-        checkoutUrl: getChapaReturnUrl(freeTxRef),
+        checkoutUrl: `${getChapaReturnUrl()}?tx_ref=${freeTxRef}&status=success`,
         txRef: freeTxRef,
         isFree: true,
       });
@@ -128,7 +128,7 @@ export const initializeSignupPayment = async (req, res) => {
         phone_number: userData.phone || pharmacy.phone || "",
         tx_ref: txRef,
         callback_url: getChapaCallbackUrl(),
-        return_url: getChapaReturnUrl(txRef),
+        return_url: getChapaReturnUrl(),
       },
       {
         headers: {
@@ -486,7 +486,7 @@ export const retryPayment = async (req, res) => {
         phone_number: userData.phone || pharmacy.phone || "",
         tx_ref: newTxRef,
         callback_url: getChapaCallbackUrl(),
-        return_url: getChapaReturnUrl(newTxRef),
+        return_url: getChapaReturnUrl(),
         customization: {
           title: "PharmaCare Subscription (Retry)",
           description: `${paymentData.tier.replace("_", " ")} Plan - ${paymentData.billingCycle}`,

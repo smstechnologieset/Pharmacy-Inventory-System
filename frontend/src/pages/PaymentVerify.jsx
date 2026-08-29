@@ -42,6 +42,7 @@ const PaymentVerify = () => {
     const checkPayment = async () => {
       const txRef =
         searchParams.get("tx_ref") ||
+        searchParams.get("trx_ref") ||
         sessionStorage.getItem("pending_payment_txRef");
 
       if (!txRef) {

@@ -11,8 +11,8 @@ export const chapaClient = axios.create({
   },
 });
 
-// Helper to get sanitized valid public return URL (Chapa validator strictly requires valid public domain)
-export const getChapaReturnUrl = (txRef) => {
+// Helper to get sanitized valid public return URL (Chapa validator requires clean public URL without query parameters)
+export const getChapaReturnUrl = () => {
   const envUrl = process.env.CHAPA_RETURN_URL
     ? process.env.CHAPA_RETURN_URL.replace(/^["']|["']$/g, "").trim()
     : "";
@@ -21,16 +21,17 @@ export const getChapaReturnUrl = (txRef) => {
       ? envUrl
       : "https://pharmacy-inventory-system-smoky.vercel.app/payment/verify";
 
-  const cleanBase = baseUrl.replace(/\/+$/, "");
-  const separator = cleanBase.includes("?") ? "&" : "?";
-  return `${cleanBase}${separator}tx_ref=${encodeURIComponent(txRef)}`;
+  return baseUrl.split("?")[0].replace(/\/+$/, "");
 };
 
 export const getChapaCallbackUrl = () => {
   const envUrl = process.env.CHAPA_CALLBACK_URL
     ? process.env.CHAPA_CALLBACK_URL.replace(/^["']|["']$/g, "").trim()
     : "";
-  return envUrl && !envUrl.includes("localhost") && !envUrl.includes("127.0.0.1")
-    ? envUrl
-    : "https://pharmacy-inventory-system-production-6e12.up.railway.app/api/payments/webhook";
+  const baseUrl =
+    envUrl && !envUrl.includes("localhost") && !envUrl.includes("127.0.0.1")
+      ? envUrl
+      : "https://pharmacy-inventory-system-production-6e12.up.railway.app/api/payments/webhook";
+
+  return baseUrl.split("?")[0].replace(/\/+$/, "");
 };
