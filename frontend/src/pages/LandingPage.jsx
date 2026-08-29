@@ -1039,61 +1039,12 @@ const LandingPage = () => {
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {(subscriptionTiers.length > 0
-              ? subscriptionTiers
-              : [
-                  {
-                    name: "Starter",
-                    price: "1,500",
-                    period: "/mo",
-                    yearly: "15,000 ETB/yr",
-                    desc: "Perfect for single-branch community pharmacies.",
-                    features: [
-                      "Up to 500 SKUs",
-                      "1 Branch",
-                      "3 Users",
-                      "Basic Expiry Alerts",
-                      "EFDA Compliance Reports",
-                      "Offline Mode",
-                    ],
-                    popular: false,
-                  },
-                  {
-                    name: "Growth",
-                    price: "3,000",
-                    period: "/mo",
-                    yearly: "28,000 ETB/yr",
-                    desc: "For growing pharmacies with multiple staff.",
-                    features: [
-                      "Up to 2,000 SKUs",
-                      "2 Branches",
-                      "5 Users",
-                      "Telebirr Auto-Sync",
-                      "Demand Forecasting",
-                      "Priority Support",
-                      "PDF Report Export",
-                    ],
-                    popular: true,
-                  },
-                  {
-                    name: "Business",
-                    price: "5,000",
-                    period: "/mo",
-                    yearly: "42,000 ETB/yr",
-                    desc: "For chains and wholesalers who need unlimited scale.",
-                    features: [
-                      "Unlimited SKUs",
-                      "Unlimited Branches",
-                      "Unlimited Users",
-                      "API Access",
-                      "Custom Integrations",
-                      "Dedicated Account Manager",
-                      "Advanced Analytics",
-                    ],
-                    popular: false,
-                  },
-                ]
-            ).map((tier, i) => (
+            {subscriptionTiers.length === 0 ? (
+              <div className="col-span-full text-center py-12 text-slate-400">
+                Loading subscription plans...
+              </div>
+            ) : (
+              subscriptionTiers.map((tier, i) => (
               <div
                 key={i}
                 className={`relative p-8 rounded-2xl border-2 transition-all duration-300 ${

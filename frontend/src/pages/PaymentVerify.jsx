@@ -1,22 +1,39 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { CheckCircle, XCircle, Loader2, RefreshCw } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, RefreshCw, CreditCard } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { retryPayment, verifyPaymentStatus } from "../services/payment.js";
+import { initializePayment, verifyPaymentStatus } from "../services/payment.js";
 
 const PaymentVerify = () => {
   const [status, setStatus] = useState("verifying");
   const [paymentDetails, setPaymentDetails] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const { user, authUser, loading: authLoading, refreshPharmacyStatus } = useAuth(); // 🚨 Added refreshPharmacyStatus
+  const { user, authUser, loading: authLoading, refreshPharmacyStatus } = useAuth();
+
+  const handleProceedToPayment = async () => {
+    setActionLoading(true);
+    setErrorMessage("");
+    try {
+      const { checkoutUrl, txRef } = await initializePayment("monthly");
+      if (!checkoutUrl) {
+        throw new Error("No checkout URL returned from payment provider.");
+      }
+      sessionStorage.setItem("pending_payment_txRef", txRef);
+      window.location.href = checkoutUrl;
+    } catch (err) {
+      console.error("Payment retry error:", err);
+      setErrorMessage(err.message || "Failed to initialize payment. Please try again.");
+      setActionLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // 🚨 CRITICAL FIX: Wait for Firebase Auth to restore the user session!
     if (authLoading) return;
 
-    // If Auth is done loading and there is no user, redirect to login
     if (!user) {
       navigate("/login");
       return;
@@ -28,7 +45,7 @@ const PaymentVerify = () => {
         sessionStorage.getItem("pending_payment_txRef");
 
       if (!txRef) {
-        setStatus("error");
+        setStatus("no_tx");
         return;
       }
 
@@ -43,7 +60,6 @@ const PaymentVerify = () => {
             setStatus("success");
             sessionStorage.removeItem("pending_payment_txRef");
             
-            // 🚨 CRITICAL FIX: Refresh global auth context so the app knows we paid!
             if (refreshPharmacyStatus) await refreshPharmacyStatus();
             if (authUser) await authUser.getIdToken(true);
             
@@ -52,28 +68,23 @@ const PaymentVerify = () => {
             setStatus("failed");
           } else if (attempts < maxAttempts) {
             attempts++;
-            setTimeout(poll, 3000); // 🚨 Increased to 3 seconds (Total 60 seconds now)
+            setTimeout(poll, 3000);
           } else {
-            // 🚨 FIX: Instead of getting stuck on a "timeout" screen,
-            // redirect to the dashboard. The dashboard will check their subscription status.
-            // If the webhook already fired, they will have access. If not, they will see a "Pending" state.
-            // navigate("/", { state: { paymentPending: true, txRef } });
+            setStatus("timeout");
           }
         };
-
-
 
         await poll();
       } catch (error) {
         console.error("Payment verification error:", error);
+        setErrorMessage(error.message || "Payment verification failed.");
         setStatus("error");
       }
     };
 
     checkPayment();
-  }, [searchParams, navigate, user, authLoading]); // 🚨 Added authLoading to dependencies
+  }, [searchParams, navigate, user, authLoading]);
 
-  // 🚨 Show a loading screen while Firebase Auth is restoring the session
   if (authLoading || !user) {
     return (
       <div
@@ -92,7 +103,6 @@ const PaymentVerify = () => {
     );
   }
 
-  // ... keep the rest of your return statement (the JSX) exactly as it was ...
   return (
     <div
       style={{
@@ -130,29 +140,7 @@ const PaymentVerify = () => {
               Verifying Payment...
             </h1>
             <p style={{ color: "#64748B" }}>
-              Please wait while we confirm your payment. This may take a moment.
-            </p>
-          </>
-        )}
-
-        {status === "retrying" && (
-          <>
-            <RefreshCw
-              size={64}
-              className="animate-spin"
-              style={{ margin: "0 auto 24px", color: "#0D9488" }}
-            />
-            <h1
-              style={{
-                fontSize: "1.5rem",
-                fontWeight: "800",
-                color: "#1E293B",
-                marginBottom: "12px",
-              }}>
-              Preparing Retry...
-            </h1>
-            <p style={{ color: "#64748B" }}>
-              Redirecting you to payment page...
+              Please wait while we confirm your payment with Chapa. This may take a moment.
             </p>
           </>
         )}
@@ -170,41 +158,61 @@ const PaymentVerify = () => {
                 color: "#1E293B",
                 marginBottom: "12px",
               }}>
-              {" "}
               Payment Successful! 🎉
             </h1>
             <p style={{ color: "#64748B", marginBottom: "16px" }}>
               Thank you! Your subscription is now active.
             </p>
-            {paymentDetails && (
-              <div
-                style={{
-                  background: "#F0FDFA",
-                  padding: "16px",
-                  borderRadius: "12px",
-                  marginBottom: "16px",
-                  textAlign: "left",
-                }}>
-                <p style={{ fontSize: "0.85rem", color: "#0D9488", margin: 0 }}>
-                 
-                  <strong>Plan:</strong>{" "}
-                  {paymentDetails.tier
-                    ? paymentDetails.tier.replace("_", " ")
-                    : "N/A"}
-                  <br />
-                  <strong>Billing:</strong>{" "}
-                  {paymentDetails.billingCycle || "N/A"}
-                  <br />
-                  <strong>Amount:</strong>{" "}
-                  {paymentDetails.amount
-                    ? `${paymentDetails.amount} ETB`
-                    : "N/A"}
-                </p>
-              </div>
-            )}
             <p style={{ color: "#94A3B8", fontSize: "0.9rem" }}>
               Redirecting to your dashboard...
             </p>
+          </>
+        )}
+
+        {status === "no_tx" && (
+          <>
+            <CreditCard
+              size={64}
+              style={{ margin: "0 auto 24px", color: "#0D9488" }}
+            />
+            <h1
+              style={{
+                fontSize: "1.5rem",
+                fontWeight: "800",
+                color: "#1E293B",
+                marginBottom: "12px",
+              }}>
+              Subscription Payment
+            </h1>
+            <p style={{ color: "#64748B", marginBottom: "24px", lineHeight: "1.5" }}>
+              Your pharmacy registration is saved. Please complete your subscription payment to activate your account.
+            </p>
+            {errorMessage && (
+              <p style={{ color: "#DC2626", fontSize: "0.85rem", marginBottom: "16px" }}>
+                {errorMessage}
+              </p>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <button
+                onClick={handleProceedToPayment}
+                disabled={actionLoading}
+                style={{
+                  padding: "14px 24px",
+                  background: "#0D9488",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "14px",
+                  fontWeight: "700",
+                  cursor: actionLoading ? "not-allowed" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                }}>
+                {actionLoading ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
+                Proceed to Payment (Chapa)
+              </button>
+            </div>
           </>
         )}
 
@@ -224,9 +232,13 @@ const PaymentVerify = () => {
               Payment Failed
             </h1>
             <p style={{ color: "#64748B", marginBottom: "24px" }}>
-              Your payment could not be processed. Please try again or contact
-              support.
+              Your transaction could not be completed. Please try again.
             </p>
+            {errorMessage && (
+              <p style={{ color: "#DC2626", fontSize: "0.85rem", marginBottom: "16px" }}>
+                {errorMessage}
+              </p>
+            )}
             <div
               style={{
                 display: "flex",
@@ -234,7 +246,8 @@ const PaymentVerify = () => {
                 justifyContent: "center",
               }}>
               <button
-                onClick={retryPayment}
+                onClick={handleProceedToPayment}
+                disabled={actionLoading}
                 style={{
                   padding: "12px 24px",
                   background: "#0D9488",
@@ -242,25 +255,54 @@ const PaymentVerify = () => {
                   border: "none",
                   borderRadius: "12px",
                   fontWeight: "700",
-                  cursor: "pointer",
+                  cursor: actionLoading ? "not-allowed" : "pointer",
                   display: "flex",
                   alignItems: "center",
                   gap: "8px",
                 }}>
-                <RefreshCw size={16} /> Try Again
+                {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Try Again
               </button>
+            </div>
+          </>
+        )}
+
+        {status === "error" && (
+          <>
+            <XCircle
+              size={64}
+              style={{ margin: "0 auto 24px", color: "#EF4444" }}
+            />
+            <h1
+              style={{
+                fontSize: "1.5rem",
+                fontWeight: "800",
+                color: "#1E293B",
+                marginBottom: "12px",
+              }}>
+              Payment Notice
+            </h1>
+            <p style={{ color: "#64748B", marginBottom: "24px" }}>
+              {errorMessage || "Unable to verify payment status at this moment. You can retry paying below."}
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               <button
-                onClick={() => navigate("/login")}
+                onClick={handleProceedToPayment}
+                disabled={actionLoading}
                 style={{
-                  padding: "12px 24px",
-                  background: "#F1F5F9",
-                  color: "#64748B",
+                  padding: "14px 24px",
+                  background: "#0D9488",
+                  color: "white",
                   border: "none",
-                  borderRadius: "12px",
+                  borderRadius: "14px",
                   fontWeight: "700",
-                  cursor: "pointer",
+                  cursor: actionLoading ? "not-allowed" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
                 }}>
-                Cancel
+                {actionLoading ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
+                Pay with Chapa
               </button>
             </div>
           </>
@@ -282,42 +324,7 @@ const PaymentVerify = () => {
               Payment Processing
             </h1>
             <p style={{ color: "#64748B", marginBottom: "24px" }}>
-              Your payment is being processed. You can check your dashboard for
-              the latest status.
-            </p>
-            <button
-              onClick={() => navigate("/")}
-              style={{
-                padding: "12px 24px",
-                background: "#0D9488",
-                color: "white",
-                border: "none",
-                borderRadius: "12px",
-                fontWeight: "700",
-                cursor: "pointer",
-              }}>
-              Go to Dashboard
-            </button>
-          </>
-        )}
-
-        {status === "error" && (
-          <>
-            <XCircle
-              size={64}
-              style={{ margin: "0 auto 24px", color: "#EF4444" }}
-            />
-            <h1
-              style={{
-                fontSize: "1.5rem",
-                fontWeight: "800",
-                color: "#1E293B",
-                marginBottom: "12px",
-              }}>
-              Error
-            </h1>
-            <p style={{ color: "#64748B", marginBottom: "24px" }}>
-              Something went wrong. Please try again or contact support.
+              Your payment is being processed. You can check your dashboard for the latest status.
             </p>
             <button
               onClick={() => navigate("/")}

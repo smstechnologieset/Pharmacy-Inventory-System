@@ -101,8 +101,10 @@ const Signup = () => {
     const { t } = useSettings();
     const navigate = useNavigate();
 
+    const isSubmittingRef = React.useRef(false);
+
     useEffect(() => {
-        if (user?.pharmacyId) {
+        if (user?.pharmacyId && !isSubmittingRef.current) {
             // Fully registered user shouldn't be on the signup page
             navigate("/");
         }
@@ -166,6 +168,7 @@ const Signup = () => {
     const handleFinalSubmit = async () => {
         setLocalError("");
         setLocalLoading(true);
+        isSubmittingRef.current = true;
         try {
             if (!formData.acceptTerms) {
                 throw new Error("You must accept the Terms of Service to continue");
@@ -193,16 +196,18 @@ const Signup = () => {
             // Step C: Initialize Chapa payment
             const { checkoutUrl, txRef } = await initializePayment(formData.billingCycle);
 
+            if (!checkoutUrl) {
+                throw new Error("Payment provider did not return a checkout URL. Please try again.");
+            }
+
             // Step D: Redirect to Chapa checkout
             sessionStorage.setItem("pending_payment_txRef", txRef);
             window.location.href = checkoutUrl;
         } catch (error) {
-            console.error(error);
+            isSubmittingRef.current = false;
+            console.error("Signup final submit error:", error);
             setLocalError(error.message || "Registration failed");
-        } finally {
-            if (!window.location.href.includes("checkout")) {
-                setLocalLoading(false);
-            }
+            setLocalLoading(false);
         }
     };
 

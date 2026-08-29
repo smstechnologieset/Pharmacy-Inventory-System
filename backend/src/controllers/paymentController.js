@@ -49,7 +49,7 @@ export const initializeSignupPayment = async (req, res) => {
         const allTiers = platformDoc.data();
         const tierData = allTiers[tier];
         const amount = tierData?.pricing?.[billingCycle];
-        if (amount) {
+        if (amount !== undefined && amount !== null && amount !== "") {
           pricing = { amount: Number(amount), currency: 'ETB' };
         }
       }
@@ -70,6 +70,28 @@ export const initializeSignupPayment = async (req, res) => {
 
     if (!pricing) {
       return res.status(400).json({ error: "Invalid billing cycle or tier" });
+    }
+
+    // Special case: 0 ETB / Free Tier doesn't need Chapa payment gateway
+    if (pricing.amount === 0) {
+      const periodEnd = new Date();
+      const daysToAdd = billingCycle === "yearly" ? 365 : 30;
+      periodEnd.setDate(periodEnd.getDate() + daysToAdd);
+
+      await db.collection("pharmacies").doc(pharmacyId).update({
+        "subscription.status": "active",
+        "subscription.currentPeriodEnd": admin.firestore.Timestamp.fromDate(periodEnd),
+        "subscription.lastPaymentAt": admin.firestore.FieldValue.serverTimestamp(),
+        status: "active",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      const freeTxRef = `free_${pharmacyId}_${Date.now()}`;
+      return res.json({
+        checkoutUrl: `${CHAPA_RETURN_URL}?tx_ref=${freeTxRef}&status=success`,
+        txRef: freeTxRef,
+        isFree: true,
+      });
     }
 
     const txRef = `signup_${pharmacyId}_${Date.now()}`;
