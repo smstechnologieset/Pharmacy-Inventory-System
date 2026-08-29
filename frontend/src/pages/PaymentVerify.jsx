@@ -5,12 +5,19 @@ import { useAuth } from "../context/AuthContext";
 import { initializePayment, verifyPaymentStatus } from "../services/payment.js";
 
 const PaymentVerify = () => {
-  const [status, setStatus] = useState("verifying");
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  const hasTxParam = Boolean(
+    searchParams.get("tx_ref") ||
+    searchParams.get("trx_ref") ||
+    sessionStorage.getItem("pending_payment_txRef")
+  );
+
+  const [status, setStatus] = useState(hasTxParam ? "verifying" : "no_tx");
   const [paymentDetails, setPaymentDetails] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
 
   const { user, authUser, loading: authLoading, refreshPharmacyStatus } = useAuth();
 
@@ -45,7 +52,20 @@ const PaymentVerify = () => {
         searchParams.get("trx_ref") ||
         sessionStorage.getItem("pending_payment_txRef");
 
+      // If no explicit txRef, check if the pharmacy has already completed a payment
       if (!txRef) {
+        try {
+          const check = await verifyPaymentStatus("");
+          if (check.status === "completed") {
+            setStatus("success");
+            if (refreshPharmacyStatus) await refreshPharmacyStatus();
+            if (authUser) await authUser.getIdToken(true);
+            navigate("/payment/success", { state: { receipt: check } });
+            return;
+          }
+        } catch (_) {
+          // If no completed payment found, stay on "no_tx" state (Proceed to Payment)
+        }
         setStatus("no_tx");
         return;
       }

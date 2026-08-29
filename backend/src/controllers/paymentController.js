@@ -162,30 +162,59 @@ export const initializeSignupPayment = async (req, res) => {
 };
 export const verifyPaymentStatus = async (req, res) => {
   try {
-    const { tx_ref } = req.query;
-    if (!tx_ref) return res.status(400).json({ error: "tx_ref is required" });
-
+    let { tx_ref } = req.query;
     const db = getFirestore();
-    const pharmacyId = getPharmacyIdFromTxRef(tx_ref);
-    if (!pharmacyId)
-      return res.status(400).json({ error: "Invalid tx_ref format" });
+    const uid = req.user.uid;
 
-    const paymentSnap = await db
-      .collection("pharmacies")
-      .doc(pharmacyId)
-      .collection("payments")
-      .where("txRef", "==", tx_ref)
-      .limit(1)
-      .get();
+    let pharmacyId = null;
+    let paymentDoc = null;
+    let paymentData = null;
 
-    if (paymentSnap.empty)
-      return res.status(404).json({ error: "Payment not found" });
+    if (tx_ref) {
+      pharmacyId = getPharmacyIdFromTxRef(tx_ref);
+      if (pharmacyId) {
+        const paymentSnap = await db
+          .collection("pharmacies")
+          .doc(pharmacyId)
+          .collection("payments")
+          .where("txRef", "==", tx_ref)
+          .limit(1)
+          .get();
 
-    const paymentDoc = paymentSnap.docs[0];
-    const paymentData = paymentDoc.data();
+        if (!paymentSnap.empty) {
+          paymentDoc = paymentSnap.docs[0];
+          paymentData = paymentDoc.data();
+        }
+      }
+    }
 
-    // 🚨 SECURITY FIX: Ensure the authenticated user owns this payment
-    if (req.user.uid !== paymentData.userId) {
+    // Fallback: If no tx_ref or paymentDoc not found, lookup latest payment by authenticated user's pharmacy
+    if (!paymentDoc) {
+      const userDoc = await db.collection("users").doc(uid).get();
+      pharmacyId = userDoc.data()?.pharmacyId;
+      if (pharmacyId) {
+        const paymentSnap = await db
+          .collection("pharmacies")
+          .doc(pharmacyId)
+          .collection("payments")
+          .orderBy("createdAt", "desc")
+          .limit(1)
+          .get();
+
+        if (!paymentSnap.empty) {
+          paymentDoc = paymentSnap.docs[0];
+          paymentData = paymentDoc.data();
+          tx_ref = paymentData.txRef;
+        }
+      }
+    }
+
+    if (!paymentDoc || !paymentData) {
+      return res.status(404).json({ error: "No payment record found" });
+    }
+
+    // Ensure the authenticated user owns this payment
+    if (req.user.uid !== paymentData.userId && req.user.role !== "superadmin") {
       return res
         .status(403)
         .json({ error: "Unauthorized: You do not own this transaction" });
@@ -197,7 +226,7 @@ export const verifyPaymentStatus = async (req, res) => {
         .collection("pharmacies")
         .doc(pharmacyId)
         .get();
-      const pharmacyData = pharmacyDoc.data();
+      const pharmacyData = pharmacyDoc.data() || {};
 
       return res.json({
         status: "completed",
@@ -215,24 +244,35 @@ export const verifyPaymentStatus = async (req, res) => {
     }
 
     // Active verification with Chapa if pending
-    if (paymentData.status === "pending") {
+    if (paymentData.status === "pending" && tx_ref) {
       try {
+        const rawKey = process.env.CHAPA_SECRET_KEY || "";
+        const chapaSecretKey = rawKey.replace(/^["']|["']$/g, "").trim();
+
         const chapaResponse = await chapaClient.get(
           `/transaction/verify/${tx_ref}`,
+          {
+            headers: {
+              Authorization: `Bearer ${chapaSecretKey}`,
+            },
+          }
         );
-        const chapaData = chapaResponse.data.data;
+        const chapaData = chapaResponse.data?.data;
 
-        if (chapaData.status === "success") {
+        if (chapaData && chapaData.status === "success") {
           await activateSubscription(
             db,
             pharmacyId,
             paymentDoc,
             paymentData,
-            chapaData,
+            chapaData
           );
 
-          const pharmacyDoc = await db.collection("pharmacies").doc(pharmacyId).get();
-          const pharmacyData = pharmacyDoc.data();
+          const pharmacyDoc = await db
+            .collection("pharmacies")
+            .doc(pharmacyId)
+            .get();
+          const pharmacyData = pharmacyDoc.data() || {};
 
           return res.json({
             status: "completed",
@@ -245,15 +285,15 @@ export const verifyPaymentStatus = async (req, res) => {
               email: pharmacyData.email,
               phone: pharmacyData.phone,
               address: pharmacyData.address,
-            }
+            },
           });
         }
       } catch (chapaError) {
-        console.warn("Chapa active verification failed:", chapaError.message);
+        console.warn("Chapa active verification failed:", chapaError?.response?.data || chapaError.message);
       }
     }
 
-    return res.json({ status: paymentData.status });
+    return res.json({ status: paymentData.status || "pending" });
   } catch (error) {
     console.error("Payment verification error:", error);
     return res.status(500).json({ error: error.message });
