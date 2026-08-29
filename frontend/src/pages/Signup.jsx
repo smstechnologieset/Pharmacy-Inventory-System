@@ -193,6 +193,8 @@ const Signup = () => {
             // Step B: Finalize registration (creates Pharmacy record in DB)
             await finalizeRegistration(payload);
 
+            sessionStorage.removeItem("pending_payment_txRef");
+
             // Step C: Navigate to payment confirmation screen where user clicks "Proceed to Payment (Chapa)"
             navigate("/payment/verify");
         } catch (error) {

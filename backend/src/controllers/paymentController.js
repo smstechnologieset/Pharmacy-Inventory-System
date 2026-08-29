@@ -215,9 +215,33 @@ export const verifyPaymentStatus = async (req, res) => {
 
     // Ensure the authenticated user owns this payment
     if (req.user.uid !== paymentData.userId && req.user.role !== "superadmin") {
-      return res
-        .status(403)
-        .json({ error: "Unauthorized: You do not own this transaction" });
+      // If the passed txRef was from another user/session, fallback to this user's pharmacy payment
+      const userDoc = await db.collection("users").doc(uid).get();
+      const userPharmacyId = userDoc.data()?.pharmacyId;
+      let recovered = false;
+      if (userPharmacyId) {
+        const userPaymentSnap = await db
+          .collection("pharmacies")
+          .doc(userPharmacyId)
+          .collection("payments")
+          .orderBy("createdAt", "desc")
+          .limit(1)
+          .get();
+
+        if (!userPaymentSnap.empty) {
+          paymentDoc = userPaymentSnap.docs[0];
+          paymentData = paymentDoc.data();
+          pharmacyId = userPharmacyId;
+          tx_ref = paymentData.txRef;
+          recovered = true;
+        }
+      }
+
+      if (!recovered) {
+        return res
+          .status(403)
+          .json({ error: "Unauthorized: You do not own this transaction" });
+      }
     }
 
     // If already processed, return receipt data

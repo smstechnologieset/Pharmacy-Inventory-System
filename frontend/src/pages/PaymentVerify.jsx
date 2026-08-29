@@ -9,9 +9,7 @@ const PaymentVerify = () => {
   const navigate = useNavigate();
 
   const hasTxParam = Boolean(
-    searchParams.get("tx_ref") ||
-    searchParams.get("trx_ref") ||
-    sessionStorage.getItem("pending_payment_txRef")
+    searchParams.get("tx_ref") || searchParams.get("trx_ref")
   );
 
   const [status, setStatus] = useState(hasTxParam ? "verifying" : "no_tx");
@@ -49,58 +47,69 @@ const PaymentVerify = () => {
     const checkPayment = async () => {
       const txRef =
         searchParams.get("tx_ref") ||
-        searchParams.get("trx_ref") ||
-        sessionStorage.getItem("pending_payment_txRef");
+        searchParams.get("trx_ref");
 
-      // If no explicit txRef, check if the pharmacy has already completed a payment
-      if (!txRef) {
+      // Case 1: Returning from Chapa with a txRef in URL
+      if (txRef) {
+        setStatus("verifying");
         try {
-          const check = await verifyPaymentStatus("");
-          if (check.status === "completed") {
-            setStatus("success");
-            if (refreshPharmacyStatus) await refreshPharmacyStatus();
-            if (authUser) await authUser.getIdToken(true);
-            navigate("/payment/success", { state: { receipt: check } });
-            return;
-          }
-        } catch (_) {
-          // If no completed payment found, stay on "no_tx" state (Proceed to Payment)
+          let attempts = 0;
+          const maxAttempts = 15;
+          const poll = async () => {
+            try {
+              const result = await verifyPaymentStatus(txRef);
+              setPaymentDetails(result);
+
+              if (result.status === "completed") {
+                setStatus("success");
+                sessionStorage.removeItem("pending_payment_txRef");
+                
+                if (refreshPharmacyStatus) await refreshPharmacyStatus();
+                if (authUser) await authUser.getIdToken(true);
+                
+                navigate("/payment/success", { state: { receipt: result } });
+              } else if (result.status === "failed") {
+                setStatus("failed");
+              } else if (attempts < maxAttempts) {
+                attempts++;
+                setTimeout(poll, 3000);
+              } else {
+                setStatus("timeout");
+              }
+            } catch (err) {
+              console.error("Poll payment error:", err);
+              sessionStorage.removeItem("pending_payment_txRef");
+              setStatus("no_tx");
+            }
+          };
+
+          await poll();
+        } catch (error) {
+          console.error("Payment verification error:", error);
+          sessionStorage.removeItem("pending_payment_txRef");
+          setStatus("no_tx");
         }
-        setStatus("no_tx");
         return;
       }
 
+      // Case 2: Arriving without txRef in URL (e.g. freshly registered)
+      // Check in background if user already has an active completed payment:
       try {
-        let attempts = 0;
-        const maxAttempts = 15;
-        const poll = async () => {
-          const result = await verifyPaymentStatus(txRef);
-          setPaymentDetails(result);
-
-          if (result.status === "completed") {
-            setStatus("success");
-            sessionStorage.removeItem("pending_payment_txRef");
-            
-            if (refreshPharmacyStatus) await refreshPharmacyStatus();
-            if (authUser) await authUser.getIdToken(true);
-            
-            navigate("/payment/success", { state: { receipt: result } });
-          } else if (result.status === "failed") {
-            setStatus("failed");
-          } else if (attempts < maxAttempts) {
-            attempts++;
-            setTimeout(poll, 3000);
-          } else {
-            setStatus("timeout");
-          }
-        };
-
-        await poll();
-      } catch (error) {
-        console.error("Payment verification error:", error);
-        setErrorMessage(error.message || "Payment verification failed.");
-        setStatus("error");
+        const check = await verifyPaymentStatus("");
+        if (check?.status === "completed") {
+          setStatus("success");
+          if (refreshPharmacyStatus) await refreshPharmacyStatus();
+          if (authUser) await authUser.getIdToken(true);
+          navigate("/payment/success", { state: { receipt: check } });
+          return;
+        }
+      } catch (_) {
+        // Not completed yet - normal for freshly registered users
       }
+
+      // Present clean "Subscription Payment" screen with "Proceed to Payment (Chapa)"
+      sessionStorage.removeItem("pending_payment_txRef");
+      setStatus("no_tx");
     };
 
     checkPayment();
