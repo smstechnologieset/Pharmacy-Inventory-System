@@ -2,8 +2,8 @@ import admin from "firebase-admin";
 import { getFirestore } from "../config/firebase.js";
 import {
   chapaClient,
-  CHAPA_CALLBACK_URL,
-  CHAPA_RETURN_URL,
+  getChapaCallbackUrl,
+  getChapaReturnUrl,
 } from "../config/chapa.js";
 import { TIER_PRICING } from "../config/subscriptionConfig.js";
 
@@ -88,7 +88,7 @@ export const initializeSignupPayment = async (req, res) => {
 
       const freeTxRef = `free_${pharmacyId}_${Date.now()}`;
       return res.json({
-        checkoutUrl: `${CHAPA_RETURN_URL}?tx_ref=${freeTxRef}&status=success`,
+        checkoutUrl: getChapaReturnUrl(freeTxRef),
         txRef: freeTxRef,
         isFree: true,
       });
@@ -127,8 +127,8 @@ export const initializeSignupPayment = async (req, res) => {
         last_name: userData.name?.split(" ").slice(1).join(" ") || "Owner",
         phone_number: userData.phone || pharmacy.phone || "",
         tx_ref: txRef,
-        callback_url: CHAPA_CALLBACK_URL,
-        return_url: `${CHAPA_RETURN_URL}?tx_ref=${txRef}`,
+        callback_url: getChapaCallbackUrl(),
+        return_url: getChapaReturnUrl(txRef),
       },
       {
         headers: {
@@ -471,22 +471,33 @@ export const retryPayment = async (req, res) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
+    const rawKey = process.env.CHAPA_SECRET_KEY || "";
+    const chapaSecretKey = rawKey.replace(/^["']|["']$/g, "").trim();
+
     // Initialize new payment with Chapa
-    const response = await chapaClient.post("/transaction/initialize", {
-      amount: paymentData.amount.toString(),
-      currency: paymentData.currency,
-      email: userData.email,
-      first_name: userData.name?.split(" ")[0] || "Pharmacy",
-      last_name: userData.name?.split(" ").slice(1).join(" ") || "Owner",
-      phone_number: userData.phone || "",
-      tx_ref: newTxRef,
-      callback_url: CHAPA_CALLBACK_URL,
-      return_url: `${CHAPA_RETURN_URL}?tx_ref=${newTxRef}`,
-      customization: {
-        title: "PharmaCare Subscription (Retry)",
-        description: `${paymentData.tier.replace("_", " ")} Plan - ${paymentData.billingCycle}`,
+    const response = await chapaClient.post(
+      "/transaction/initialize",
+      {
+        amount: paymentData.amount.toString(),
+        currency: paymentData.currency || "ETB",
+        email: userData.email,
+        first_name: userData.name?.split(" ")[0] || "Pharmacy",
+        last_name: userData.name?.split(" ").slice(1).join(" ") || "Owner",
+        phone_number: userData.phone || pharmacy.phone || "",
+        tx_ref: newTxRef,
+        callback_url: getChapaCallbackUrl(),
+        return_url: getChapaReturnUrl(newTxRef),
+        customization: {
+          title: "PharmaCare Subscription (Retry)",
+          description: `${paymentData.tier.replace("_", " ")} Plan - ${paymentData.billingCycle}`,
+        },
       },
-    });
+      {
+        headers: {
+          Authorization: `Bearer ${chapaSecretKey}`,
+        },
+      }
+    );
 
     // Mark old payment as retried
     await paymentDoc.ref.update({
