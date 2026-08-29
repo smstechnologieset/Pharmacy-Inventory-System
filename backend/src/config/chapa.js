@@ -17,7 +17,13 @@ export const getChapaReturnUrl = () => {
     ? process.env.CHAPA_RETURN_URL.replace(/^["']|["']$/g, "").trim()
     : "";
 
-  if (!envUrl || envUrl.includes("localhost") || envUrl.includes("127.0.0.1")) {
+  if (
+    !envUrl ||
+    envUrl.includes("localhost") ||
+    envUrl.includes("127.0.0.1") ||
+    envUrl.includes("railway.app") ||
+    envUrl.includes("/api/")
+  ) {
     return "https://pharmacy-inventory-system-smoky.vercel.app/payment/verify";
   }
 

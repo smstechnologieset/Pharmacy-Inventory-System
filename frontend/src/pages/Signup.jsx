@@ -193,16 +193,8 @@ const Signup = () => {
             // Step B: Finalize registration (creates Pharmacy record in DB)
             await finalizeRegistration(payload);
 
-            // Step C: Initialize Chapa payment
-            const { checkoutUrl, txRef } = await initializePayment(formData.billingCycle);
-
-            if (!checkoutUrl) {
-                throw new Error("Payment provider did not return a checkout URL. Please try again.");
-            }
-
-            // Step D: Redirect to Chapa checkout
-            sessionStorage.setItem("pending_payment_txRef", txRef);
-            window.location.href = checkoutUrl;
+            // Step C: Navigate to payment confirmation screen where user clicks "Proceed to Payment (Chapa)"
+            navigate("/payment/verify");
         } catch (error) {
             isSubmittingRef.current = false;
             console.error("Signup final submit error:", error);
