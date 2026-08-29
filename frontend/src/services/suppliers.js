@@ -27,10 +27,11 @@ export const createSupplier = async (supplier, pharmacyId) => {
 
 export const getAllSuppliers = async (pharmacyId) => {
   try {
+    const headers = await getAuthHeaders();
     const url = new URL(`${API_URL}/suppliers`);
     if (pharmacyId) url.searchParams.append("pharmacyId", pharmacyId);
 
-    const response = await fetch(url.toString());
+    const response = await fetch(url.toString(), { headers });
     return await handleResponse(response);
   } catch (error) {
     console.error("Error loading suppliers:", error);

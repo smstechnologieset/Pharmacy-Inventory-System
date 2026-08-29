@@ -7,6 +7,7 @@ import {
 } from "firebase/firestore";
 import { SALES_COLLECTION } from "./collections";
 import { tenantCollection } from "./firestorePaths.js";
+import { getAuthHeaders } from "./apiHelper.js";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://pharmacy-inventory-system-production-6e12.up.railway.app/api";
 
@@ -20,9 +21,10 @@ const handleResponse = async (response) => {
 
 export const createSale = async (sale, pharmacyId) => {
   try {
+    const headers = await getAuthHeaders();
     const response = await fetch(`${API_URL}/sales`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ sale, pharmacyId }),
     });
     return await handleResponse(response);
@@ -34,10 +36,11 @@ export const createSale = async (sale, pharmacyId) => {
 
 export const getAllSales = async (pharmacyId) => {
   try {
+    const headers = await getAuthHeaders();
     const url = new URL(`${API_URL}/sales`);
     if (pharmacyId) url.searchParams.append("pharmacyId", pharmacyId);
 
-    const response = await fetch(url.toString());
+    const response = await fetch(url.toString(), { headers });
     return await handleResponse(response);
   } catch (error) {
     console.error("Error loading sales:", error);
@@ -47,11 +50,12 @@ export const getAllSales = async (pharmacyId) => {
 
 export const getRecentSales = async (pharmacyId, limitCount = 50) => {
   try {
+    const headers = await getAuthHeaders();
     const url = new URL(`${API_URL}/sales/recent`);
     url.searchParams.append("pharmacyId", pharmacyId);
     url.searchParams.append("limit", String(limitCount));
 
-    const response = await fetch(url.toString());
+    const response = await fetch(url.toString(), { headers });
     return await handleResponse(response);
   } catch (error) {
     console.error("Error loading recent sales:", error);
@@ -61,12 +65,13 @@ export const getRecentSales = async (pharmacyId, limitCount = 50) => {
 
 export const getSalesByDateRange = async (pharmacyId, start, end) => {
   try {
+    const headers = await getAuthHeaders();
     const url = new URL(`${API_URL}/sales/range`);
     url.searchParams.append("pharmacyId", pharmacyId);
     url.searchParams.append("start", new Date(start).toISOString());
     url.searchParams.append("end", new Date(end).toISOString());
 
-    const response = await fetch(url.toString());
+    const response = await fetch(url.toString(), { headers });
     return await handleResponse(response);
   } catch (error) {
     console.error("Error loading sales by date range:", error);

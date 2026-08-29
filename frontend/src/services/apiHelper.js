@@ -10,16 +10,28 @@ export const getAuthHeaders = async () => {
     throw new Error("You appear to be offline. Please check your connection.");
   }
 
-  // 2. Get the current user
-  const user = auth.currentUser;
+  // 2. Get the current user or wait for restoration
+  let user = auth.currentUser;
+  if (!user) {
+    await new Promise((resolve) => {
+      const unsubscribe = auth.onAuthStateChanged((u) => {
+        user = u;
+        unsubscribe();
+        resolve();
+      });
+      setTimeout(() => {
+        unsubscribe();
+        resolve();
+      }, 2500);
+    });
+  }
 
-  // 3. Fail immediately if no user (don't wait for listeners)
   if (!user) {
     throw new Error("User is not authenticated.");
   }
 
   try {
-    // 4. Fetch the token (this handles refresh automatically)
+    // 3. Fetch the token (this handles refresh automatically)
     const token = await user.getIdToken();
 
     return {

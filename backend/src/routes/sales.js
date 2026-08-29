@@ -13,5 +13,6 @@ router.post("/", createSale);
 router.get("/", getAllSales);
 router.get("/recent", getRecentSales);
 router.get("/date-range", getSalesByDateRange);
+router.get("/range", getSalesByDateRange);
 
 export default router;
