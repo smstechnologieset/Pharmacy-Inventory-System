@@ -32,6 +32,29 @@ import SubscriptionSelectionForm from "../components/SubscriptionSelectionForm.j
 import DocumentUploadForm from "../components/DocumentUploadForm.jsx";
 import TermsAndConfirmationForm from "./TermsAndConfirmationForm.jsx";
 
+
+// ─── Human-readable Firebase error mapper ────────────────────────────────────
+const friendlyError = (msg = "") => {
+    if (!msg) return "";
+    const map = {
+        "auth/email-already-in-use":  "An account with this email already exists.",
+        "auth/invalid-email":          "Please enter a valid email address.",
+        "auth/weak-password":          "Password must be at least 6 characters.",
+        "auth/wrong-password":         "Incorrect password. Please try again.",
+        "auth/user-not-found":         "No account found with this email.",
+        "auth/too-many-requests":      "Too many attempts. Please wait a few minutes and try again.",
+        "auth/network-request-failed": "Network error. Please check your connection and try again.",
+        "auth/invalid-api-key":        "Configuration error. Please contact support.",
+        "auth/popup-closed-by-user":   "Sign-in popup was closed. Please try again.",
+    };
+    // Match any firebase error code in the message string
+    for (const [code, friendly] of Object.entries(map)) {
+        if (msg.includes(code)) return friendly;
+    }
+    // Strip raw Firebase prefix if present: "Firebase: Error (auth/xxx)."
+    return msg.replace(/Firebase:\s*Error\s*\(auth\/[^)]+\)\.?/gi, "").trim() || msg;
+};
+
 const Signup = () => {
     const [currentStep, setCurrentStep] = useState(1);
     const [localError, setLocalError] = useState("");
@@ -209,7 +232,9 @@ const Signup = () => {
         }
     };
 
-    const displayError = localError || authError;
+    const rawError = localError || authError || "";
+    const displayError = friendlyError(rawError);
+    const isEmailTaken = rawError.includes("email-already-in-use");
     const isLoading = localLoading || authLoading;
 
     return (
@@ -358,14 +383,30 @@ const Signup = () => {
                                     flexShrink: 0
                                 }}
                             />
-                            <div
-                                style={{
-                                    color: "#991B1B",
-                                    fontSize: "0.9rem",
-                                    lineHeight: "1.4"
-                                }}
-                            >
-                                {displayError}{" "}
+                            <div style={{ color: "#991B1B", fontSize: "0.9rem", lineHeight: "1.5" }}>
+                                <div>{displayError}</div>
+                                {isEmailTaken && (
+                                    <div style={{ marginTop: "6px" }}>
+                                        Started signing up before?{" "}
+                                        <button
+                                            type="button"
+                                            onClick={handleCancelRegistration}
+                                            disabled={isLoading}
+                                            style={{
+                                                background: "none",
+                                                border: "none",
+                                                color: "#991B1B",
+                                                fontWeight: "700",
+                                                textDecoration: "underline",
+                                                cursor: "pointer",
+                                                fontSize: "inherit",
+                                                padding: 0
+                                            }}
+                                        >
+                                            Cancel that account and start over.
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}

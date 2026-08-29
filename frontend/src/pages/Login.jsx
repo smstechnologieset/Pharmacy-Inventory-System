@@ -15,6 +15,27 @@ import { useSettings } from "../context/SettingsContext";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../services/firebase";
 
+
+// ─── Human-readable Firebase error mapper ────────────────────────────────────
+const friendlyError = (msg = "") => {
+  if (!msg) return "";
+  const map = {
+    "auth/email-already-in-use":  "An account with this email already exists.",
+    "auth/invalid-email":          "Please enter a valid email address.",
+    "auth/weak-password":          "Password must be at least 6 characters.",
+    "auth/wrong-password":         "Incorrect email or password.",
+    "auth/invalid-credential":     "Incorrect email or password.",
+    "auth/user-not-found":         "No account found with this email.",
+    "auth/too-many-requests":      "Too many attempts. Please wait a few minutes and try again.",
+    "auth/network-request-failed": "Network error. Please check your connection and try again.",
+    "auth/invalid-api-key":        "Configuration error. Please contact support.",
+  };
+  for (const [code, friendly] of Object.entries(map)) {
+    if (msg.includes(code)) return friendly;
+  }
+  return msg.replace(/Firebase:\s*Error\s*\(auth\/[^)]+\)\.?/gi, "").trim() || msg;
+};
+
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -90,7 +111,7 @@ const Login = () => {
     }
   };
 
-  const displayError = localError || authError;
+  const displayError = friendlyError(localError || authError || "");
   const isLoading = localLoading || authLoading;
 
   return (
